@@ -1,0 +1,13 @@
+{
+  "name": "proof-of-concept-studio",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev --filter web --filter api --filter runner",
+    "lint": "pnpm -r lint",
+    "build": "pnpm -r build",
+    "run:am": "pnpm --filter runner run cron:am",
+    "run:pm": "pnpm --filter runner run cron:pm"
+  }
+}
