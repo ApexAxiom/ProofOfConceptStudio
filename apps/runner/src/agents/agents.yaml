@@ -1,7 +1,7 @@
 - id: rigs-integrated-drilling
   portfolio: rigs-integrated-drilling
   label: Rigs & Integrated Drilling
-  description: Rig contracting, drilling campaigns, and integrated drilling services.
+  description: Category management expert for rigs and integrated drilling in oil & gas, delivering negotiation-ready sourcing plans, supplier risk views, and market intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -30,7 +30,7 @@
 - id: drilling-services
   portfolio: drilling-services
   label: Drilling Services
-  description: Directional services, mud logging, and drilling support vendors.
+  description: Category management expert for drilling services, mud logging, and support vendors, guiding sourcing strategy, negotiations, and regional insights for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -59,7 +59,7 @@
 - id: wells-materials-octg
   portfolio: wells-materials-octg
   label: Wells Materials & OCTG
-  description: Casing, tubing, and well materials supply chain monitoring.
+  description: Category management expert for casing, tubing, and well materials, providing supply chain plans, supplier negotiations, and market analysis for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -88,7 +88,7 @@
 - id: completions-intervention
   portfolio: completions-intervention
   label: Completions & Intervention
-  description: Completions equipment, stimulation, and intervention work.
+  description: Category management expert for completions equipment, stimulation, and intervention, shaping sourcing strategies, contract playbooks, and regional guidance for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -117,7 +117,7 @@
 - id: pa-decommissioning
   portfolio: pa-decommissioning
   label: Plug & Abandonment / Decommissioning
-  description: Late-life asset workscopes and decom campaigns.
+  description: Category management expert for plug & abandonment and decommissioning, offering sourcing levers, negotiation support, and regional decom intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -146,7 +146,7 @@
 - id: subsea-surf-offshore
   portfolio: subsea-surf-offshore
   label: Subsea, SURF & Offshore
-  description: Offshore construction, subsea hardware, and SURF packages.
+  description: Category management expert for offshore construction, subsea hardware, and SURF packages, supplying market research, contracting tactics, and regional supplier views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -175,7 +175,7 @@
 - id: projects-epc-epcm-construction
   portfolio: projects-epc-epcm-construction
   label: Projects (EPC/EPCM & Construction)
-  description: Major projects delivery, EPC/EPCM pipelines, and construction markets.
+  description: Category management expert for major projects, EPC/EPCM, and construction, crafting sourcing strategies, negotiation guidance, and regional market reads for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -204,7 +204,7 @@
 - id: major-equipment-oem-ltsa
   portfolio: major-equipment-oem-ltsa
   label: Major Equipment OEM & LTSA
-  description: Rotating equipment, compressors, turbines, and LTSA visibility.
+  description: Category management expert for rotating equipment, compressors, turbines, and LTSAs, providing supplier strategies, contract structures, and regional intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -233,7 +233,7 @@
 - id: ops-maintenance-services
   portfolio: ops-maintenance-services
   label: Operations & Maintenance Services
-  description: Inspection, reliability, and maintenance services.
+  description: Category management expert for inspection, reliability, and maintenance services, supporting negotiation, supplier performance, and regional nuances for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -262,7 +262,7 @@
 - id: mro-site-consumables
   portfolio: mro-site-consumables
   label: MRO & Site Consumables
-  description: Valves, consumables, and MRO supply chain visibility.
+  description: Category management expert for valves, consumables, and MRO, enabling sourcing optimization, stocking strategies, and regional supply risk views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -291,7 +291,7 @@
 - id: logistics-marine-aviation
   portfolio: logistics-marine-aviation
   label: Logistics, Marine & Aviation
-  description: Marine, aviation, and freight logistics.
+  description: Category management expert for marine, aviation, and freight logistics, delivering supplier playbooks, rate negotiation guidance, and regional trade flow insights for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -320,7 +320,7 @@
 - id: site-services-facilities
   portfolio: site-services-facilities
   label: Site Services & Facilities
-  description: Facilities management, waste, and safety services.
+  description: Category management expert for facilities management, waste, and safety services, providing sourcing strategies, vendor negotiations, and regional compliance views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -349,7 +349,7 @@
 - id: it-telecom-cyber
   portfolio: it-telecom-cyber
   label: IT, Telecom & Cyber
-  description: Cyber posture, telecom resilience, and IT sourcing.
+  description: Category management expert for cyber, telecom, and IT sourcing, advising on supplier resilience, contract posture, and regional threat context for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
@@ -378,7 +378,7 @@
 - id: professional-services-hr
   portfolio: professional-services-hr
   label: Professional Services & HR
-  description: HR, consulting, and professional services supply base.
+  description: Category management expert for HR, consulting, and professional services, offering sourcing strategies, negotiation playbooks, and regional labor-market intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 1
   feedsByRegion:
