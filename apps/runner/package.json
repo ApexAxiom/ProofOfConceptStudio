@@ -8,8 +8,8 @@
     "dev": "tsx src/server.ts",
     "build": "tsc -b",
     "start": "node dist/server.js",
-    "cron:am": "tsx src/run.ts am",
-    "cron:pm": "tsx src/run.ts pm",
+    "cron:am": "tsx src/cli.ts am",
+    "cron:pm": "tsx src/cli.ts pm",
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {

@@ -1,13 +1,18 @@
 import { FastifyPluginAsync } from "fastify";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import client from "../db/dynamo.js";
-import { BriefPost } from "@proof/shared";
+import { BriefPost, REGION_LIST } from "@proof/shared";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get("/", async (request) => {
+  fastify.get("/", async (request, reply) => {
     const { region, portfolio, runWindow, limit } = request.query as Record<string, string>;
+    const validRegions = new Set(REGION_LIST.map((r) => r.slug));
+    if (!region || !validRegions.has(region)) {
+      reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
+      return;
+    }
     const params: any = {
       TableName: tableName,
       IndexName: "GSI2", // region-date
@@ -20,11 +25,21 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     };
     const data = await client.send(new QueryCommand(params));
     const items = (data.Items ?? []) as BriefPost[];
-    return items.filter((i) => (!portfolio || i.portfolio === portfolio) && (!runWindow || i.runWindow === runWindow));
+    return items.filter(
+      (i) =>
+        i.status === "published" &&
+        (!portfolio || i.portfolio === portfolio) &&
+        (!runWindow || i.runWindow === runWindow)
+    );
   });
 
-  fastify.get("/latest", async (request) => {
+  fastify.get("/latest", async (request, reply) => {
     const { region } = request.query as Record<string, string>;
+    const validRegions = new Set(REGION_LIST.map((r) => r.slug));
+    if (!region || !validRegions.has(region)) {
+      reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
+      return;
+    }
     const params: any = {
       TableName: tableName,
       IndexName: "GSI2", // region-date
@@ -36,7 +51,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       Limit: 30
     };
     const data = await client.send(new QueryCommand(params));
-    return (data.Items ?? []) as BriefPost[];
+    return ((data.Items ?? []) as BriefPost[]).filter((i) => i.status === "published");
   });
 
   fastify.get<{ Params: { postId: string } }>("/:postId", async (request) => {

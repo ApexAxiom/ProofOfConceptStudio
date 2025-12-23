@@ -15,9 +15,12 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - `pnpm dev` – run web, api, runner
 - `pnpm run:am` – trigger AM run locally
 - `pnpm run:pm` – trigger PM run locally
+- `pnpm exec tsx scripts/smoke.ts` – quick end-to-end smoke (runner + api)
 
 ## Env Vars
-See `.env.example`. Secrets must be provided at runtime.
+See `.env.example`. Secrets must be provided at runtime. Optional:
+- `DDB_ENDPOINT` for local DynamoDB testing
+- `CORS_ORIGINS` comma-separated allowed origins for API CORS
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
@@ -28,4 +31,4 @@ Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-d
 
 ## Security
 - Admin and runner endpoints require tokens.
-- No secrets committed; use env vars or AWS Secrets Manager references in App Runner.
+- No secrets committed; use env vars or AWS Secrets Manager references in App Runner. Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.

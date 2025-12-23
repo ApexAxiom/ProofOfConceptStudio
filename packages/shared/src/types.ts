@@ -28,12 +28,19 @@ export interface BriefPost {
   summary?: string;
   bodyMarkdown: string;
   sources: string[];
+  heroImageUrl?: string;
+  heroImageSourceUrl?: string;
+  heroImageAlt?: string;
   scannedSources?: string[];
   tags?: string[];
   metrics?: {
     collectedCount?: number;
     extractedCount?: number;
     dedupedCount?: number;
+  };
+  qualityReport?: {
+    issues: string[];
+    decision: "publish" | "retry" | "block";
   };
 }
 

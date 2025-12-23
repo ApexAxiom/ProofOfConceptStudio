@@ -8,6 +8,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const token = request.headers["x-admin-token"] || request.headers.authorization?.replace("Bearer ", "");
     if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
       reply.code(401).send({ error: "unauthorized" });
+      return;
     }
   });
 

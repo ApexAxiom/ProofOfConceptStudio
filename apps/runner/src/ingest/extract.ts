@@ -2,24 +2,82 @@ import { request } from "undici";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 
+function resolveUrl(href: string, baseUrl: string): string | null {
+  if (!href) return null;
+  if (href.startsWith("#") || href.startsWith("javascript:") || href.startsWith("mailto:")) return null;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function shallowScrape(url: string, limit = 30): Promise<{ title: string; url: string }[]> {
   const res = await request(url, { method: "GET" });
   const text = await res.body.text();
   const dom = new JSDOM(text, { url });
+  const baseHost = new URL(url).hostname;
   const links = Array.from(dom.window.document.querySelectorAll("a"))
-    .map((a) => ({ title: a.textContent?.trim() ?? "", url: a.getAttribute("href") ?? "" }))
-    .filter((l) => l.url && l.url.startsWith("http"));
-  return links.slice(0, limit);
+    .map((a) => {
+      const resolved = resolveUrl(a.getAttribute("href") ?? "", url);
+      return {
+        title: a.textContent?.trim() || "",
+        url: resolved
+      };
+    })
+    .filter((l) => l.url && l.url.startsWith("http"))
+    .filter((l) => {
+      try {
+        const host = new URL(l.url!).hostname;
+        return host.endsWith(baseHost);
+      } catch {
+        return false;
+      }
+    });
+  const deduped = Array.from(new Map(links.map((l) => [l.url, l])).values());
+  return deduped.slice(0, limit);
 }
 
-export async function fetchAndExtract(url: string): Promise<{ title: string; content: string }> {
-  const res = await request(url, { method: "GET" });
-  const html = await res.body.text();
-  const dom = new JSDOM(html, { url });
-  const reader = new Readability(dom.window.document);
-  const article = reader.parse();
-  return {
-    title: article?.title || dom.window.document.title || url,
-    content: article?.textContent || ""
-  };
+export async function fetchArticleDetails(url: string): Promise<{
+  url: string;
+  title: string;
+  content: string;
+  ogImageUrl?: string;
+  publishedAt?: string;
+  description?: string;
+}> {
+  try {
+    const res = await request(url, {
+      method: "GET",
+      headers: { "user-agent": "ProofRunnerBot/1.0" },
+      maxRedirections: 3,
+      bodyTimeout: 10000
+    });
+    const html = await res.body.text();
+    const dom = new JSDOM(html, { url });
+    const document = dom.window.document;
+    const reader = new Readability(document);
+    const article = reader.parse();
+    const ogImage =
+      document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
+      document.querySelector('meta[property="og:image:url"]')?.getAttribute("content") ||
+      document.querySelector('meta[name="twitter:image"]')?.getAttribute("content") ||
+      undefined;
+    const resolvedOg = ogImage ? resolveUrl(ogImage, url) ?? ogImage : undefined;
+    return {
+      url,
+      title: article?.title || document.title || url,
+      content: article?.textContent || "",
+      ogImageUrl: resolvedOg,
+      publishedAt:
+        document.querySelector('meta[property="article:published_time"]')?.getAttribute("content") || undefined,
+      description: document.querySelector('meta[name="description"]')?.getAttribute("content") || undefined
+    };
+  } catch {
+    return {
+      url,
+      title: url,
+      content: ""
+    };
+  }
 }

@@ -1,0 +1,22 @@
+import { NextResponse } from "next/server";
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const base = process.env.API_BASE_URL ?? "http://localhost:3001";
+  const res = await fetch(`${base}/admin/run`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-token": body.adminToken ?? ""
+    },
+    body: JSON.stringify({
+      runWindow: body.runWindow,
+      region: body.region,
+      agentId: body.agentId,
+      scheduled: body.scheduled,
+      force: body.force
+    })
+  });
+  const json = await res.json();
+  return NextResponse.json(json, { status: res.status });
+}

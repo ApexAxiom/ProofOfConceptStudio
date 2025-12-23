@@ -6,16 +6,16 @@ export default function AdminPage() {
   const [runWindow, setRunWindow] = useState("am");
   const [region, setRegion] = useState(REGION_LIST[0].slug);
   const [agentId, setAgentId] = useState("");
+  const [adminToken, setAdminToken] = useState("");
   const [message, setMessage] = useState("");
 
   const trigger = async () => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001"}/admin/run`, {
+    const res = await fetch("/api/admin/run", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-admin-token": process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? ""
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ runWindow, region, agentId: agentId || undefined })
+      body: JSON.stringify({ runWindow, region, agentId: agentId || undefined, adminToken })
     });
     const json = await res.json();
     setMessage(JSON.stringify(json));
@@ -47,6 +47,14 @@ export default function AdminPage() {
             </option>
           ))}
         </select>
+        <label>Admin Token</label>
+        <input
+          type="password"
+          value={adminToken}
+          onChange={(e) => setAdminToken(e.target.value)}
+          className="border px-2 py-1"
+          placeholder="Enter admin token"
+        />
         <button onClick={trigger} className="bg-blue-600 text-white px-3 py-1 rounded">
           Run now
         </button>

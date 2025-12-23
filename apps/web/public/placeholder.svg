@@ -1,0 +1,16 @@
+<svg width="400" height="200" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder image</title>
+  <desc id="desc">Neutral placeholder for brief hero image</desc>
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="200" fill="url(#grad)" rx="8" />
+  <g fill="#475569">
+    <circle cx="70" cy="100" r="30" fill="#94a3b8" />
+    <rect x="120" y="70" width="220" height="18" rx="4" />
+    <rect x="120" y="102" width="180" height="14" rx="4" />
+  </g>
+</svg>

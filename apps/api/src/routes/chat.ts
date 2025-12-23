@@ -9,8 +9,12 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const model = process.env.OPENAI_MODEL || "gpt-5.2";
 
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post("/", async (request) => {
+  fastify.post("/", async (request, reply) => {
     const { question, region, portfolio } = request.body as any;
+    if (!region || !portfolio || !question) {
+      reply.code(400).send({ error: "question, region, and portfolio are required" });
+      return;
+    }
     const params: any = {
       TableName: tableName,
       IndexName: "GSI2",
@@ -23,14 +27,20 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     };
     const data = await client.send(new QueryCommand(params));
     const posts = (data.Items ?? []) as BriefPost[];
-    const filtered = posts.filter((p) => p.portfolio === portfolio);
+    const filtered = posts.filter((p) => p.portfolio === portfolio && p.status === "published");
+    const allowedSources = new Set(filtered.flatMap((p) => p.sources || []));
     const context = filtered
-      .map((p) => `${p.title}\n${p.bodyMarkdown}\nSources: ${p.sources?.join(",")}`)
+      .map((p) => `${p.title}\n${p.bodyMarkdown}\nSources: ${(p.sources || []).join(", ")}`)
       .join("\n\n---\n\n");
 
-    const prompt = `You are a procurement assistant. Use the following briefs to answer with citations. Every factual statement must reference a URL from the briefs.\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
+    const prompt = `You are a procurement assistant. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
     const response = await openai.responses.create({ model, input: prompt });
-    return { answer: response.output_text };
+    const answer = response.output_text || "";
+    const hasAllowedUrl = Array.from(allowedSources).some((url) => answer.includes(url));
+    if (!hasAllowedUrl) {
+      return { answer: `[Unverified] Unable to include required citations from provided sources.` };
+    }
+    return { answer };
   });
 };
 

@@ -1,7 +1,8 @@
 name: Run PM Briefs
 on:
   schedule:
-    - cron: '15 20 * * *'
+    - cron: "45 19 * * *"
+    - cron: "45 20 * * *"
   workflow_dispatch: {}
 jobs:
   trigger:
@@ -12,7 +13,7 @@ jobs:
           curl -X POST "$RUNNER_BASE_URL/cron" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            -d '{"runWindow":"pm"}'
+            -d '{"runWindow":"pm","scheduled":true}'
         env:
           RUNNER_BASE_URL: ${{ secrets.RUNNER_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
