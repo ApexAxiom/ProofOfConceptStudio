@@ -28,18 +28,29 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const data = await client.send(new QueryCommand(params));
     const posts = (data.Items ?? []) as BriefPost[];
     const filtered = posts.filter((p) => p.portfolio === portfolio && p.status === "published");
-    const allowedSources = new Set(filtered.flatMap((p) => p.sources || []));
-    const context = filtered
+    const recent = filtered.slice(0, 10);
+    const allowedSources = new Set(recent.flatMap((p) => p.sources || []));
+    const context = recent
       .map((p) => `${p.title}\n${p.bodyMarkdown}\nSources: ${(p.sources || []).join(", ")}`)
       .join("\n\n---\n\n");
 
-    const prompt = `You are a procurement assistant. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
+    const prompt = `You are a procurement assistant. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable. Do not output any URL that is not in Allowed URLs. If you are unsure, do not cite it.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
     const response = await openai.responses.create({ model, input: prompt });
     const answer = response.output_text || "";
-    const hasAllowedUrl = Array.from(allowedSources).some((url) => answer.includes(url));
-    if (!hasAllowedUrl) {
+    const urlRegex = /https?:\/\/[^\s)]+/g;
+    const found = new Set(answer.match(urlRegex) ?? []);
+    const disallowed = [...found].filter((u) => !allowedSources.has(u));
+    const hasAllowed = [...found].some((u) => allowedSources.has(u));
+
+    if (!hasAllowed) {
       return { answer: `[Unverified] Unable to include required citations from provided sources.` };
     }
+    if (disallowed.length > 0) {
+      return {
+        answer: `[Unverified] Answer contained non-allowed URLs and was blocked. Please rephrase, or ask for info covered by the available briefs.`
+      };
+    }
+
     return { answer };
   });
 };

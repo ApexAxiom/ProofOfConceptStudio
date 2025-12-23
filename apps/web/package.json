@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "PORT=${PORT:-3000} next start -p ${PORT:-3000}",
+    "start": "node start.js",
     "lint": "next lint"
   },
   "dependencies": {
