@@ -1,0 +1,32 @@
+{
+  "name": "@proof/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -b",
+    "start": "node dist/server.js",
+    "cron:am": "tsx src/run.ts am",
+    "cron:pm": "tsx src/run.ts pm",
+    "lint": "eslint . --ext .ts,.tsx || true"
+  },
+  "dependencies": {
+    "@proof/shared": "workspace:*",
+    "@mozilla/readability": "0.4.4",
+    "fastify": "4.26.2",
+    "fast-xml-parser": "4.3.3",
+    "jsdom": "24.0.0",
+    "openai": "4.56.0",
+    "undici": "6.19.8",
+    "uuid": "9.0.1",
+    "yaml": "2.4.5",
+    "@aws-sdk/client-dynamodb": "3.609.0",
+    "@aws-sdk/lib-dynamodb": "3.609.0"
+  },
+  "devDependencies": {
+    "tsx": "4.19.1",
+    "typescript": "5.4.5"
+  }
+}

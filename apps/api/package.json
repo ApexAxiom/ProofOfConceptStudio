@@ -1,0 +1,24 @@
+{
+  "name": "@proof/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -b",
+    "start": "node dist/server.js",
+    "lint": "eslint . --ext .ts,.tsx || true"
+  },
+  "dependencies": {
+    "@proof/shared": "workspace:*",
+    "fastify": "4.26.2",
+    "@aws-sdk/client-dynamodb": "3.609.0",
+    "@aws-sdk/lib-dynamodb": "3.609.0",
+    "openai": "4.56.0"
+  },
+  "devDependencies": {
+    "tsx": "4.19.1",
+    "typescript": "5.4.5"
+  }
+}
