@@ -27,6 +27,12 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
 - Deploy api/runner/web to App Runner, set env vars, and wire EventBridge schedules (06:00 & 14:45 America/Chicago) to `runner` `/cron` with Bearer `CRON_SECRET`.
 
+### App Runner configuration files
+When creating App Runner services, choose **Use a configuration file**. Set the Source directory to the service folder so App Runner can find `apprunner.yaml`:
+- Web: `apps/web`
+- API: `apps/api`
+- Runner: `apps/runner`
+
 ## App Runner Services
 Create three services bound to 0.0.0.0 using the provided Dockerfiles:
 - **proof-web**: PORT 3000, health check `/api/healthz`
