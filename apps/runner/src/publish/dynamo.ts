@@ -1,10 +1,21 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { BriefPost } from "@proof/shared";
-import { v4 as uuidv4 } from "uuid";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
-const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION ?? "us-east-1" }));
+const region = process.env.AWS_REGION ?? "us-east-1";
+const endpoint = process.env.DDB_ENDPOINT;
+const client = DynamoDBDocumentClient.from(
+  new DynamoDBClient(
+    endpoint
+      ? {
+          region,
+          endpoint,
+          credentials: { accessKeyId: "local", secretAccessKey: "local" }
+        }
+      : { region }
+  )
+);
 
 export async function publishBrief(brief: BriefPost, ingestResult: any, runId: string) {
   const item = {
@@ -19,7 +30,9 @@ export async function publishBrief(brief: BriefPost, ingestResult: any, runId: s
     ...brief,
     scannedSources: ingestResult.scannedSources,
     metrics: {
-      collectedCount: ingestResult.articles?.length ?? 0
+      collectedCount: ingestResult.metrics?.collectedCount ?? ingestResult.articles?.length ?? 0,
+      extractedCount: ingestResult.metrics?.extractedCount,
+      dedupedCount: ingestResult.metrics?.dedupedCount
     }
   };
   await client.send(new PutCommand({ TableName: tableName, Item: item }));

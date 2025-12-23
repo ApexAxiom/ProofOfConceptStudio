@@ -15,6 +15,7 @@
     "fastify": "4.26.2",
     "@aws-sdk/client-dynamodb": "3.609.0",
     "@aws-sdk/lib-dynamodb": "3.609.0",
+    "@fastify/cors": "9.0.1",
     "openai": "4.56.0"
   },
   "devDependencies": {

@@ -1,6 +1,10 @@
 "use client";
 import { useState } from "react";
 import { REGION_LIST, PORTFOLIOS } from "@proof/shared";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
+import rehypeExternalLinks from "rehype-external-links";
 
 export default function ChatPage() {
   const [region, setRegion] = useState(REGION_LIST[0].slug);
@@ -11,7 +15,7 @@ export default function ChatPage() {
 
   const ask = async () => {
     setLoading(true);
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001"}/chat`, {
+    const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, region, portfolio })
@@ -50,7 +54,24 @@ export default function ChatPage() {
       <button onClick={ask} disabled={loading} className="bg-blue-600 text-white px-3 py-1 rounded">
         {loading ? "Thinking..." : "Ask"}
       </button>
-      {answer && <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: answer }} />}
+      {answer && (
+        <ReactMarkdown
+          className="prose max-w-none"
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[
+            rehypeSanitize,
+            [
+              rehypeExternalLinks,
+              {
+                target: "_blank",
+                rel: ["noreferrer", "noopener"]
+              }
+            ]
+          ]}
+        >
+          {answer}
+        </ReactMarkdown>
+      )}
     </div>
   );
 }

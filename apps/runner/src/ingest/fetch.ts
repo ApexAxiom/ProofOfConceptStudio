@@ -1,6 +1,6 @@
-import { AgentConfig, RegionSlug } from "@proof/shared";
+import { AgentConfig, RegionSlug, keywordsForPortfolio } from "@proof/shared";
 import { fetchRss } from "./rss.js";
-import { shallowScrape } from "./extract.js";
+import { shallowScrape, fetchArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
 
 export interface ArticleCandidate {
@@ -8,6 +8,11 @@ export interface ArticleCandidate {
   url: string;
   published?: string;
   summary?: string;
+}
+
+export interface ArticleDetail extends ArticleCandidate {
+  content?: string;
+  ogImageUrl?: string;
 }
 
 export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
@@ -32,6 +37,45 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
       console.error(`Feed error for ${feed.name}`, err);
     }
   }
-  const deduped = dedupeArticles(collected).slice(0, 20);
-  return { articles: deduped, scannedSources: feeds.map((f) => f.url) };
+  const deduped = dedupeArticles(collected);
+  const keywords = keywordsForPortfolio(agent.portfolio).map((k) => k.toLowerCase());
+  const scored = deduped
+    .map((item) => ({
+      ...item,
+      score: keywords.reduce((acc, kw) => {
+        const hay = `${item.title} ${item.url}`.toLowerCase();
+        return hay.includes(kw) ? acc + 1 : acc;
+      }, 0)
+    }))
+    .sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, 10);
+
+  const results: ArticleDetail[] = [];
+  const limit = 4;
+  for (let i = 0; i < top.length; i += limit) {
+    const slice = top.slice(i, i + limit);
+    await Promise.all(
+      slice.map(async (candidate) => {
+        const details = await fetchArticleDetails(candidate.url);
+        results.push({
+          title: details.title || candidate.title,
+          url: candidate.url,
+          published: candidate.published ?? details.publishedAt,
+          summary: details.description ?? candidate.summary,
+          content: details.content,
+          ogImageUrl: details.ogImageUrl
+        });
+      })
+    );
+  }
+
+  return {
+    articles: results,
+    scannedSources: feeds.map((f) => f.url),
+    metrics: {
+      collectedCount: collected.length,
+      dedupedCount: deduped.length,
+      extractedCount: results.length
+    }
+  };
 }
