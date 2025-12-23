@@ -4,11 +4,11 @@ build:
   commands:
     pre-build:
       - cd ../../packages/shared && npm install --include=dev --workspaces=false --no-audit --no-fund && npm run build
-      - cd .. && cd .. && cd apps/web && npm install --include=dev --workspaces=false --no-audit --no-fund
+      - npm install --include=dev --workspaces=false --no-audit --no-fund
     build:
-      - cd apps/web && npm run build
+      - npm run build
 run:
-  command: cd apps/web && npm start
+  command: npm start
   network:
     port: 8080
   env:
