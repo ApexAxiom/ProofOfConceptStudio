@@ -91,3 +91,4 @@ Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-d
 ## Security
 - Admin and runner endpoints require tokens.
 - No secrets committed; use env vars or AWS Secrets Manager references in App Runner. Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.
+- Upgrade Next.js promptly when security advisories are published and move to patched 15.0.x releases as needed.
