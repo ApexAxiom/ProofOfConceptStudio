@@ -8,33 +8,65 @@ const SECTION_RULES = [
   { heading: "## Recommended Actions", min: 1, max: 3 }
 ];
 
-function extractSection(body: string, heading: string) {
-  const pattern = new RegExp(`${heading}\\s*\\n([\\s\\S]*?)(?=^##\\s|\\n\\z)`, "m");
-  const match = body.match(pattern);
-  return match?.[1]?.trim() ?? "";
+function parseSections(body: string): Map<string, string[]> {
+  const sections = new Map<string, string[]>();
+  const lines = body.split(/\r?\n/);
+  let currentHeading: string | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    if (/^##\s+.+/.test(line.trim())) {
+      currentHeading = line.trim();
+      if (!sections.has(currentHeading)) {
+        sections.set(currentHeading, []);
+      }
+      continue;
+    }
+
+    if (currentHeading) {
+      sections.get(currentHeading)?.push(rawLine);
+    }
+  }
+
+  return sections;
 }
 
-function parseBulletLines(section: string): string[] {
-  return section
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith("- "));
+function bulletLines(lines: string[]): string[] {
+  return lines
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
 }
 
+function urlAtEnd(bullet: string): string | null {
+  const match = bullet.match(/\((https?:\/\/[^\s)]+)\)\s*$/);
+  return match?.[1] ?? null;
+}
+
+function parseSources(lines: string[]): string[] {
+  return lines
+    .map((line) => line.trim())
+    .map((line) => line.replace(/^-\s*/, "").trim())
+    .filter(Boolean);
+}
+
+/**
+ * Validates a brief markdown body against required sections and URL rules.
+ */
 export function validateBrief(brief: BriefPost, allowedUrls: Set<string>, indexUrls?: Set<string>): BriefPost {
   const issues: string[] = [];
   const body = brief.bodyMarkdown || "";
   if (!body) issues.push("Body markdown is empty");
 
+  const sections = parseSections(body);
   const referencedUrls = new Set<string>();
 
   for (const rule of SECTION_RULES) {
-    const sectionText = extractSection(body, rule.heading);
-    if (!sectionText) {
+    const lines = sections.get(rule.heading) ?? [];
+    if (!sections.has(rule.heading)) {
       issues.push(`Missing section: ${rule.heading}`);
       continue;
     }
-    const bullets = parseBulletLines(sectionText);
+    const bullets = bulletLines(lines);
     if (rule.min && bullets.length < rule.min) {
       issues.push(`${rule.heading} must have at least ${rule.min} bullets`);
     }
@@ -42,12 +74,11 @@ export function validateBrief(brief: BriefPost, allowedUrls: Set<string>, indexU
       issues.push(`${rule.heading} must have no more than ${rule.max} bullets`);
     }
     for (const bullet of bullets) {
-      const match = bullet.match(/\\(https?:\\/\\/[^\\s)]+\\)\\s*$/);
-      if (!match) {
+      const url = urlAtEnd(bullet);
+      if (!url) {
         issues.push(`Bullet missing citation in ${rule.heading}: ${bullet}`);
         continue;
       }
-      const url = match[0].replace(/[()]/g, "");
       referencedUrls.add(url);
       if (!allowedUrls.has(url)) {
         issues.push(`URL not allowed: ${url}`);
@@ -58,15 +89,15 @@ export function validateBrief(brief: BriefPost, allowedUrls: Set<string>, indexU
     }
   }
 
-  const sourcesSection = extractSection(body, "## Sources");
-  if (!sourcesSection) {
+  const sourcesLines = sections.get("## Sources") ?? [];
+  if (!sections.has("## Sources")) {
     issues.push("Missing section: ## Sources");
   }
-  const sources = sourcesSection
-    .split("\n")
-    .map((s) => s.replace(/^-\s*/, "").trim())
-    .filter(Boolean);
-  for (const source of sources) {
+
+  const sources = parseSources(sourcesLines);
+  const sourcesSet = new Set(sources);
+
+  for (const source of sourcesSet) {
     if (!allowedUrls.has(source)) {
       issues.push(`Source URL not allowed: ${source}`);
     }
@@ -74,7 +105,14 @@ export function validateBrief(brief: BriefPost, allowedUrls: Set<string>, indexU
       issues.push(`Source not referenced in body: ${source}`);
     }
   }
-  if (sources.length !== referencedUrls.size) {
+
+  for (const url of referencedUrls) {
+    if (!sourcesSet.has(url)) {
+      issues.push(`Referenced URL missing from sources: ${url}`);
+    }
+  }
+
+  if (sourcesSet.size !== referencedUrls.size || sources.length !== sourcesSet.size) {
     issues.push("Sources list must match referenced URLs exactly");
   }
 
