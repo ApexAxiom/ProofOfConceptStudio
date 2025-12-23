@@ -1,0 +1,43 @@
+name: App Runner simulation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  apprunner-sim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build shared package
+        run: |
+          cd packages/shared
+          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm run build
+
+      - name: Build web app
+        run: |
+          cd apps/web
+          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm run build
+
+      - name: Build api app
+        run: |
+          cd apps/api
+          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm run build
+
+      - name: Build runner app
+        run: |
+          cd apps/runner
+          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm run build
