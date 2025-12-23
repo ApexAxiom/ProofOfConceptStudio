@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@proof/shared": "workspace:*",
+    "@proof/shared": "file:../../packages/shared",
     "react-markdown": "9.0.1",
     "rehype-external-links": "3.0.0",
     "rehype-sanitize": "6.0.0",

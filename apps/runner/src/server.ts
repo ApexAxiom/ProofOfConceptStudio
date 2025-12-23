@@ -3,7 +3,7 @@ import { runWindowFromDate, type RunWindow } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
 import { v4 as uuidv4 } from "uuid";
 
-const PORT = Number(process.env.PORT ?? 3002);
+const PORT = Number(process.env.PORT ?? 8080);
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
 const fastify = Fastify({ logger: true });

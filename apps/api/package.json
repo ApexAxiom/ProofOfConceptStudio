@@ -11,7 +11,7 @@
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {
-    "@proof/shared": "workspace:*",
+    "@proof/shared": "file:../../packages/shared",
     "fastify": "4.26.2",
     "@aws-sdk/client-dynamodb": "3.609.0",
     "@aws-sdk/lib-dynamodb": "3.609.0",
