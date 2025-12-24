@@ -3,10 +3,15 @@ runtime: nodejs18
 build:
   commands:
     pre-build:
-      - "cd ../../packages/shared && npm install --include=dev --workspaces=false --no-audit --no-fund && npm run build"
-      - "npm install --include=dev --workspaces=false --no-audit --no-fund"
+      - |
+          cd ../../packages/shared
+          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
+          npm run build
+      - npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
+      - node -e "console.log(require.resolve('@proof/shared/package.json'))"
+      - node -e "console.log(require.resolve('@proof/shared'))"
     build:
-      - "npm run build"
+      - npm run build
 run:
   command: "npm start"
   network:

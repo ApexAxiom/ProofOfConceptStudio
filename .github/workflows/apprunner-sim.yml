@@ -21,23 +21,29 @@ jobs:
       - name: Build shared package
         run: |
           cd packages/shared
-          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
           npm run build
 
       - name: Build web app
         run: |
           cd apps/web
-          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
+          node -e "console.log(require.resolve('@proof/shared/package.json'))"
+          node -e "console.log(require.resolve('@proof/shared'))"
           npm run build
 
       - name: Build api app
         run: |
           cd apps/api
-          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
+          node -e "console.log(require.resolve('@proof/shared/package.json'))"
+          node -e "console.log(require.resolve('@proof/shared'))"
           npm run build
 
       - name: Build runner app
         run: |
           cd apps/runner
-          npm install --include=dev --workspaces=false --no-audit --no-fund
+          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
+          node -e "console.log(require.resolve('@proof/shared/package.json'))"
+          node -e "console.log(require.resolve('@proof/shared'))"
           npm run build
