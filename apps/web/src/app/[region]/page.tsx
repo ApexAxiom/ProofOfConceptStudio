@@ -4,8 +4,8 @@ import { BriefCard } from "../../components/BriefCard";
 import { REGION_LIST, RegionSlug } from "@proof/shared";
 import { fetchLatest } from "../../lib/api";
 
-export default async function RegionPage({ params }: { params: { region: RegionSlug } }) {
-  const { region } = params;
+export default async function RegionPage({ params }: { params: Promise<{ region: RegionSlug }> }) {
+  const { region } = await params;
   const briefs = await fetchLatest(region);
   return (
     <div className="space-y-4">

@@ -5,8 +5,8 @@ import { MarketSnapshot } from "../../../components/MarketSnapshot";
 import { REGION_LIST, RegionSlug, indicesForRegion } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 
-export default async function PortfolioPage({ params }: { params: { region: RegionSlug; portfolio: string } }) {
-  const { region, portfolio } = params;
+export default async function PortfolioPage({ params }: { params: Promise<{ region: RegionSlug; portfolio: string }> }) {
+  const { region, portfolio } = await params;
   const briefs = await fetchPosts({ region, portfolio, limit: 10 });
   const indices = indicesForRegion(portfolio, region);
   return (
