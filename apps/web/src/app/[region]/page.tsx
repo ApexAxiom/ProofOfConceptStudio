@@ -1,7 +1,7 @@
 import { RegionTabs } from "../../components/RegionTabs";
 import { PortfolioNav } from "../../components/PortfolioNav";
 import { BriefCard } from "../../components/BriefCard";
-import { REGION_LIST, RegionSlug } from "@proof/shared";
+import { RegionSlug } from "@proof/shared";
 import { fetchLatest } from "../../lib/api";
 
 export default async function RegionPage({ params }: { params: Promise<{ region: RegionSlug }> }) {

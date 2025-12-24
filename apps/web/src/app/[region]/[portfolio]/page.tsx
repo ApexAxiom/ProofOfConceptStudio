@@ -2,7 +2,7 @@ import { RegionTabs } from "../../../components/RegionTabs";
 import { PortfolioNav } from "../../../components/PortfolioNav";
 import { BriefCard } from "../../../components/BriefCard";
 import { MarketSnapshot } from "../../../components/MarketSnapshot";
-import { REGION_LIST, RegionSlug, indicesForRegion } from "@proof/shared";
+import { RegionSlug, indicesForRegion } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 
 export default async function PortfolioPage({ params }: { params: Promise<{ region: RegionSlug; portfolio: string }> }) {
