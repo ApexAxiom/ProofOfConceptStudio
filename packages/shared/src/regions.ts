@@ -9,7 +9,7 @@ export const REGIONS: Record<RegionSlug, { slug: RegionSlug; label: string; city
   },
   "us-mx-la-lng": {
     slug: "us-mx-la-lng",
-    label: "US / Mexico / Louisiana LNG (Houston)",
+    label: "International (Houston)",
     city: "Houston",
     timeZone: "America/Chicago"
   }

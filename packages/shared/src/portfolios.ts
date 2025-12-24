@@ -78,7 +78,7 @@ const steelIndices: MarketIndex[] = [
   {
     id: "lme-ferrous",
     label: "LME Ferrous",
-    url: "https://www.lme.com/",
+    url: "https://www.lme.com/en/metals/ferrous",
     notes: "London Metal Exchange",
     regionScope: ["au", "us-mx-la-lng"]
   },
@@ -130,7 +130,7 @@ const freightIndices: MarketIndex[] = [
   {
     id: "baltic-exchange",
     label: "Baltic Exchange",
-    url: "https://www.balticexchange.com/en/index.html",
+    url: "https://www.balticexchange.com/en/data-services/assessments.html",
     notes: "Dry bulk freight benchmark",
     regionScope: ["au", "us-mx-la-lng"]
   },
