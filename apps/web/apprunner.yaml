@@ -3,10 +3,7 @@ runtime: nodejs18
 build:
   commands:
     pre-build:
-      - |
-          cd ../../packages/shared
-          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
-          npm run build
+      - cd ../../packages/shared && npm install --include=dev --workspaces=false --install-links --no-audit --no-fund && npm run build
       - npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
       - node -e "console.log('PWD=', process.cwd())"
       - node -e "console.log('node=', process.version)"
@@ -17,6 +14,6 @@ build:
     build:
       - npm run build
 run:
-  command: "npm start"
+  command: PORT=8080 npm start
   network:
     port: 8080
