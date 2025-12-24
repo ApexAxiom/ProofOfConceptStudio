@@ -3,6 +3,8 @@ Description: CMHub core infra
 Resources:
   CMHubTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: CMHub
       BillingMode: PAY_PER_REQUEST
