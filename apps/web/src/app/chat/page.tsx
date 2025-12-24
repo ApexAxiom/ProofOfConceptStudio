@@ -7,8 +7,8 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeExternalLinks from "rehype-external-links";
 
 export default function ChatPage() {
-  const [region, setRegion] = useState(REGION_LIST[0].slug);
-  const [portfolio, setPortfolio] = useState(PORTFOLIOS[0].slug);
+  const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
+  const [portfolio, setPortfolio] = useState<string>(PORTFOLIOS[0].slug);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);

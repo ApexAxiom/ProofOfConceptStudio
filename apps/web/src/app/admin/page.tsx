@@ -4,7 +4,7 @@ import { REGION_LIST, PORTFOLIOS } from "@proof/shared";
 
 export default function AdminPage() {
   const [runWindow, setRunWindow] = useState("am");
-  const [region, setRegion] = useState(REGION_LIST[0].slug);
+  const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
   const [agentId, setAgentId] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [message, setMessage] = useState("");
