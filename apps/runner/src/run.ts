@@ -4,7 +4,7 @@ import { ingestAgent } from "./ingest/fetch.js";
 import { generateBrief } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
 import { publishBrief, logRunResult } from "./publish/dynamo.js";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "node:crypto";
 
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; error?: string };
 
@@ -23,7 +23,7 @@ async function runWithLimit<T>(tasks: (() => Promise<T>)[], limit = 3): Promise<
 
 export async function handleCron(runWindow: RunWindow, opts?: { runId?: string; scheduled?: boolean }) {
   const agents = loadAgents();
-  const runId = opts?.runId ?? uuidv4();
+  const runId = opts?.runId ?? crypto.randomUUID();
   const tasks: (() => Promise<RunResult>)[] = [];
   for (const agent of agents) {
     for (const region of Object.keys(agent.feedsByRegion) as RegionSlug[]) {
@@ -47,10 +47,10 @@ export async function runAgent(agentId: string, region: RegionSlug, runWindow: R
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) {
     const error = `Agent ${agentId} not found`;
-    await logRunResult(runId ?? uuidv4(), agentId, region, "failed", error);
+    await logRunResult(runId ?? crypto.randomUUID(), agentId, region, "failed", error);
     return { agentId, region, ok: false, error };
   }
-  const runIdentifier = runId ?? uuidv4();
+  const runIdentifier = runId ?? crypto.randomUUID();
   try {
     const ingestResult = await ingestAgent(agent, region);
     const articles = ingestResult.articles ?? [];

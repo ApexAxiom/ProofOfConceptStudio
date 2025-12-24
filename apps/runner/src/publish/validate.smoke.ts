@@ -50,7 +50,7 @@ const bodyMarkdown = `## 3 Takeaways
 const brief: BriefPost = {
   postId: "demo",
   title: "Demo Brief",
-  region: "na",
+  region: "au",
   portfolio: "demo",
   runWindow: "am",
   status: "draft",

@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { runWindowFromDate, type RunWindow } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "node:crypto";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
@@ -33,7 +33,7 @@ fastify.post("/cron", async (request, reply) => {
   }
   const body = (request.body as any) || {};
   const runWindow: RunWindow = body.runWindow ?? runWindowFromDate(new Date());
-  const runId = uuidv4();
+  const runId = crypto.randomUUID();
 
   if (body.scheduled === true && !body.force && !isWithinScheduledWindow(runWindow, new Date())) {
     reply.code(202).send({ ok: true, accepted: true, skipped: true, runWindow, runId });

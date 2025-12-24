@@ -8,7 +8,7 @@ const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async (request, reply) => {
     const { region, portfolio, runWindow, limit } = request.query as Record<string, string>;
-    const validRegions = new Set(REGION_LIST.map((r) => r.slug));
+    const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
     if (!region || !validRegions.has(region)) {
       reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
       return;
@@ -35,7 +35,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get("/latest", async (request, reply) => {
     const { region } = request.query as Record<string, string>;
-    const validRegions = new Set(REGION_LIST.map((r) => r.slug));
+    const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
     if (!region || !validRegions.has(region)) {
       reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
       return;

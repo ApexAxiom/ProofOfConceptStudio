@@ -13,12 +13,12 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     throw new Error("OPENAI_API_KEY is not configured");
   }
   const prompt = buildPrompt(input);
-  const response = await client.responses.create({
+  const response = await client.chat.completions.create({
     model,
-    input: prompt,
+    messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" }
   });
-  const raw = response.output_text || "{}";
+  const raw = response.choices?.[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw);
   const now = new Date().toISOString();
   return {

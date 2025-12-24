@@ -17,18 +17,19 @@ export async function shallowScrape(url: string, limit = 30): Promise<{ title: s
   const text = await res.body.text();
   const dom = new JSDOM(text, { url });
   const baseHost = new URL(url).hostname;
-  const links = Array.from(dom.window.document.querySelectorAll("a"))
+  const anchors = Array.from(dom.window.document.querySelectorAll("a")) as unknown as HTMLAnchorElement[];
+  const links = anchors
     .map((a) => {
       const resolved = resolveUrl(a.getAttribute("href") ?? "", url);
       return {
-        title: a.textContent?.trim() || "",
+        title: (a.textContent ?? "").trim(),
         url: resolved
       };
     })
-    .filter((l) => l.url && l.url.startsWith("http"))
+    .filter((l): l is { title: string; url: string } => typeof l.url === "string" && l.url.startsWith("http"))
     .filter((l) => {
       try {
-        const host = new URL(l.url!).hostname;
+        const host = new URL(l.url).hostname;
         return host.endsWith(baseHost);
       } catch {
         return false;

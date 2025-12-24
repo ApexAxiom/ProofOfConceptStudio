@@ -35,16 +35,19 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const posts = (data.Items ?? []) as BriefPost[];
     const filtered = posts.filter((p) => p.portfolio === portfolio && p.status === "published");
     const recent = filtered.slice(0, 10);
-    const allowedSources = new Set(recent.flatMap((p) => p.sources || []));
+    const allowedSources = new Set<string>(recent.flatMap((p) => p.sources || []));
     const context = recent
       .map((p) => `${p.title}\n${p.bodyMarkdown}\nSources: ${(p.sources || []).join(", ")}`)
       .join("\n\n---\n\n");
 
     const prompt = `You are a procurement assistant. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable. Do not output any URL that is not in Allowed URLs. If you are unsure, do not cite it.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
-    const response = await openai.responses.create({ model, input: prompt });
-    const answer = response.output_text || "";
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: prompt }]
+    });
+    const answer = response.choices?.[0]?.message?.content ?? "";
     const urlRegex = /https?:\/\/[^\s)]+/g;
-    const found = new Set(answer.match(urlRegex) ?? []);
+    const found = new Set<string>(answer.match(urlRegex) ?? []);
     const disallowed = [...found].filter((u) => !allowedSources.has(u));
     const hasAllowed = [...found].some((u) => allowedSources.has(u));
 

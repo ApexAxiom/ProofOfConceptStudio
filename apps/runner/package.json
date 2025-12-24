@@ -21,13 +21,13 @@
     "jsdom": "24.0.0",
     "openai": "4.56.0",
     "undici": "6.19.8",
-    "uuid": "9.0.1",
     "yaml": "2.4.5",
     "@aws-sdk/client-dynamodb": "3.609.0",
     "@aws-sdk/lib-dynamodb": "3.609.0"
   },
   "devDependencies": {
     "tsx": "4.19.1",
+    "@types/jsdom": "21.1.7",
     "typescript": "5.4.5"
   }
 }
