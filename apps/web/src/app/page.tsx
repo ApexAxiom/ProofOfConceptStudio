@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RegionTabs } from "../components/RegionTabs";
 import { BriefCard } from "../components/BriefCard";
+import { LiveMarketTicker } from "../components/LiveMarketTicker";
 import { REGION_LIST, REGIONS, PORTFOLIOS } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../lib/api";
 
@@ -200,6 +201,9 @@ export default async function Home() {
           </div>
         </div>
       </div>
+
+      {/* Live Market Ticker */}
+      <LiveMarketTicker />
 
       {/* Stats Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

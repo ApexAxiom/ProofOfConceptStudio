@@ -1,0 +1,172 @@
+name: Generate Intelligence Articles
+
+on:
+  # Manual trigger with inputs
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'Region to generate articles for'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - au
+          - us-mx-la-lng
+      run_window:
+        description: 'Run window (am/pm)'
+        required: true
+        default: 'am'
+        type: choice
+        options:
+          - am
+          - pm
+      force:
+        description: 'Force run (bypass schedule check)'
+        required: false
+        default: true
+        type: boolean
+
+  # Scheduled runs - twice daily for each region
+  schedule:
+    # Australia AM run: 6:00 AM AWST (22:00 UTC previous day)
+    - cron: '0 22 * * *'
+    # Australia PM run: 2:45 PM AWST (6:45 UTC)
+    - cron: '45 6 * * *'
+    # Americas AM run: 6:00 AM CST (12:00 UTC)
+    - cron: '0 12 * * *'
+    # Americas PM run: 2:45 PM CST (20:45 UTC)
+    - cron: '45 20 * * *'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine run parameters
+        id: params
+        run: |
+          # Default values
+          REGION="${{ github.event.inputs.region || 'all' }}"
+          RUN_WINDOW="${{ github.event.inputs.run_window || '' }}"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          SCHEDULED="false"
+          
+          # If this is a scheduled run, determine parameters from cron
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            SCHEDULED="true"
+            HOUR=$(date -u +%H)
+            
+            # Determine run window and region based on cron schedule
+            if [ "$HOUR" = "22" ]; then
+              REGION="au"
+              RUN_WINDOW="am"
+            elif [ "$HOUR" = "06" ]; then
+              REGION="au"
+              RUN_WINDOW="pm"
+            elif [ "$HOUR" = "12" ]; then
+              REGION="us-mx-la-lng"
+              RUN_WINDOW="am"
+            elif [ "$HOUR" = "20" ]; then
+              REGION="us-mx-la-lng"
+              RUN_WINDOW="pm"
+            else
+              # Default fallback
+              RUN_WINDOW="am"
+            fi
+          fi
+          
+          # Set run window based on current time if not specified
+          if [ -z "$RUN_WINDOW" ]; then
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" -lt 12 ]; then
+              RUN_WINDOW="am"
+            else
+              RUN_WINDOW="pm"
+            fi
+          fi
+          
+          echo "region=$REGION" >> $GITHUB_OUTPUT
+          echo "run_window=$RUN_WINDOW" >> $GITHUB_OUTPUT
+          echo "force=$FORCE" >> $GITHUB_OUTPUT
+          echo "scheduled=$SCHEDULED" >> $GITHUB_OUTPUT
+          
+          echo "📊 Run Parameters:"
+          echo "  Region: $REGION"
+          echo "  Run Window: $RUN_WINDOW"
+          echo "  Force: $FORCE"
+          echo "  Scheduled: $SCHEDULED"
+
+      - name: Trigger article generation
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RUNNER_URL: https://pe8rz3uzip.us-east-1.awsapprunner.com
+        run: |
+          REGION="${{ steps.params.outputs.region }}"
+          RUN_WINDOW="${{ steps.params.outputs.run_window }}"
+          FORCE="${{ steps.params.outputs.force }}"
+          SCHEDULED="${{ steps.params.outputs.scheduled }}"
+          
+          # Build the request body
+          if [ "$REGION" = "all" ]; then
+            BODY=$(cat <<EOF
+          {
+            "runWindow": "$RUN_WINDOW",
+            "force": $FORCE,
+            "scheduled": $SCHEDULED
+          }
+          EOF
+          )
+          else
+            BODY=$(cat <<EOF
+          {
+            "runWindow": "$RUN_WINDOW",
+            "region": "$REGION",
+            "force": $FORCE,
+            "scheduled": $SCHEDULED
+          }
+          EOF
+          )
+          fi
+          
+          echo "🚀 Triggering article generation..."
+          echo "📋 Request body: $BODY"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -d "$BODY" \
+            "$RUNNER_URL/cron")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "📬 Response (HTTP $HTTP_CODE):"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Article generation triggered successfully!"
+          else
+            echo "❌ Failed to trigger article generation"
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          echo "## 📰 Article Generation Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | ${{ steps.params.outputs.region }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run Window | ${{ steps.params.outputs.run_window }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Force | ${{ steps.params.outputs.force }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered By | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Articles will be generated for all portfolios in the selected region(s)." >> $GITHUB_STEP_SUMMARY
+

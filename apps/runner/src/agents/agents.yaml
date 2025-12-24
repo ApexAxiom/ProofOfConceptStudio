@@ -3,7 +3,7 @@
   label: Rigs & Integrated Drilling
   description: Category management expert for rigs and integrated drilling in oil & gas, delivering negotiation-ready sourcing plans, supplier risk views, and market intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Rigzone, url: https://www.rigzone.com/, type: web }
@@ -28,7 +28,7 @@
   label: Drilling Services
   description: Category management expert for drilling services, mud logging, and support vendors, guiding sourcing strategy, negotiations, and regional insights for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Rigzone, url: https://www.rigzone.com/, type: web }
@@ -57,7 +57,7 @@
   label: Wells Materials & OCTG
   description: Category management expert for casing, tubing, and well materials, providing supply chain plans, supplier negotiations, and market analysis for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Argus Pipe Logix (OCTG), url: https://www.pipe-logix.com/, type: web, notes: paywall }
@@ -83,7 +83,7 @@
   label: Completions & Intervention
   description: Category management expert for completions equipment, stimulation, and intervention, shaping sourcing strategies, contract playbooks, and regional guidance for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: World Oil – Completions, url: https://www.worldoil.com/topics/completions/, type: web }
@@ -112,7 +112,7 @@
   label: Plug & Abandonment / Decommissioning
   description: Category management expert for plug & abandonment and decommissioning, offering sourcing levers, negotiation support, and regional decom intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Decom Mission, url: https://decommission.net/, type: web, notes: paywall }
@@ -141,7 +141,7 @@
   label: Subsea, SURF & Offshore
   description: Category management expert for offshore construction, subsea hardware, and SURF packages, supplying market research, contracting tactics, and regional supplier views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
@@ -170,7 +170,7 @@
   label: Projects (EPC/EPCM & Construction)
   description: Category management expert for major projects, EPC/EPCM, and construction, crafting sourcing strategies, negotiation guidance, and regional market reads for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Engineering News-Record (ENR), url: https://www.enr.com/, type: web, notes: paywall }
@@ -199,7 +199,7 @@
   label: Major Equipment OEM & LTSA
   description: Category management expert for rotating equipment, compressors, turbines, and LTSAs, providing supplier strategies, contract structures, and regional intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Turbomachinery Magazine, url: https://www.turbomachinerymag.com/, type: web }
@@ -228,7 +228,7 @@
   label: Operations & Maintenance Services
   description: Category management expert for inspection, reliability, and maintenance services, supporting negotiation, supplier performance, and regional nuances for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Inspectioneering, url: https://inspectioneering.com/, type: web, notes: paywall }
@@ -258,7 +258,7 @@
   label: MRO & Site Consumables
   description: Category management expert for valves, consumables, and MRO, enabling sourcing optimization, stocking strategies, and regional supply risk views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Valve World, url: https://valve-world.net/, type: web }
@@ -286,7 +286,7 @@
   label: Logistics, Marine & Aviation
   description: Category management expert for marine, aviation, and freight logistics, delivering supplier playbooks, rate negotiation guidance, and regional trade flow insights for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Lloyd's List, url: https://www.lloydslist.com/, type: web, notes: paywall }
@@ -315,7 +315,7 @@
   label: Site Services & Facilities
   description: Category management expert for facilities management, waste, and safety services, providing sourcing strategies, vendor negotiations, and regional compliance views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: IFMA, url: https://www.ifma.org/, type: web }
@@ -344,7 +344,7 @@
   label: IT, Telecom & Cyber
   description: Category management expert for cyber, telecom, and IT sourcing, advising on supplier resilience, contract posture, and regional threat context for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Dark Reading, url: https://www.darkreading.com/, type: web }
@@ -373,7 +373,7 @@
   label: Professional Services & HR
   description: Category management expert for HR, consulting, and professional services, offering sourcing strategies, negotiation playbooks, and regional labor-market intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
-  articlesPerRun: 1
+  articlesPerRun: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: HR Dive, url: https://www.hrdive.com/, type: web }
