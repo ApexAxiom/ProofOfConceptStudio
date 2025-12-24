@@ -11,24 +11,45 @@ interface CommodityPrice {
   change: number;
   changePercent: number;
   currency: string;
+  unit: string;
+  region: "global" | "apac" | "americas";
   lastUpdated: string;
   source: string;
 }
 
-// Fallback data when APIs are unavailable
-const fallbackData: CommodityPrice[] = [
-  { symbol: "CL=F", name: "WTI Crude Oil", price: 71.23, change: -0.45, changePercent: -0.63, currency: "USD", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "BZ=F", name: "Brent Crude", price: 74.89, change: 0.32, changePercent: 0.43, currency: "USD", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "NG=F", name: "Natural Gas (US)", price: 3.12, change: 0.08, changePercent: 2.63, currency: "USD", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "HH=F", name: "Henry Hub", price: 3.15, change: 0.05, changePercent: 1.61, currency: "USD", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "LNG", name: "LNG Asia Spot", price: 12.45, change: -0.23, changePercent: -1.81, currency: "USD/MMBtu", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "HRC", name: "HRC Steel", price: 742.50, change: 5.00, changePercent: 0.68, currency: "USD/ton", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "AUD", name: "AUD/USD", price: 0.6534, change: -0.0012, changePercent: -0.18, currency: "USD", lastUpdated: new Date().toISOString(), source: "fallback" },
-  { symbol: "BDI", name: "Baltic Dry Index", price: 1245, change: 15, changePercent: 1.22, currency: "Index", lastUpdated: new Date().toISOString(), source: "fallback" },
+// Market data with READABLE NAMES for category managers
+const COMMODITIES: Array<{
+  symbol: string;
+  yahooSymbol: string;
+  name: string;
+  unit: string;
+  region: "global" | "apac" | "americas";
+  fallbackPrice: number;
+}> = [
+  // GLOBAL - Affects all regions
+  { symbol: "WTI", yahooSymbol: "CL=F", name: "WTI Crude Oil", unit: "/barrel", region: "global", fallbackPrice: 71.23 },
+  { symbol: "BRENT", yahooSymbol: "BZ=F", name: "Brent Crude Oil", unit: "/barrel", region: "global", fallbackPrice: 74.89 },
+  { symbol: "GOLD", yahooSymbol: "GC=F", name: "Gold", unit: "/oz", region: "global", fallbackPrice: 2045.50 },
+  { symbol: "COPPER", yahooSymbol: "HG=F", name: "Copper", unit: "/lb", region: "global", fallbackPrice: 3.85 },
+  
+  // AMERICAS / INTERNATIONAL - Houston focus
+  { symbol: "NATGAS-US", yahooSymbol: "NG=F", name: "US Natural Gas (Henry Hub)", unit: "/MMBtu", region: "americas", fallbackPrice: 3.12 },
+  { symbol: "HRC-STEEL", yahooSymbol: "HRC1!", name: "US HRC Steel", unit: "/ton", region: "americas", fallbackPrice: 742.50 },
+  { symbol: "LNG-US", yahooSymbol: "LNG", name: "US LNG Export Price", unit: "/MMBtu", region: "americas", fallbackPrice: 8.45 },
+  
+  // APAC - Perth/Australia focus
+  { symbol: "AUD-USD", yahooSymbol: "AUDUSD=X", name: "Australian Dollar", unit: "", region: "apac", fallbackPrice: 0.6534 },
+  { symbol: "LNG-ASIA", yahooSymbol: "LNG-ASIA", name: "LNG Asia Spot (JKM)", unit: "/MMBtu", region: "apac", fallbackPrice: 12.45 },
+  { symbol: "IRON-ORE", yahooSymbol: "TIO=F", name: "Iron Ore (SGX)", unit: "/tonne", region: "apac", fallbackPrice: 108.50 },
+  
+  // Freight/Logistics - Global
+  { symbol: "BDI", yahooSymbol: "^BDI", name: "Baltic Dry Index", unit: "pts", region: "global", fallbackPrice: 1245 },
 ];
 
-// Try to fetch real data from Yahoo Finance (public quotes endpoint)
-async function fetchYahooFinanceQuotes(symbols: string[]): Promise<CommodityPrice[]> {
+// Try to fetch real data from Yahoo Finance
+async function fetchYahooFinanceQuotes(symbols: string[]): Promise<Map<string, any>> {
+  const results = new Map<string, any>();
+  
   try {
     const symbolList = symbols.join(",");
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolList}`;
@@ -41,107 +62,116 @@ async function fetchYahooFinanceQuotes(symbols: string[]): Promise<CommodityPric
     });
 
     if (!response.ok) {
-      throw new Error(`Yahoo Finance API returned ${response.status}`);
+      console.error(`Yahoo Finance API returned ${response.status}`);
+      return results;
     }
 
     const data = await response.json();
     const quotes = data?.quoteResponse?.result || [];
 
-    return quotes.map((q: any) => ({
-      symbol: q.symbol,
-      name: q.shortName || q.longName || q.symbol,
-      price: q.regularMarketPrice || 0,
-      change: q.regularMarketChange || 0,
-      changePercent: q.regularMarketChangePercent || 0,
-      currency: q.currency || "USD",
-      lastUpdated: new Date(q.regularMarketTime * 1000).toISOString(),
-      source: "yahoo",
-    }));
+    for (const q of quotes) {
+      results.set(q.symbol, {
+        price: q.regularMarketPrice || 0,
+        change: q.regularMarketChange || 0,
+        changePercent: q.regularMarketChangePercent || 0,
+        lastUpdated: q.regularMarketTime ? new Date(q.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+      });
+    }
   } catch (error) {
     console.error("Yahoo Finance fetch error:", error);
-    return [];
   }
+  
+  return results;
 }
 
-// Commodity symbols to fetch
-const COMMODITY_SYMBOLS = [
-  "CL=F",   // WTI Crude Oil
-  "BZ=F",   // Brent Crude
-  "NG=F",   // Natural Gas
-  "HG=F",   // Copper
-  "GC=F",   // Gold
-  "AUDUSD=X", // AUD/USD
-];
+// Generate realistic price variations for demo/fallback
+function generateRealisticVariation(basePrice: number, volatility: number = 0.02): { price: number; change: number; changePercent: number } {
+  const changePercent = (Math.random() - 0.5) * volatility * 100;
+  const change = basePrice * (changePercent / 100);
+  const price = basePrice + change;
+  return { price, change, changePercent };
+}
 
 export async function GET() {
   try {
-    // Try to fetch real data
-    const yahooData = await fetchYahooFinanceQuotes(COMMODITY_SYMBOLS);
+    const now = new Date().toISOString();
     
-    if (yahooData.length > 0) {
-      // Map to more user-friendly names
-      const mappedData = yahooData.map((item) => {
-        const nameMap: Record<string, string> = {
-          "CL=F": "WTI Crude Oil",
-          "BZ=F": "Brent Crude",
-          "NG=F": "Natural Gas (US)",
-          "HG=F": "Copper",
-          "GC=F": "Gold",
-          "AUDUSD=X": "AUD/USD",
-        };
+    // Get Yahoo symbols for fetching
+    const yahooSymbols = COMMODITIES
+      .map(c => c.yahooSymbol)
+      .filter(s => !s.includes("-") && s !== "HRC1!"); // Filter out synthetic symbols
+    
+    // Try to fetch real data
+    const yahooData = await fetchYahooFinanceQuotes(yahooSymbols);
+    const hasLiveData = yahooData.size > 0;
+    
+    // Build response with readable names
+    const data: CommodityPrice[] = COMMODITIES.map(commodity => {
+      const liveData = yahooData.get(commodity.yahooSymbol);
+      
+      if (liveData && liveData.price > 0) {
         return {
-          ...item,
-          name: nameMap[item.symbol] || item.name,
+          symbol: commodity.symbol,
+          name: commodity.name,
+          price: liveData.price,
+          change: liveData.change,
+          changePercent: liveData.changePercent,
+          currency: "USD",
+          unit: commodity.unit,
+          region: commodity.region,
+          lastUpdated: liveData.lastUpdated,
+          source: "yahoo",
         };
-      });
+      }
+      
+      // Fallback with realistic variations
+      const variation = generateRealisticVariation(commodity.fallbackPrice);
+      return {
+        symbol: commodity.symbol,
+        name: commodity.name,
+        price: variation.price,
+        change: variation.change,
+        changePercent: variation.changePercent,
+        currency: "USD",
+        unit: commodity.unit,
+        region: commodity.region,
+        lastUpdated: now,
+        source: "estimate",
+      };
+    });
 
-      // Add some synthetic indices that aren't available via Yahoo
-      const syntheticData: CommodityPrice[] = [
-        {
-          symbol: "LNG-ASIA",
-          name: "LNG Asia Spot",
-          price: 12.45 + (Math.random() - 0.5) * 0.5,
-          change: (Math.random() - 0.5) * 0.4,
-          changePercent: (Math.random() - 0.5) * 3,
-          currency: "USD/MMBtu",
-          lastUpdated: new Date().toISOString(),
-          source: "estimated",
-        },
-        {
-          symbol: "BDI",
-          name: "Baltic Dry Index",
-          price: 1245 + Math.floor((Math.random() - 0.5) * 50),
-          change: Math.floor((Math.random() - 0.5) * 30),
-          changePercent: (Math.random() - 0.5) * 2,
-          currency: "Index",
-          lastUpdated: new Date().toISOString(),
-          source: "estimated",
-        },
-      ];
-
-      return NextResponse.json({
-        success: true,
-        data: [...mappedData, ...syntheticData],
-        timestamp: new Date().toISOString(),
-        source: "live",
-      });
-    }
-
-    // Fallback to static data
     return NextResponse.json({
       success: true,
-      data: fallbackData,
-      timestamp: new Date().toISOString(),
-      source: "fallback",
+      data,
+      timestamp: now,
+      source: hasLiveData ? "live" : "estimate",
     });
   } catch (error) {
     console.error("Market data fetch error:", error);
+    
+    // Return fallback data with readable names
+    const now = new Date().toISOString();
+    const fallbackData: CommodityPrice[] = COMMODITIES.map(commodity => {
+      const variation = generateRealisticVariation(commodity.fallbackPrice);
+      return {
+        symbol: commodity.symbol,
+        name: commodity.name,
+        price: variation.price,
+        change: variation.change,
+        changePercent: variation.changePercent,
+        currency: "USD",
+        unit: commodity.unit,
+        region: commodity.region,
+        lastUpdated: now,
+        source: "fallback",
+      };
+    });
+    
     return NextResponse.json({
       success: true,
       data: fallbackData,
-      timestamp: new Date().toISOString(),
+      timestamp: now,
       source: "fallback",
     });
   }
 }
-
