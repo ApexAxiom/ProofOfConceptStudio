@@ -33,6 +33,14 @@ When creating App Runner services, choose **Use a configuration file**. Set the 
 - API: `apps/api`
 - Runner: `apps/runner`
 
+### Proven App Runner Setup
+- App Runner installs without npm workspaces; internal packages use `file:` links (for example `@proof/shared: "file:../../packages/shared"`).
+- Select **Source code repository** + **Use configuration file** and point to the service directory so App Runner picks up `apprunner.yaml`.
+- Ports honor `PORT` (default 8080) and bind `0.0.0.0`. Health checks:
+  - Web: Source `apps/web`, config `apps/web/apprunner.yaml`, health path `/api/healthz`.
+  - API: Source `apps/api`, config `apps/api/apprunner.yaml`, health path `/health`.
+  - Runner: Source `apps/runner`, config `apps/runner/apprunner.yaml`, health path `/healthz`.
+
 ## App Runner Deployment (Proven Mode)
 - Create three services: web, api, runner.
 - Source directories: `apps/web`, `apps/api`, `apps/runner`.

@@ -3,16 +3,11 @@ runtime: nodejs18
 build:
   commands:
     pre-build:
-      - cd ../../packages/shared && npm install --include=dev --workspaces=false --no-audit --no-fund && npm run build
-      - npm install --include=dev --workspaces=false --no-audit --no-fund
+      - "cd ../../packages/shared && npm install --include=dev --workspaces=false --no-audit --no-fund && npm run build"
+      - "npm install --include=dev --workspaces=false --no-audit --no-fund"
     build:
-      - npm run build
+      - "npm run build"
 run:
-  command: npm start
+  command: "npm start"
   network:
     port: 8080
-  env:
-    - name: PORT
-      value: "8080"
-    - name: NODE_ENV
-      value: "production"
