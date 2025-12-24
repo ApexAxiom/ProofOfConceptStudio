@@ -21,13 +21,19 @@ async function runWithLimit<T>(tasks: (() => Promise<T>)[], limit = 3): Promise<
   return results;
 }
 
-export async function handleCron(runWindow: RunWindow, opts?: { runId?: string; scheduled?: boolean }) {
+export async function handleCron(
+  runWindow: RunWindow,
+  opts?: { runId?: string; scheduled?: boolean; regions?: RegionSlug[] }
+) {
   const agents = loadAgents();
   const runId = opts?.runId ?? crypto.randomUUID();
   const tasks: (() => Promise<RunResult>)[] = [];
+  const regionFilter = opts?.regions ? new Set(opts.regions) : null;
   for (const agent of agents) {
     for (const region of Object.keys(agent.feedsByRegion) as RegionSlug[]) {
-      tasks.push(() => runAgent(agent.id, region, runWindow, runId));
+      if (!regionFilter || regionFilter.has(region)) {
+        tasks.push(() => runAgent(agent.id, region, runWindow, runId));
+      }
     }
   }
   const results = await runWithLimit(tasks, 4);

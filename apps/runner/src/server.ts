@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { runWindowFromDate, type RunWindow } from "@proof/shared";
+import { REGIONS, RegionSlug, runWindowFromDate, type RunWindow } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
 import crypto from "node:crypto";
 
@@ -11,9 +11,9 @@ const fastify = Fastify({ logger: true });
 fastify.get("/health", async () => ({ status: "ok" }));
 fastify.get("/healthz", async () => ({ status: "ok" }));
 
-function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
+function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: string, toleranceMinutes = 10): boolean {
   const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
+    timeZone,
     hour: "numeric",
     minute: "numeric",
     hour12: false
@@ -35,16 +35,35 @@ fastify.post("/cron", async (request, reply) => {
   const runWindow: RunWindow = body.runWindow ?? runWindowFromDate(new Date());
   const runId = crypto.randomUUID();
 
-  if (body.scheduled === true && !body.force && !isWithinScheduledWindow(runWindow, new Date())) {
-    reply.code(202).send({ ok: true, accepted: true, skipped: true, runWindow, runId });
-    return;
+  const regionInput = Array.isArray(body?.regions)
+    ? body.regions
+    : body.region
+      ? [body.region]
+      : undefined;
+
+  const regions = regionInput
+    ?.map((r: string) => r as RegionSlug)
+    .filter((r: RegionSlug) => Boolean(REGIONS[r]));
+
+  if (body.scheduled === true && !body.force) {
+    const now = new Date();
+    const inWindow = regions?.length
+      ? regions.some((region) => isWithinScheduledWindow(runWindow, now, REGIONS[region].timeZone))
+      : isWithinScheduledWindow(runWindow, now, "America/Chicago");
+
+    if (!inWindow) {
+      reply.code(202).send({ ok: true, accepted: true, skipped: true, runWindow, runId });
+      return;
+    }
   }
 
   reply.code(202).send({ ok: true, accepted: true, runWindow, runId });
   setImmediate(() => {
-    handleCron(runWindow, { runId, scheduled: body.scheduled === true }).catch((err) =>
-      fastify.log.error(err)
-    );
+    handleCron(runWindow, {
+      runId,
+      scheduled: body.scheduled === true,
+      regions: regions?.length ? regions : undefined
+    }).catch((err) => fastify.log.error(err));
   });
 });
 
