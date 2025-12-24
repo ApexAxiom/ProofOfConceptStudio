@@ -14,6 +14,7 @@ build:
     build:
       - npm run build
 run:
-  command: PORT=8080 npm start
+  # Let App Runner provide PORT; our start.js already defaults to 8080 if PORT isn't set.
+  command: npm start
   network:
     port: 8080
