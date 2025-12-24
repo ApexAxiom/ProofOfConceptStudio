@@ -1,10 +1,33 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { REGION_LIST, PORTFOLIOS } from "@proof/shared";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import rehypeExternalLinks from "rehype-external-links";
+
+function SparklesIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+    </svg>
+  );
+}
+
+const suggestedQuestions = [
+  "What are the key market drivers for drilling services this week?",
+  "Summarize recent cybersecurity advisories affecting our region",
+  "What freight rate trends should we watch?",
+  "Any major project announcements in subsea/offshore?"
+];
 
 export default function ChatPage() {
   const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
@@ -12,65 +35,179 @@ export default function ChatPage() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const answerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (answer && answerRef.current) {
+      answerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [answer]);
 
   const ask = async () => {
+    if (!question.trim()) return;
     setLoading(true);
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, region, portfolio })
-    });
-    const json = await res.json();
-    setAnswer(json.answer);
+    setAnswer("");
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, region, portfolio })
+      });
+      const json = await res.json();
+      setAnswer(json.answer || json.error || "No response received");
+    } catch (err) {
+      setAnswer("Failed to connect to the AI service. Please try again.");
+    }
     setLoading(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      ask();
+    }
+  };
+
+  const handleSuggestion = (q: string) => {
+    setQuestion(q);
+    inputRef.current?.focus();
+  };
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Category Bot</h2>
-      <div className="flex gap-2 items-center">
-        <select value={region} onChange={(e) => setRegion(e.target.value)} className="border px-2 py-1">
-          {REGION_LIST.map((r) => (
-            <option key={r.slug} value={r.slug}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <select value={portfolio} onChange={(e) => setPortfolio(e.target.value)} className="border px-2 py-1">
-          {PORTFOLIOS.map((p) => (
-            <option key={p.slug} value={p.slug}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+    <div className="mx-auto max-w-4xl space-y-8">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-800/80 to-slate-900 p-8 shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/5 via-blue-500/5 to-cyan-500/5" />
+        <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-blue-500/10 blur-3xl" />
+        
+        <div className="relative flex items-start gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 text-white shadow-lg shadow-violet-500/25">
+            <SparklesIcon />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white md:text-3xl">AI Category Assistant</h1>
+            <p className="mt-2 text-base text-slate-300">
+              Ask questions about market intelligence, supplier trends, or any category-related topic. Powered by your curated brief data.
+            </p>
+          </div>
+        </div>
       </div>
-      <textarea
-        className="w-full border p-2"
-        rows={4}
-        placeholder="Ask a question"
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-      />
-      <button onClick={ask} disabled={loading} className="bg-blue-600 text-white px-3 py-1 rounded">
-        {loading ? "Thinking..." : "Ask"}
-      </button>
-      {answer && (
-        <ReactMarkdown
-          className="prose max-w-none"
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[
-            rehypeSanitize,
-            [
-              rehypeExternalLinks,
-              {
-                target: "_blank",
-                rel: ["noreferrer", "noopener"]
-              }
-            ]
-          ]}
-        >
-          {answer}
-        </ReactMarkdown>
+
+      {/* Context Selectors */}
+      <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Context</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300">Region</label>
+            <select
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              className="w-full"
+            >
+              {REGION_LIST.map((r) => (
+                <option key={r.slug} value={r.slug}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300">Portfolio</label>
+            <select
+              value={portfolio}
+              onChange={(e) => setPortfolio(e.target.value)}
+              className="w-full"
+            >
+              {PORTFOLIOS.map((p) => (
+                <option key={p.slug} value={p.slug}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Suggested Questions */}
+      {!answer && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Suggested Questions</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {suggestedQuestions.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => handleSuggestion(q)}
+                className="group flex items-start gap-3 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 text-left text-sm text-slate-300 transition-all hover:border-blue-500/30 hover:bg-slate-800/50"
+              >
+                <span className="mt-0.5 text-slate-500 transition-colors group-hover:text-blue-400">→</span>
+                <span>{q}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="relative">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-900/80 shadow-lg focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20">
+          <textarea
+            ref={inputRef}
+            className="w-full resize-none border-0 bg-transparent px-5 py-4 pr-16 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-0"
+            rows={3}
+            placeholder="Ask a question about your category..."
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <button
+            onClick={ask}
+            disabled={loading || !question.trim()}
+            className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 disabled:opacity-50 disabled:shadow-none"
+          >
+            {loading ? (
+              <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <SendIcon />
+            )}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">Press Enter to send, Shift+Enter for new line</p>
+      </div>
+
+      {/* Answer */}
+      {(answer || loading) && (
+        <div ref={answerRef} className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 text-white">
+              <SparklesIcon />
+            </div>
+            <span className="font-semibold text-white">AI Response</span>
+            {loading && (
+              <span className="flex items-center gap-2 text-sm text-slate-400">
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Thinking...
+              </span>
+            )}
+          </div>
+          
+          {answer && (
+            <div className="prose prose-invert max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[
+                  rehypeSanitize,
+                  [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
+                ]}
+              >
+                {answer}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
