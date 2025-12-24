@@ -5,11 +5,17 @@ import { BriefPost } from "@proof/shared";
 import { OpenAI } from "openai";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const model = process.env.OPENAI_MODEL || "gpt-5.2";
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+// Default to a widely-available model; override via OPENAI_MODEL.
+const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", async (request, reply) => {
+    if (!openai) {
+      reply.code(503).send({ error: "OPENAI_API_KEY is not configured" });
+      return;
+    }
     const { question, region, portfolio } = request.body as any;
     if (!region || !portfolio || !question) {
       reply.code(400).send({ error: "question, region, and portfolio are required" });

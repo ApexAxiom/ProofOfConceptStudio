@@ -3,10 +3,15 @@ import { OpenAI } from "openai";
 import { buildPrompt, PromptInput } from "./prompts.js";
 import { BriefPost } from "@proof/shared";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const model = process.env.OPENAI_MODEL || "gpt-5.2";
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+// Default to a widely-available model; override via OPENAI_MODEL.
+const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 export async function generateBrief(input: PromptInput): Promise<BriefPost> {
+  if (!client) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
   const prompt = buildPrompt(input);
   const response = await client.responses.create({
     model,
