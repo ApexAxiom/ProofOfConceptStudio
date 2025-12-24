@@ -3,16 +3,13 @@ runtime: nodejs18
 build:
   commands:
     pre-build:
-      - |
-          cd ../../packages/shared
-          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
-          npm run build
+      - cd ../../packages/shared && npm install --include=dev --workspaces=false --install-links --no-audit --no-fund && npm run build
       - npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
       - node -e "console.log('shared pkg path=', require.resolve('@proof/shared/package.json'))"
       - node -e "import('@proof/shared').then(()=>console.log('import @proof/shared OK')).catch(e=>{console.error('import @proof/shared FAILED'); console.error(e); process.exit(1);})"
     build:
       - npm run build
 run:
-  command: "npm start"
+  command: PORT=8080 npm start
   network:
     port: 8080
