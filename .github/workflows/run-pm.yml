@@ -1,8 +1,5 @@
 name: Run PM Briefs
 on:
-  schedule:
-    - cron: "45 19 * * *"
-    - cron: "45 20 * * *"
   workflow_dispatch: {}
 jobs:
   trigger:
