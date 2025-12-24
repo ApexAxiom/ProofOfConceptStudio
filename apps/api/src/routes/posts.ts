@@ -1,9 +1,6 @@
 import { FastifyPluginAsync } from "fastify";
-import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import client from "../db/dynamo.js";
-import { BriefPost, REGION_LIST } from "@proof/shared";
-
-const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
+import { REGION_LIST } from "@proof/shared";
+import { filterPosts, getPost, getRegionPosts } from "../db/posts.js";
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async (request, reply) => {
@@ -13,24 +10,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
       return;
     }
-    const params: any = {
-      TableName: tableName,
-      IndexName: "GSI2", // region-date
-      KeyConditionExpression: "GSI2PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `REGION#${region}`
-      },
-      ScanIndexForward: false,
-      Limit: limit ? Number(limit) : 20
-    };
-    const data = await client.send(new QueryCommand(params));
-    const items = (data.Items ?? []) as BriefPost[];
-    return items.filter(
-      (i) =>
-        i.status === "published" &&
-        (!portfolio || i.portfolio === portfolio) &&
-        (!runWindow || i.runWindow === runWindow)
-    );
+    return filterPosts({ region, portfolio, runWindow, limit: limit ? Number(limit) : 20 });
   });
 
   fastify.get("/latest", async (request, reply) => {
@@ -40,33 +20,12 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
       return;
     }
-    const params: any = {
-      TableName: tableName,
-      IndexName: "GSI2", // region-date
-      KeyConditionExpression: "GSI2PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `REGION#${region}`
-      },
-      ScanIndexForward: false,
-      Limit: 30
-    };
-    const data = await client.send(new QueryCommand(params));
-    return ((data.Items ?? []) as BriefPost[]).filter((i) => i.status === "published");
+    return getRegionPosts(region).then((posts) => posts.slice(0, 30));
   });
 
   fastify.get<{ Params: { postId: string } }>("/:postId", async (request) => {
     const { postId } = request.params;
-    const params: any = {
-      TableName: tableName,
-      KeyConditionExpression: "PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `POST#${postId}`
-      },
-      ScanIndexForward: false,
-      Limit: 1
-    };
-    const data = await client.send(new QueryCommand(params));
-    return (data.Items?.[0] as BriefPost) || null;
+    return getPost(postId);
   });
 };
 
