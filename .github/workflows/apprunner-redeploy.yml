@@ -1,0 +1,66 @@
+name: App Runner redeploy (main)
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: apprunner-redeploy-main
+  cancel-in-progress: true
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::405894865970:role/GitHubActions-AppRunnerDeploy-ProofOfConceptStudio
+
+      - name: Redeploy App Runner services
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          region="us-east-1"
+
+          get_arn() {
+            local name="$1"
+            aws apprunner list-services \
+              --region "$region" \
+              --query "ServiceSummaryList[?ServiceName=='${name}'].ServiceArn | [0]" \
+              --output text
+          }
+
+          start_deploy_if_running() {
+            local arn="$1"
+            local name="$2"
+            local status
+            status="$(aws apprunner describe-service --region "$region" --service-arn "$arn" --query "Service.Status" --output text)"
+            echo "Service ${name}: ${status}"
+            if [[ "$status" == "RUNNING" ]]; then
+              aws apprunner start-deployment --region "$region" --service-arn "$arn" --output json
+            else
+              echo "Skipping ${name} (status=${status})"
+            fi
+          }
+
+          web_arn="$(get_arn pocstudio-web)"
+          api_arn="$(get_arn pocstudio-api)"
+          runner_arn="$(get_arn pocstudio-runner)"
+
+          if [[ -z "$web_arn" || "$web_arn" == "None" ]]; then echo "Could not find service pocstudio-web" && exit 1; fi
+          if [[ -z "$api_arn" || "$api_arn" == "None" ]]; then echo "Could not find service pocstudio-api" && exit 1; fi
+          if [[ -z "$runner_arn" || "$runner_arn" == "None" ]]; then echo "Could not find service pocstudio-runner" && exit 1; fi
+
+          # Order: runner -> api -> web (web depends on API; api depends on runner)
+          start_deploy_if_running "$runner_arn" "pocstudio-runner"
+          start_deploy_if_running "$api_arn" "pocstudio-api"
+          start_deploy_if_running "$web_arn" "pocstudio-web"
+
+

@@ -9,3 +9,5 @@ coverage
 .tmp
 package-lock.json
 *.tsbuildinfo
+*.docx
+~$*

@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GitHub Actions OIDC role to trigger App Runner deployments for ProofOfConceptStudio
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: ApexAxiom/ProofOfConceptStudio
+    Description: GitHub repo in the form owner/repo
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      # GitHub's Actions OIDC root CA thumbprint
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+
+  AppRunnerDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActions-AppRunnerDeploy-ProofOfConceptStudio
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:ref:refs/heads/main"
+      Policies:
+        - PolicyName: AppRunnerStartDeployment
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - apprunner:ListServices
+                  - apprunner:DescribeService
+                  - apprunner:StartDeployment
+                Resource: "*"
+
+Outputs:
+  RoleArn:
+    Value: !GetAtt AppRunnerDeployRole.Arn
+  OidcProviderArn:
+    Value: !Ref GitHubOidcProvider
+
+
