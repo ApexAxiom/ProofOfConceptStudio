@@ -33,6 +33,8 @@ When creating App Runner services, choose **Use a configuration file**. Set the 
 - API: `apps/api`
 - Runner: `apps/runner`
 
+Each service directory must include its own `apprunner.yaml`, and the App Runner **Source directory** should always match the corresponding app folder (for example `apps/web`). Pointing App Runner at the repo root will not work.
+
 ### Proven App Runner Setup
 - App Runner installs without npm workspaces; internal packages use `file:` links (for example `@proof/shared: "file:../../packages/shared"`).
 - Select **Source code repository** + **Use configuration file** and point to the service directory so App Runner picks up `apprunner.yaml`.
