@@ -31,34 +31,27 @@ export function buildPrompt({ agent, region, runWindow, articles, indices, repai
   const previous = previousJson ? `\nPrevious JSON (fix it): ${previousJson}` : "";
 
   return `You are a procurement intelligence analyst generating a brief for portfolio ${agent.label} in region ${region} for the ${runWindow.toUpperCase()} run.
-Use only the provided articles and allowed index URLs. Every bullet MUST end with an allowed URL in parentheses. Do not invent links. Return JSON with fields: title, summary, sources (array of URLs), bodyMarkdown. bodyMarkdown must follow this markdown template strictly:
+Use only the provided articles and allowed index URLs. Every bullet MUST end with an allowed URL in parentheses. Do not invent links. Keep all sections tight and scannable. Return JSON with fields: title, summary (1-2 sentences), sources (array of URLs), bodyMarkdown. bodyMarkdown must follow this markdown template strictly:
 
 # {Title}
-**Region:** {Region Label}  
-**Portfolio:** {Portfolio Label}  
-**Run:** {AM|PM}  
+**Region:** {Region Label}
+**Portfolio:** {Portfolio Label}
+**Run:** {AM|PM}
 **Published:** {ISO timestamp}
 
-## 3 Takeaways
+**Overview:** One or two sentences that summarize the highlight, ending with a citation (URL)
+
+## Quick Takes
 - ... (URL)
+- ... (URL)
+- ... (URL)
+
+## Supporting Links
 - ... (URL)
 - ... (URL)
 
 ## Market Snapshot
 - index label: short note (URL)
-- ...
-
-## Developments
-- ... (URL)
-- ... (URL)
-- ...
-
-## Procurement Impact
-- ... (URL)
-- ...
-
-## Recommended Actions
-- ... (URL)
 - ...
 
 ## Sources

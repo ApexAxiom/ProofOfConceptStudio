@@ -1,4 +1,4 @@
-import { BriefPost, RunWindow } from "@proof/shared";
+import { BriefPost, PORTFOLIOS, RunWindow } from "@proof/shared";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
 
@@ -26,5 +26,30 @@ export async function fetchPosts(params: { region: string; portfolio?: string; r
     return res.json();
   } catch {
     return [];
+  }
+}
+
+function pickLatestPerPortfolio(briefs: BriefPost[]): BriefPost[] {
+  const latestByPortfolio = new Map<string, BriefPost>();
+  for (const brief of briefs) {
+    if (!latestByPortfolio.has(brief.portfolio)) {
+      latestByPortfolio.set(brief.portfolio, brief);
+    }
+  }
+  return PORTFOLIOS.map((p) => latestByPortfolio.get(p.slug)).filter(Boolean) as BriefPost[];
+}
+
+export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[]> {
+  const posts = await fetchPosts({ region, limit: 200 });
+  return pickLatestPerPortfolio(posts);
+}
+
+export async function fetchPost(postId: string): Promise<BriefPost | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/posts/${postId}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
   }
 }

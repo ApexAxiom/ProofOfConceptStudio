@@ -31,6 +31,34 @@ const energyIndices: MarketIndex[] = [
     regionScope: ["au"]
   },
   {
+    id: "au-petroleum-stats",
+    label: "Australian Petroleum Statistics",
+    url: "https://www.energy.gov.au/energy-data/australian-petroleum-statistics",
+    notes: "Monthly AU petroleum production/import/export/sales",
+    regionScope: ["au"]
+  },
+  {
+    id: "aemo-gsh-daily",
+    label: "AEMO Gas Supply Hub (GSH) Daily Reports",
+    url: "https://www.aemo.com.au/energy-systems/gas/gas-supply-hub-gsh/data-gsh/daily-gsh-reports",
+    notes: "Wallumbilla benchmark prices and daily trading summary",
+    regionScope: ["au"]
+  },
+  {
+    id: "accc-lng-netback",
+    label: "ACCC LNG Netback Price Series",
+    url: "https://www.accc.gov.au/inquiries-and-consultations/gas-inquiry-2017-30/lng-netback-price-series",
+    notes: "Netback linking LNG spot to Wallumbilla",
+    regionScope: ["au"]
+  },
+  {
+    id: "asx-gas-derivatives",
+    label: "ASX Gas Derivatives (Wallumbilla/DWGM)",
+    url: "https://www.asx.com.au/markets/trade-our-derivatives-market/overview/energy-derivatives/gas",
+    notes: "AU gas futures resources",
+    regionScope: ["au"]
+  },
+  {
     id: "eia-lng",
     label: "EIA LNG Snapshot",
     url: "https://www.eia.gov/naturalgas/",
@@ -66,6 +94,27 @@ const steelIndices: MarketIndex[] = [
     label: "AFR Commodities",
     url: "https://www.afr.com/markets/commodities",
     notes: "AU commodity coverage",
+    regionScope: ["au"]
+  },
+  {
+    id: "marketindex-commodities",
+    label: "Market Index – Commodities",
+    url: "https://www.marketindex.com.au/commodities",
+    notes: "AU commodity snapshots",
+    regionScope: ["au"]
+  },
+  {
+    id: "sgx-iron-ore",
+    label: "SGX Iron Ore Derivatives",
+    url: "https://www.sgx.com/derivatives/products/iron-ore",
+    notes: "APAC iron ore pricing references",
+    regionScope: ["au"]
+  },
+  {
+    id: "rba-fx",
+    label: "RBA Exchange Rates",
+    url: "https://www.rba.gov.au/statistics/frequency/exchange-rates.html",
+    notes: "AUD FX reference rates",
     regionScope: ["au"]
   },
   {

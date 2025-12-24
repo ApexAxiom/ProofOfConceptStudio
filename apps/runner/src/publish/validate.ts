@@ -1,11 +1,9 @@
 import { BriefPost } from "@proof/shared";
 
 const SECTION_RULES = [
-  { heading: "## 3 Takeaways", min: 3, max: 3 },
-  { heading: "## Market Snapshot", min: 3, max: undefined, indexOnly: true },
-  { heading: "## Developments", min: 5, max: 10 },
-  { heading: "## Procurement Impact", min: 3 },
-  { heading: "## Recommended Actions", min: 1, max: 3 }
+  { heading: "## Quick Takes", min: 3, max: 4 },
+  { heading: "## Supporting Links", min: 2, max: 4 },
+  { heading: "## Market Snapshot", min: 2, max: undefined, indexOnly: true }
 ];
 
 function parseSections(body: string): Map<string, string[]> {
@@ -42,6 +40,11 @@ function urlAtEnd(bullet: string): string | null {
   return match?.[1] ?? null;
 }
 
+function extractOverviewLine(body: string): string | null {
+  const lines = body.split(/\r?\n/);
+  return lines.find((line) => line.trim().toLowerCase().startsWith("**overview:**")) ?? null;
+}
+
 function parseSources(lines: string[]): string[] {
   return lines
     .map((line) => line.trim())
@@ -59,6 +62,21 @@ export function validateBrief(brief: BriefPost, allowedUrls: Set<string>, indexU
 
   const sections = parseSections(body);
   const referencedUrls = new Set<string>();
+
+  const overviewLine = extractOverviewLine(body);
+  if (!overviewLine) {
+    issues.push("Missing overview section");
+  } else {
+    const overviewUrl = urlAtEnd(overviewLine.replace(/^\*\*Overview:\*\*\s*/i, ""));
+    if (!overviewUrl) {
+      issues.push("Overview must end with a cited URL");
+    } else {
+      referencedUrls.add(overviewUrl);
+      if (!allowedUrls.has(overviewUrl)) {
+        issues.push(`URL not allowed: ${overviewUrl}`);
+      }
+    }
+  }
 
   for (const rule of SECTION_RULES) {
     const lines = sections.get(rule.heading) ?? [];

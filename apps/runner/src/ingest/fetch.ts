@@ -50,32 +50,37 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
     .sort((a, b) => b.score - a.score);
   const top = scored.slice(0, 10);
 
-  const results: ArticleDetail[] = [];
+  const orderedResults: (ArticleDetail | undefined)[] = Array(top.length);
   const limit = 4;
   for (let i = 0; i < top.length; i += limit) {
     const slice = top.slice(i, i + limit);
     await Promise.all(
-      slice.map(async (candidate) => {
-        const details = await fetchArticleDetails(candidate.url);
-        results.push({
-          title: details.title || candidate.title,
-          url: candidate.url,
-          published: candidate.published ?? details.publishedAt,
-          summary: details.description ?? candidate.summary,
-          content: details.content,
-          ogImageUrl: details.ogImageUrl
-        });
+      slice.map(async (candidate, idx) => {
+        const absoluteIndex = i + idx;
+        try {
+          const details = await fetchArticleDetails(candidate.url);
+          orderedResults[absoluteIndex] = {
+            title: details.title || candidate.title,
+            url: candidate.url,
+            published: candidate.published ?? details.publishedAt,
+            summary: details.description ?? candidate.summary,
+            content: details.content,
+            ogImageUrl: details.ogImageUrl
+          };
+        } catch (err) {
+          console.error(`Detail fetch failed for ${candidate.url}`, err);
+        }
       })
     );
   }
 
   return {
-    articles: results,
+    articles: orderedResults.filter((r): r is ArticleDetail => Boolean(r)),
     scannedSources: feeds.map((f) => f.url),
     metrics: {
       collectedCount: collected.length,
       dedupedCount: deduped.length,
-      extractedCount: results.length
+      extractedCount: orderedResults.filter(Boolean).length
     }
   };
 }

@@ -3,13 +3,22 @@ import { MarketIndex } from "@proof/shared";
 export function MarketSnapshot({ indices }: { indices: MarketIndex[] }) {
   if (!indices.length) return null;
   return (
-    <section className="bg-white p-4 rounded border">
-      <h4 className="font-semibold mb-3">Market Snapshot</h4>
-      <div className="grid md:grid-cols-2 gap-3">
+    <section className="rounded-2xl border bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="text-base font-semibold text-slate-900">Market Snapshot</h4>
+        <span className="text-xs text-slate-500">Regional indices</span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
         {indices.map((idx) => (
-          <a key={idx.id} href={idx.url} target="_blank" rel="noreferrer" className="block border p-3 rounded hover:shadow">
-            <div className="font-semibold">{idx.label}</div>
-            <div className="text-xs text-gray-600">{idx.notes}</div>
+          <a
+            key={idx.id}
+            href={idx.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-full flex-col gap-1 rounded-xl border border-slate-200 p-3 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow"
+          >
+            <div className="font-semibold text-slate-900">{idx.label}</div>
+            <div className="text-xs text-slate-600">{idx.notes}</div>
           </a>
         ))}
       </div>
