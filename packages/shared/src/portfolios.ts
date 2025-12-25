@@ -352,6 +352,12 @@ export const PORTFOLIOS: PortfolioDefinition[] = [
     defaultIndices: facilityIndices
   },
   {
+    slug: "market-dashboard",
+    label: "Oil & Gas / LNG Market Dashboard",
+    description: "Cross-category market pulse and procurement implications for O&G and LNG.",
+    defaultIndices: energyIndices
+  },
+  {
     slug: "it-telecom-cyber",
     label: "IT, Telecom & Cyber",
     description: "Cyber posture, telecom resilience, and IT sourcing.",

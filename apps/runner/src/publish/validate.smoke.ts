@@ -55,8 +55,14 @@ const brief: BriefPost = {
   runWindow: "am",
   status: "draft",
   publishedAt: new Date().toISOString(),
+  summary: "This is a demo brief summary that satisfies the minimum length rule.",
   bodyMarkdown,
-  sources: []
+  selectedArticles: [
+    { title: "Article 1", url: "https://example.com/article-1", briefContent: "A detailed summary of article one that exceeds limits." },
+    { title: "Article 2", url: "https://example.com/article-2", briefContent: "A detailed summary of article two that exceeds limits." },
+    { title: "Article 3", url: "https://example.com/article-3", briefContent: "A detailed summary of article three that exceeds limits." }
+  ],
+  sources: ["https://example.com/article-1"]
 };
 
 validateBrief(brief, allowedUrls, indexUrls);

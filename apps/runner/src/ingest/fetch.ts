@@ -2,6 +2,8 @@ import { AgentConfig, RegionSlug, keywordsForPortfolio } from "@proof/shared";
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
+import { normalizeForDedupe } from "./url-normalize.js";
+import { getRecentlyUsedUrls } from "../db/used-urls.js";
 
 export interface ArticleCandidate {
   title: string;
@@ -53,10 +55,42 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   
   // Deduplicate articles by URL
   const deduped = dedupeArticles(collected);
+
+  // Remove articles used in recent runs to keep briefs fresh
+  const lookbackDays = agent.lookbackDays ?? 7;
+  const usedUrls = await getRecentlyUsedUrls({
+    portfolio: agent.portfolio,
+    region,
+    lookbackDays,
+    limit: 200
+  });
+
+  const filteredByHistory: ArticleCandidate[] = [];
+  const seenNormalized = new Set<string>();
+  for (const candidate of deduped) {
+    const normalized = normalizeForDedupe(candidate.url);
+    if (normalized) {
+      if (usedUrls.has(normalized)) continue;
+      seenNormalized.add(normalized);
+    }
+    filteredByHistory.push(candidate);
+  }
+
+  const minNeeded = Math.max(agent.articlesPerRun ?? 3, 1) * 2;
+  let dedupeSafeList = filteredByHistory;
+  if (dedupeSafeList.length < minNeeded) {
+    for (const candidate of deduped) {
+      const normalized = normalizeForDedupe(candidate.url);
+      if (normalized && seenNormalized.has(normalized)) continue;
+      dedupeSafeList.push(candidate);
+      if (normalized) seenNormalized.add(normalized);
+      if (dedupeSafeList.length >= minNeeded) break;
+    }
+  }
   
   // Score articles by keyword relevance
   const keywords = keywordsForPortfolio(agent.portfolio).map((k) => k.toLowerCase());
-  const scored = deduped
+  const scored = dedupeSafeList
     .map((item) => ({
       ...item,
       score: keywords.reduce((acc, kw) => {

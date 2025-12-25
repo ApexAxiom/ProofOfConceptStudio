@@ -1,7 +1,14 @@
 import crypto from "node:crypto";
 import { OpenAI } from "openai";
-import { buildPrompt, PromptInput, ArticleInput, parsePromptOutput, BriefOutput } from "./prompts.js";
+import {
+  buildPrompt,
+  PromptInput,
+  ArticleInput,
+  parsePromptOutput,
+  requiredArticleCount
+} from "./prompts.js";
 import { BriefPost, SelectedArticle } from "@proof/shared";
+import { renderBriefMarkdown } from "./render.js";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
@@ -16,7 +23,8 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
   if (!client) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
-  
+
+  const requiredCount = Math.min(requiredArticleCount(input.agent), Math.max(1, input.articles.length));
   const prompt = buildPrompt(input);
   
   const response = await client.chat.completions.create({
@@ -31,42 +39,58 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
   let parsed: BriefOutput;
   
   try {
-    parsed = parsePromptOutput(raw);
+    parsed = parsePromptOutput(raw, requiredCount);
   } catch (error) {
     console.error("Failed to parse LLM output:", raw);
     throw new Error(`Failed to parse LLM response: ${(error as Error).message}`);
   }
-  
+
   const now = new Date().toISOString();
-  
-  // Build the selected articles with validated URLs
-  const selectedArticles: SelectedArticle[] = (parsed.selectedArticles || []).map((article) => {
-    // Find the matching input article to ensure URL is preserved exactly
-    const matchingInput = input.articles.find(
-      (a) => a.url === article.url || a.title === article.title
-    );
-    
+  const regionLabel = input.region === "au" ? "Australia (Perth)" : "Americas (Houston)";
+
+  const selectedArticles: SelectedArticle[] = parsed.selectedArticles.map((article) => {
+    const idx = article.articleIndex - 1;
+    const inputArticle = input.articles[idx];
+    if (!inputArticle) {
+      throw new Error(`Invalid articleIndex ${article.articleIndex} from LLM`);
+    }
     return {
-      title: article.title,
-      url: matchingInput?.url || article.url, // Prefer the exact input URL
+      title: inputArticle.title,
+      url: inputArticle.url,
       briefContent: article.briefContent,
-      imageUrl: article.imageUrl || matchingInput?.ogImageUrl,
-      imageAlt: article.imageAlt || article.title,
-      sourceName: article.sourceName || matchingInput?.sourceName,
-      publishedAt: matchingInput?.publishedAt
+      imageUrl: inputArticle.ogImageUrl,
+      imageAlt: article.imageAlt || inputArticle.title,
+      sourceName: inputArticle.sourceName,
+      publishedAt: inputArticle.publishedAt
     };
   });
-  
-  // Determine the hero image from the selected articles
-  const heroIndex = Math.min(parsed.heroArticleIndex || 0, selectedArticles.length - 1);
-  const heroArticle = selectedArticles[heroIndex] || selectedArticles[0];
-  
-  // Find the best hero image from selected articles
-  const heroImageUrl = findBestHeroImage(selectedArticles, input.articles);
-  const heroImageSource = selectedArticles.find((a) => 
-    input.articles.find((ia) => ia.url === a.url)?.ogImageUrl === heroImageUrl
-  );
-  
+
+  const heroArticle = selectedArticles.find((_, idx) => idx + 1 === parsed.heroSelection.articleIndex) || selectedArticles[0];
+
+  const marketIndicators = parsed.marketIndicators
+    .map((m) => {
+      const match = input.indices.find((idx) => idx.id === m.indexId);
+      if (!match) return null;
+      return { ...match, note: m.note || "" };
+    })
+    .filter((m): m is NonNullable<typeof m> => Boolean(m));
+
+  const bodyMarkdown = renderBriefMarkdown({
+    title: parsed.title || `Brief - ${input.agent.label}`,
+    summary: parsed.summary || "",
+    regionLabel,
+    portfolioLabel: input.agent.label,
+    runWindow: input.runWindow,
+    publishedAtISO: now,
+    selectedArticles,
+    marketIndicators: marketIndicators.map((mi) => ({ label: mi.label, url: mi.url, note: mi.note }))
+  });
+
+  const sourceUrls = new Set<string>([
+    ...selectedArticles.map((a) => a.url),
+    ...marketIndicators.map((idx) => idx.url)
+  ]);
+
   return {
     postId: crypto.randomUUID(),
     title: parsed.title || `Brief - ${input.agent.label}`,
@@ -76,40 +100,13 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     status: "draft",
     publishedAt: now,
     summary: parsed.summary,
-    bodyMarkdown: parsed.bodyMarkdown,
-    sources: parsed.sources || selectedArticles.map((a) => a.url),
+    bodyMarkdown,
+    sources: Array.from(sourceUrls),
     selectedArticles,
-    heroImageUrl,
-    heroImageSourceUrl: heroImageSource?.url || heroArticle?.url,
+    heroImageUrl: heroArticle?.imageUrl,
+    heroImageSourceUrl: heroArticle?.url,
     heroImageAlt: heroArticle?.title || parsed.title
   };
-}
-
-/**
- * Finds the best hero image from the selected articles
- */
-function findBestHeroImage(selectedArticles: SelectedArticle[], inputArticles: ArticleInput[]): string | undefined {
-  // First try to find an image from selected articles
-  for (const selected of selectedArticles) {
-    if (selected.imageUrl && selected.imageUrl.startsWith("https")) {
-      return selected.imageUrl;
-    }
-    
-    // Check the matching input article
-    const inputMatch = inputArticles.find((a) => a.url === selected.url);
-    if (inputMatch?.ogImageUrl && inputMatch.ogImageUrl.startsWith("https")) {
-      return inputMatch.ogImageUrl;
-    }
-  }
-  
-  // Fall back to any article with a valid image
-  for (const article of inputArticles) {
-    if (article.ogImageUrl && article.ogImageUrl.startsWith("https")) {
-      return article.ogImageUrl;
-    }
-  }
-  
-  return undefined;
 }
 
 export { PromptInput, ArticleInput };

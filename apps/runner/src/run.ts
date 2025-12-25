@@ -5,6 +5,8 @@ import { generateBrief, ArticleInput } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
 import { publishBrief, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
+import { findImageFromPage, findBestImageFromSources } from "./images/image-scraper.js";
+import { runMarketDashboard } from "./market/dashboard.js";
 
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; error?: string };
 
@@ -46,19 +48,31 @@ export async function handleCron(
   opts?: { runId?: string; scheduled?: boolean; regions?: RegionSlug[] }
 ) {
   const agents = loadAgents();
+  const normalAgents = agents.filter((a) => a.mode !== "market-dashboard");
+  const dashboardAgents = agents.filter((a) => a.mode === "market-dashboard");
   const runId = opts?.runId ?? crypto.randomUUID();
   const tasks: (() => Promise<RunResult>)[] = [];
   const regionFilter = opts?.regions ? new Set(opts.regions) : null;
-  
-  for (const agent of agents) {
+
+  for (const agent of normalAgents) {
     for (const region of Object.keys(agent.feedsByRegion) as RegionSlug[]) {
       if (!regionFilter || regionFilter.has(region)) {
         tasks.push(() => runAgent(agent.id, region, runWindow, runId));
       }
     }
   }
-  
+
   const results = await runWithLimit(tasks, 4);
+
+  // Run market dashboard agents after normal briefs are published
+  for (const agent of dashboardAgents) {
+    for (const region of Object.keys(agent.feedsByRegion) as RegionSlug[]) {
+      if (!regionFilter || regionFilter.has(region)) {
+        const dashboardResult = await runMarketDashboard(agent, region, runWindow, runId);
+        results.push(dashboardResult);
+      }
+    }
+  }
   const summary = results.reduce(
     (acc, r) => {
       if ((r as RunResult).ok) acc.successes += 1;
@@ -180,13 +194,39 @@ export async function runAgent(
         return { agentId: agent.id, region, ok: false, error: problem.join("; ") };
       }
     }
-    
-    // Step 8: Ensure hero image is set from selected articles
+
+    // Step 8: Enrich images deterministically
+    const enrichedArticles = await Promise.all(
+      (validated.selectedArticles || []).map(async (article) => {
+        if (article.imageUrl && article.imageUrl.startsWith("http")) {
+          return article;
+        }
+        const scraped = await findImageFromPage(article.url);
+        if (scraped?.url) {
+          return { ...article, imageUrl: scraped.url, imageAlt: scraped.alt ?? article.imageAlt };
+        }
+        return article;
+      })
+    );
+
+    const heroFromSelection = enrichedArticles.find((a) => a.url === validated.heroImageSourceUrl) || enrichedArticles[0];
+    let heroImageUrl = heroFromSelection?.imageUrl || validated.heroImageUrl;
+    let heroImageAlt = validated.heroImageAlt || heroFromSelection?.title || validated.title;
+
+    if (!heroImageUrl) {
+      const scrapedHero = await findBestImageFromSources(
+        enrichedArticles.map((a) => ({ url: a.url, title: a.title, publisher: a.sourceName }))
+      );
+      heroImageUrl = scrapedHero?.url;
+      heroImageAlt = heroImageAlt || scrapedHero?.alt || validated.title;
+    }
+
     const published = {
       ...validated,
-      heroImageUrl: validated.heroImageUrl || findBestHeroImage(validated, articles),
-      heroImageSourceUrl: validated.heroImageSourceUrl || validated.selectedArticles?.[0]?.url,
-      heroImageAlt: validated.heroImageAlt || validated.title
+      selectedArticles: enrichedArticles,
+      heroImageUrl,
+      heroImageSourceUrl: heroFromSelection?.url || validated.heroImageSourceUrl,
+      heroImageAlt
     };
     
     // Step 9: Publish the brief
@@ -204,23 +244,3 @@ export async function runAgent(
   }
 }
 
-/**
- * Finds the best hero image from the validated brief or articles
- */
-function findBestHeroImage(brief: any, articles: ArticleDetail[]): string | undefined {
-  // First check selected articles in the brief
-  for (const selected of brief.selectedArticles || []) {
-    if (selected.imageUrl && selected.imageUrl.startsWith("https")) {
-      return selected.imageUrl;
-    }
-  }
-  
-  // Fall back to ingested articles
-  for (const article of articles) {
-    if (article.ogImageUrl && article.ogImageUrl.startsWith("https")) {
-      return article.ogImageUrl;
-    }
-  }
-  
-  return undefined;
-}

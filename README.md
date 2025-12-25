@@ -17,11 +17,13 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - `pnpm run:pm` – trigger PM run locally
 - `pnpm exec tsx scripts/smoke.ts` – quick end-to-end smoke (runner + api)
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
+- `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
 
 ## Env Vars
 See `.env.example`. Secrets must be provided at runtime. Optional:
 - `DDB_ENDPOINT` for local DynamoDB testing
 - `CORS_ORIGINS` comma-separated allowed origins for API CORS
+- `BING_IMAGE_KEY`/`BING_IMAGE_ENDPOINT` for optional Bing image fallback when scraping article images
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
@@ -97,6 +99,14 @@ Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds.
 
 ## Data Model
 Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-date.
+
+## Market Dashboard Portfolio
+- Portfolio slug: `market-dashboard` (Oil & Gas / LNG Market Dashboard)
+- Mode: cross-category dashboard that aggregates recently published category briefs per region to produce an executive market overview and procurement actions.
+
+## Images
+- Article and hero images are scraped directly from source pages (OpenGraph/Twitter/meta + prominent content images) with realistic browser headers.
+- The web app proxies images through `/api/image-proxy` using a Chrome-like user agent with a retry that drops the referer when needed.
 
 ## AWS Secrets Manager Integration
 
