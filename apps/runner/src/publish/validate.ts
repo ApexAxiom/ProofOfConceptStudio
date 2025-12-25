@@ -228,7 +228,14 @@ export function validateBrief(
   // Add any additional sources from markdown
   const markdownUrls = extractMarkdownUrls(brief.bodyMarkdown || "");
   for (const url of markdownUrls) {
-    if (allowedUrls.has(url)) {
+    if (combinedUrls.has(url)) {
+      allSources.add(url);
+    }
+  }
+
+  // Ensure referenced index URLs are captured
+  for (const url of safeIndexUrls) {
+    if (markdownUrls.has(url)) {
       allSources.add(url);
     }
   }

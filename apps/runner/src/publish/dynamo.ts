@@ -1,23 +1,7 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { BriefPost } from "@proof/shared";
 import { IngestResult } from "../ingest/fetch.js";
-
-const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
-const region = process.env.AWS_REGION ?? "us-east-1";
-const endpoint = process.env.DDB_ENDPOINT;
-
-const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient(
-    endpoint
-      ? {
-          region,
-          endpoint,
-          credentials: { accessKeyId: "local", secretAccessKey: "local" }
-        }
-      : { region }
-  )
-);
+import { documentClient as client, tableName } from "../db/client.js";
 
 /**
  * Publishes a brief to DynamoDB with all article data preserved

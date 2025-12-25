@@ -99,4 +99,6 @@ export interface AgentConfig {
   feedsByRegion: Record<RegionSlug, AgentFeed[]>;
   allowDomains?: string[];
   denyDomains?: string[];
+  lookbackDays?: number;
+  mode?: "brief" | "market-dashboard";
 }

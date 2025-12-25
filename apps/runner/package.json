@@ -9,6 +9,7 @@
     "build": "tsc -b",
     "start": "node dist/server.js",
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
+    "render:smoke": "tsx src/llm/render.smoke.ts",
     "cron:am": "tsx src/cli.ts am",
     "cron:pm": "tsx src/cli.ts pm",
     "lint": "eslint . --ext .ts,.tsx || true"

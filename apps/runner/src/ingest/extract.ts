@@ -2,11 +2,22 @@ import { request } from "undici";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 
+export const BROWSER_HEADERS = {
+  "user-agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "accept-language": "en-US,en;q=0.9"
+};
+
 function resolveUrl(href: string, baseUrl: string): string | null {
   if (!href) return null;
   if (href.startsWith("#") || href.startsWith("javascript:") || href.startsWith("mailto:")) return null;
   try {
-    return new URL(href, baseUrl).toString();
+    const resolved = new URL(href, baseUrl);
+    if (resolved.protocol === "http:") {
+      resolved.protocol = "https:";
+    }
+    return resolved.toString();
   } catch {
     return null;
   }
@@ -35,12 +46,17 @@ function isValidHeroImage(url: string): boolean {
   if (!url.startsWith("https://")) {
     return false;
   }
-  
-  // Must be an image format
-  const imageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
+  const blockedExtensions = [".svg", ".gif"];
+  if (blockedExtensions.some((ext) => lower.includes(ext))) {
+    return false;
+  }
+
+  // Must be an image format or contain common image hints
+  const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
   const hasImageExtension = imageExtensions.some((ext) => lower.includes(ext));
-  const hasImageParams = lower.includes("image") || lower.includes("photo") || lower.includes("media");
-  
+  const hasImageParams = lower.includes("image") || lower.includes("photo") || lower.includes("media") || lower.includes("upload");
+
   return hasImageExtension || hasImageParams || lower.includes("/wp-content/uploads/");
 }
 
@@ -155,7 +171,7 @@ function extractSourceName(document: Document, url: string): string | undefined 
 }
 
 export async function shallowScrape(url: string, limit = 30): Promise<{ title: string; url: string }[]> {
-  const res = await request(url, { method: "GET" });
+  const res = await request(url, { method: "GET", headers: BROWSER_HEADERS });
   const text = await res.body.text();
   const dom = new JSDOM(text, { url });
   const baseHost = new URL(url).hostname;
@@ -195,7 +211,7 @@ export async function fetchArticleDetails(url: string): Promise<ArticleDetails> 
   try {
     const res = await request(url, {
       method: "GET",
-      headers: { "user-agent": "ProofRunnerBot/1.0 (News Aggregator)" },
+      headers: BROWSER_HEADERS,
       maxRedirections: 3,
       bodyTimeout: 15000
     });
