@@ -14,20 +14,22 @@
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {
-    "@proof/shared": "file:../../packages/shared",
+    "@aws-sdk/client-dynamodb": "3.609.0",
+    "@aws-sdk/client-secrets-manager": "^3.958.0",
+    "@aws-sdk/lib-dynamodb": "3.609.0",
     "@mozilla/readability": "0.4.4",
-    "fastify": "4.26.2",
+    "@proof/shared": "file:../../packages/shared",
     "fast-xml-parser": "4.3.3",
+    "fastify": "4.26.2",
     "jsdom": "24.0.0",
     "openai": "4.56.0",
     "undici": "6.19.8",
-    "yaml": "2.4.5",
-    "@aws-sdk/client-dynamodb": "3.609.0",
-    "@aws-sdk/lib-dynamodb": "3.609.0"
+    "yaml": "2.4.5"
   },
   "devDependencies": {
-    "tsx": "4.19.1",
     "@types/jsdom": "21.1.7",
+    "@types/node": "^20.0.0",
+    "tsx": "4.19.1",
     "typescript": "5.4.5"
   }
 }
