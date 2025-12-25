@@ -1,4 +1,4 @@
-name: App Runner redeploy (main)
+name: Deploy: trigger App Runner redeploy on main
 
 on:
   push:

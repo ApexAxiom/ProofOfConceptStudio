@@ -1,4 +1,4 @@
-name: App Runner simulation
+name: CI: build packages and apps (App Runner simulation)
 
 on:
   push:
