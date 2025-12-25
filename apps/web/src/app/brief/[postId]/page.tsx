@@ -3,6 +3,7 @@ import { RegionTabs } from "../../../components/RegionTabs";
 import { FooterSources } from "../../../components/FooterSources";
 import { ProxiedImage } from "../../../components/ProxiedImage";
 import { fetchPost } from "../../../lib/api";
+import { extractValidUrl } from "../../../lib/url";
 import { portfolioLabel, regionLabel, REGIONS } from "@proof/shared";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -62,10 +63,14 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
     hour: "2-digit",
     minute: "2-digit"
   });
-  const sourceUrl = brief.heroImageSourceUrl || brief.sources?.[0];
+  const sourceUrl = extractValidUrl(brief.heroImageSourceUrl) ?? extractValidUrl(brief.sources?.[0]);
+  const sources = (brief.sources ?? [])
+    .map((source) => extractValidUrl(source))
+    .filter((s): s is string => Boolean(s));
   const overview = brief.summary ?? previewText(brief.bodyMarkdown, "This brief includes a short overview and quick takes.");
   const categoryColor = getCategoryColor(brief.portfolio);
   const badgeClass = badgeClasses[categoryColor];
+  const heroImageUrl = extractValidUrl(brief.heroImageUrl);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -88,7 +93,7 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
         {/* Hero Image */}
         <div className="relative h-72 w-full overflow-hidden md:h-96">
           <ProxiedImage
-            src={brief.heroImageUrl}
+            src={heroImageUrl}
             alt={brief.heroImageAlt ?? brief.title}
             className="h-full w-full object-cover"
             loading="eager"
@@ -169,7 +174,7 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
           <div className="divider" />
 
           {/* Sources */}
-          <FooterSources sources={brief.sources} />
+          <FooterSources sources={sources} />
         </div>
       </article>
 
