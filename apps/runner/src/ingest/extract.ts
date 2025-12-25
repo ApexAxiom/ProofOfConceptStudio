@@ -12,6 +12,148 @@ function resolveUrl(href: string, baseUrl: string): string | null {
   }
 }
 
+/**
+ * Checks if an image URL is likely to be a good hero image
+ */
+function isValidHeroImage(url: string): boolean {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  
+  // Skip common non-content images
+  const skipPatterns = [
+    "logo", "icon", "favicon", "avatar", "profile",
+    "button", "sprite", "spacer", "pixel", "tracking",
+    "advertisement", "ad-", "-ad.", "banner",
+    "1x1", "1px", "transparent", "blank"
+  ];
+  
+  if (skipPatterns.some((pattern) => lower.includes(pattern))) {
+    return false;
+  }
+  
+  // Must be https for security
+  if (!url.startsWith("https://")) {
+    return false;
+  }
+  
+  // Must be an image format
+  const imageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  const hasImageExtension = imageExtensions.some((ext) => lower.includes(ext));
+  const hasImageParams = lower.includes("image") || lower.includes("photo") || lower.includes("media");
+  
+  return hasImageExtension || hasImageParams || lower.includes("/wp-content/uploads/");
+}
+
+/**
+ * Extracts the best available image from an article page
+ */
+function extractBestImage(document: Document, url: string): string | undefined {
+  const candidates: string[] = [];
+  
+  // Priority 1: OpenGraph image (most reliable)
+  const ogImage = 
+    document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
+    document.querySelector('meta[property="og:image:url"]')?.getAttribute("content") ||
+    document.querySelector('meta[property="og:image:secure_url"]')?.getAttribute("content");
+  
+  if (ogImage) {
+    const resolved = resolveUrl(ogImage, url);
+    if (resolved && isValidHeroImage(resolved)) {
+      candidates.push(resolved);
+    }
+  }
+  
+  // Priority 2: Twitter card image
+  const twitterImage = 
+    document.querySelector('meta[name="twitter:image"]')?.getAttribute("content") ||
+    document.querySelector('meta[name="twitter:image:src"]')?.getAttribute("content");
+  
+  if (twitterImage) {
+    const resolved = resolveUrl(twitterImage, url);
+    if (resolved && isValidHeroImage(resolved)) {
+      candidates.push(resolved);
+    }
+  }
+  
+  // Priority 3: Schema.org image
+  const schemaScript = document.querySelector('script[type="application/ld+json"]');
+  if (schemaScript) {
+    try {
+      const schema = JSON.parse(schemaScript.textContent || "{}");
+      const schemaImage = schema.image?.url || schema.image || schema.thumbnailUrl;
+      if (schemaImage) {
+        const imgUrl = Array.isArray(schemaImage) ? schemaImage[0] : schemaImage;
+        const resolved = resolveUrl(typeof imgUrl === "string" ? imgUrl : imgUrl?.url, url);
+        if (resolved && isValidHeroImage(resolved)) {
+          candidates.push(resolved);
+        }
+      }
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
+  
+  // Priority 4: Article featured image
+  const articleImage = 
+    document.querySelector("article img")?.getAttribute("src") ||
+    document.querySelector(".post-thumbnail img")?.getAttribute("src") ||
+    document.querySelector(".featured-image img")?.getAttribute("src") ||
+    document.querySelector(".hero-image img")?.getAttribute("src") ||
+    document.querySelector("[itemprop='image']")?.getAttribute("src") ||
+    document.querySelector(".entry-content img")?.getAttribute("src");
+  
+  if (articleImage) {
+    const resolved = resolveUrl(articleImage, url);
+    if (resolved && isValidHeroImage(resolved)) {
+      candidates.push(resolved);
+    }
+  }
+  
+  // Priority 5: First large image in content
+  const allImages = Array.from(document.querySelectorAll("img"));
+  for (const img of allImages) {
+    const src = img.getAttribute("src");
+    const width = parseInt(img.getAttribute("width") || "0", 10);
+    const height = parseInt(img.getAttribute("height") || "0", 10);
+    
+    // Skip small images (likely icons/logos)
+    if (width > 0 && width < 200) continue;
+    if (height > 0 && height < 150) continue;
+    
+    if (src) {
+      const resolved = resolveUrl(src, url);
+      if (resolved && isValidHeroImage(resolved)) {
+        candidates.push(resolved);
+        break; // Only take the first valid large image
+      }
+    }
+  }
+  
+  // Return the first valid candidate (highest priority)
+  return candidates[0];
+}
+
+/**
+ * Extracts the publication/source name from the page
+ */
+function extractSourceName(document: Document, url: string): string | undefined {
+  // Try meta tags first
+  const siteName = 
+    document.querySelector('meta[property="og:site_name"]')?.getAttribute("content") ||
+    document.querySelector('meta[name="application-name"]')?.getAttribute("content");
+  
+  if (siteName) return siteName;
+  
+  // Fall back to domain name
+  try {
+    const hostname = new URL(url).hostname.replace("www.", "");
+    // Capitalize first letter of each word
+    return hostname.split(".")[0].replace(/^\w/, (c) => c.toUpperCase());
+  } catch {
+    return undefined;
+  }
+}
+
 export async function shallowScrape(url: string, limit = 30): Promise<{ title: string; url: string }[]> {
   const res = await request(url, { method: "GET" });
   const text = await res.body.text();
@@ -39,44 +181,63 @@ export async function shallowScrape(url: string, limit = 30): Promise<{ title: s
   return deduped.slice(0, limit);
 }
 
-export async function fetchArticleDetails(url: string): Promise<{
+export interface ArticleDetails {
   url: string;
   title: string;
   content: string;
   ogImageUrl?: string;
   publishedAt?: string;
   description?: string;
-}> {
+  sourceName?: string;
+}
+
+export async function fetchArticleDetails(url: string): Promise<ArticleDetails> {
   try {
     const res = await request(url, {
       method: "GET",
-      headers: { "user-agent": "ProofRunnerBot/1.0" },
+      headers: { "user-agent": "ProofRunnerBot/1.0 (News Aggregator)" },
       maxRedirections: 3,
-      bodyTimeout: 10000
+      bodyTimeout: 15000
     });
     const html = await res.body.text();
     const dom = new JSDOM(html, { url });
     const document = dom.window.document;
     const reader = new Readability(document);
     const article = reader.parse();
-    const ogImage =
-      document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
-      document.querySelector('meta[property="og:image:url"]')?.getAttribute("content") ||
-      document.querySelector('meta[name="twitter:image"]')?.getAttribute("content") ||
+    
+    // Extract the best image using our enhanced function
+    const bestImage = extractBestImage(document, url);
+    
+    // Extract publication date
+    const publishedAt = 
+      document.querySelector('meta[property="article:published_time"]')?.getAttribute("content") ||
+      document.querySelector('meta[name="pubdate"]')?.getAttribute("content") ||
+      document.querySelector('meta[name="date"]')?.getAttribute("content") ||
+      document.querySelector('time[datetime]')?.getAttribute("datetime") ||
       undefined;
-    const resolvedOg = ogImage ? resolveUrl(ogImage, url) ?? ogImage : undefined;
+    
+    // Extract description
+    const description = 
+      document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+      document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+      undefined;
+    
+    // Extract source name
+    const sourceName = extractSourceName(document, url);
+    
     return {
-      url,
+      url, // Preserve the exact original URL
       title: article?.title || document.title || url,
       content: article?.textContent || "",
-      ogImageUrl: resolvedOg,
-      publishedAt:
-        document.querySelector('meta[property="article:published_time"]')?.getAttribute("content") || undefined,
-      description: document.querySelector('meta[name="description"]')?.getAttribute("content") || undefined
+      ogImageUrl: bestImage,
+      publishedAt,
+      description,
+      sourceName
     };
-  } catch {
+  } catch (error) {
+    console.error(`Failed to fetch article details for ${url}:`, error);
     return {
-      url,
+      url, // Always preserve the original URL even on error
       title: url,
       content: ""
     };

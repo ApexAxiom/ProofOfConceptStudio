@@ -17,6 +17,26 @@ export interface PortfolioDefinition {
   defaultIndices: MarketIndex[];
 }
 
+/**
+ * Represents an individual article selected for the brief
+ */
+export interface SelectedArticle {
+  /** Original article title */
+  title: string;
+  /** Exact URL to the original article - MUST be preserved */
+  url: string;
+  /** Brief summary generated for this article */
+  briefContent: string;
+  /** Image URL from this article */
+  imageUrl?: string;
+  /** Alt text for the image */
+  imageAlt?: string;
+  /** Publication date of the article */
+  publishedAt?: string;
+  /** Source/publication name */
+  sourceName?: string;
+}
+
 export interface BriefPost {
   postId: string;
   title: string;
@@ -28,9 +48,16 @@ export interface BriefPost {
   summary?: string;
   bodyMarkdown: string;
   sources: string[];
+  
+  /** The 3 selected articles with their briefs and exact source links */
+  selectedArticles?: SelectedArticle[];
+  
+  /** Hero image from the primary article */
   heroImageUrl?: string;
+  /** Exact URL of the article the hero image came from */
   heroImageSourceUrl?: string;
   heroImageAlt?: string;
+  
   scannedSources?: string[];
   tags?: string[];
   metrics?: {

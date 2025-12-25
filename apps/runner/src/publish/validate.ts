@@ -1,142 +1,266 @@
 import { BriefPost } from "@proof/shared";
 
-const SECTION_RULES = [
-  { heading: "## Quick Takes", min: 3, max: 4 },
-  { heading: "## Supporting Links", min: 2, max: 4 },
-  { heading: "## Market Snapshot", min: 2, max: undefined, indexOnly: true }
-];
+/**
+ * Validation rules for brief sections
+ */
+const VALIDATION_RULES = {
+  minSelectedArticles: 1,
+  maxSelectedArticles: 5,
+  preferredArticleCount: 3,
+  minTitleLength: 10,
+  maxTitleLength: 150,
+  minSummaryLength: 20,
+  minBodyLength: 200
+};
 
-function parseSections(body: string): Map<string, string[]> {
-  const sections = new Map<string, string[]>();
-  const lines = body.split(/\r?\n/);
-  let currentHeading: string | null = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
-    if (/^##\s+.+/.test(line.trim())) {
-      currentHeading = line.trim();
-      if (!sections.has(currentHeading)) {
-        sections.set(currentHeading, []);
-      }
-      continue;
-    }
-
-    if (currentHeading) {
-      sections.get(currentHeading)?.push(rawLine);
-    }
+/**
+ * Validates that a URL is in the allowed set
+ */
+function isUrlAllowed(url: string, allowedUrls: Set<string>): boolean {
+  if (!url) return false;
+  // Normalize URL for comparison (remove trailing slashes, etc.)
+  const normalized = url.replace(/\/$/, "").toLowerCase();
+  for (const allowed of allowedUrls) {
+    const normalizedAllowed = allowed.replace(/\/$/, "").toLowerCase();
+    if (normalized === normalizedAllowed) return true;
   }
-
-  return sections;
-}
-
-function bulletLines(lines: string[]): string[] {
-  return lines
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("- "));
-}
-
-function urlAtEnd(bullet: string): string | null {
-  const match = bullet.match(/\((https?:\/\/[^\s)]+)\)\s*$/);
-  return match?.[1] ?? null;
-}
-
-function extractOverviewLine(body: string): string | null {
-  const lines = body.split(/\r?\n/);
-  return lines.find((line) => line.trim().toLowerCase().startsWith("**overview:**")) ?? null;
-}
-
-function parseSources(lines: string[]): string[] {
-  return lines
-    .map((line) => line.trim())
-    .map((line) => line.replace(/^-\s*/, "").trim())
-    .filter(Boolean);
+  return allowedUrls.has(url);
 }
 
 /**
- * Validates a brief markdown body against required sections and URL rules.
+ * Extracts all URLs from markdown content
  */
-export function validateBrief(brief: BriefPost, allowedUrls: Set<string>, indexUrls?: Set<string>): BriefPost {
-  const issues: string[] = [];
-  const body = brief.bodyMarkdown || "";
-  if (!body) issues.push("Body markdown is empty");
-
-  const sections = parseSections(body);
-  const referencedUrls = new Set<string>();
-
-  const overviewLine = extractOverviewLine(body);
-  if (!overviewLine) {
-    issues.push("Missing overview section");
-  } else {
-    const overviewUrl = urlAtEnd(overviewLine.replace(/^\*\*Overview:\*\*\s*/i, ""));
-    if (!overviewUrl) {
-      issues.push("Overview must end with a cited URL");
-    } else {
-      referencedUrls.add(overviewUrl);
-      if (!allowedUrls.has(overviewUrl)) {
-        issues.push(`URL not allowed: ${overviewUrl}`);
-      }
-    }
+function extractMarkdownUrls(markdown: string): Set<string> {
+  const urls = new Set<string>();
+  // Match markdown links: [text](url)
+  const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = linkRegex.exec(markdown)) !== null) {
+    urls.add(match[2]);
   }
+  // Match raw URLs
+  const urlRegex = /https?:\/\/[^\s<>)"']+/g;
+  while ((match = urlRegex.exec(markdown)) !== null) {
+    urls.add(match[0].replace(/[.,;:!?]+$/, "")); // Remove trailing punctuation
+  }
+  return urls;
+}
 
-  for (const rule of SECTION_RULES) {
-    const lines = sections.get(rule.heading) ?? [];
-    if (!sections.has(rule.heading)) {
-      issues.push(`Missing section: ${rule.heading}`);
+/**
+ * Validates that selected articles have proper links
+ */
+function validateSelectedArticles(
+  brief: BriefPost,
+  allowedUrls: Set<string>,
+  issues: string[]
+): void {
+  const selectedArticles = brief.selectedArticles || [];
+  
+  // Check article count
+  if (selectedArticles.length < VALIDATION_RULES.minSelectedArticles) {
+    issues.push(`Brief must have at least ${VALIDATION_RULES.minSelectedArticles} selected articles`);
+  }
+  
+  if (selectedArticles.length > VALIDATION_RULES.maxSelectedArticles) {
+    issues.push(`Brief must have at most ${VALIDATION_RULES.maxSelectedArticles} selected articles`);
+  }
+  
+  // Validate each selected article
+  for (let i = 0; i < selectedArticles.length; i++) {
+    const article = selectedArticles[i];
+    
+    // Check URL exists
+    if (!article.url) {
+      issues.push(`Selected article ${i + 1} is missing URL`);
       continue;
     }
-    const bullets = bulletLines(lines);
-    if (rule.min && bullets.length < rule.min) {
-      issues.push(`${rule.heading} must have at least ${rule.min} bullets`);
+    
+    // Check URL is allowed
+    if (!isUrlAllowed(article.url, allowedUrls)) {
+      issues.push(`Selected article ${i + 1} URL not in allowed list: ${article.url}`);
     }
-    if (rule.max && bullets.length > rule.max) {
-      issues.push(`${rule.heading} must have no more than ${rule.max} bullets`);
+    
+    // Check title exists
+    if (!article.title || article.title.trim().length === 0) {
+      issues.push(`Selected article ${i + 1} is missing title`);
     }
-    for (const bullet of bullets) {
-      const url = urlAtEnd(bullet);
-      if (!url) {
-        issues.push(`Bullet missing citation in ${rule.heading}: ${bullet}`);
-        continue;
+    
+    // Check brief content exists
+    if (!article.briefContent || article.briefContent.trim().length < 20) {
+      issues.push(`Selected article ${i + 1} has insufficient brief content`);
+    }
+  }
+}
+
+/**
+ * Validates that the markdown body contains proper source links
+ */
+function validateMarkdownSources(
+  brief: BriefPost,
+  allowedUrls: Set<string>,
+  indexUrls: Set<string>,
+  issues: string[]
+): void {
+  const body = brief.bodyMarkdown || "";
+  
+  if (!body || body.length < VALIDATION_RULES.minBodyLength) {
+    issues.push(`Body markdown is too short (min ${VALIDATION_RULES.minBodyLength} chars)`);
+    return;
+  }
+  
+  // Extract all URLs from the markdown
+  const usedUrls = extractMarkdownUrls(body);
+  const combinedAllowed = new Set([...allowedUrls, ...indexUrls]);
+  
+  // Check that all used URLs are allowed
+  for (const url of usedUrls) {
+    if (!isUrlAllowed(url, combinedAllowed)) {
+      issues.push(`URL not in allowed list: ${url}`);
+    }
+  }
+  
+  // Check that article source links appear in the body
+  const selectedArticles = brief.selectedArticles || [];
+  for (const article of selectedArticles) {
+    if (article.url && !usedUrls.has(article.url)) {
+      // Check with normalized comparison
+      const found = Array.from(usedUrls).some(
+        (u) => u.replace(/\/$/, "").toLowerCase() === article.url.replace(/\/$/, "").toLowerCase()
+      );
+      if (!found) {
+        issues.push(`Selected article URL not found in body: ${article.url}`);
       }
-      referencedUrls.add(url);
-      if (!allowedUrls.has(url)) {
-        issues.push(`URL not allowed: ${url}`);
-      }
-      if (rule.indexOnly && indexUrls && !indexUrls.has(url)) {
-        issues.push(`Market Snapshot must use index URLs only: ${url}`);
-      }
     }
   }
+}
 
-  const sourcesLines = sections.get("## Sources") ?? [];
-  if (!sections.has("## Sources")) {
-    issues.push("Missing section: ## Sources");
+/**
+ * Validates title and summary
+ */
+function validateTitleAndSummary(brief: BriefPost, issues: string[]): void {
+  // Validate title
+  if (!brief.title || brief.title.trim().length < VALIDATION_RULES.minTitleLength) {
+    issues.push(`Title is too short (min ${VALIDATION_RULES.minTitleLength} chars)`);
   }
+  
+  if (brief.title && brief.title.length > VALIDATION_RULES.maxTitleLength) {
+    issues.push(`Title is too long (max ${VALIDATION_RULES.maxTitleLength} chars)`);
+  }
+  
+  // Validate summary
+  if (!brief.summary || brief.summary.trim().length < VALIDATION_RULES.minSummaryLength) {
+    issues.push(`Summary is too short (min ${VALIDATION_RULES.minSummaryLength} chars)`);
+  }
+}
 
-  const sources = parseSources(sourcesLines);
-  const sourcesSet = new Set(sources);
+/**
+ * Validates hero image setup
+ */
+function validateHeroImage(brief: BriefPost, allowedUrls: Set<string>, issues: string[]): void {
+  // Hero image source URL should be from an allowed article
+  if (brief.heroImageSourceUrl && !isUrlAllowed(brief.heroImageSourceUrl, allowedUrls)) {
+    issues.push(`Hero image source URL not in allowed list: ${brief.heroImageSourceUrl}`);
+  }
+  
+  // If we have a hero image URL, it should be HTTPS
+  if (brief.heroImageUrl && !brief.heroImageUrl.startsWith("https://")) {
+    issues.push("Hero image URL must be HTTPS");
+  }
+}
 
-  for (const source of sourcesSet) {
-    if (!allowedUrls.has(source)) {
-      issues.push(`Source URL not allowed: ${source}`);
+/**
+ * Validates the sources array
+ */
+function validateSourcesArray(brief: BriefPost, allowedUrls: Set<string>, issues: string[]): void {
+  const sources = brief.sources || [];
+  
+  if (sources.length === 0) {
+    issues.push("Brief must have at least one source");
+  }
+  
+  for (const source of sources) {
+    if (!isUrlAllowed(source, allowedUrls)) {
+      issues.push(`Source URL not in allowed list: ${source}`);
     }
-    if (!referencedUrls.has(source)) {
-      issues.push(`Source not referenced in body: ${source}`);
-    }
   }
-
-  for (const url of referencedUrls) {
-    if (!sourcesSet.has(url)) {
-      issues.push(`Referenced URL missing from sources: ${url}`);
-    }
+  
+  // Check for duplicate sources
+  const uniqueSources = new Set(sources.map((s) => s.toLowerCase()));
+  if (uniqueSources.size !== sources.length) {
+    issues.push("Duplicate sources detected");
   }
+}
 
-  if (sourcesSet.size !== referencedUrls.size || sources.length !== sourcesSet.size) {
-    issues.push("Sources list must match referenced URLs exactly");
-  }
-
+/**
+ * Validates a brief against required structure and URL rules.
+ * Returns the validated brief with status updated to "published" if valid.
+ * Throws an error with JSON-encoded issues if validation fails.
+ */
+export function validateBrief(
+  brief: BriefPost,
+  allowedUrls: Set<string>,
+  indexUrls?: Set<string>
+): BriefPost {
+  const issues: string[] = [];
+  const safeIndexUrls = indexUrls || new Set<string>();
+  const combinedUrls = new Set([...allowedUrls, ...safeIndexUrls]);
+  
+  // Run all validations
+  validateTitleAndSummary(brief, issues);
+  validateSelectedArticles(brief, allowedUrls, issues);
+  validateMarkdownSources(brief, allowedUrls, safeIndexUrls, issues);
+  validateHeroImage(brief, allowedUrls, issues);
+  validateSourcesArray(brief, combinedUrls, issues);
+  
+  // If there are issues, throw with details
   if (issues.length > 0) {
     throw new Error(JSON.stringify(issues));
   }
+  
+  // Collect all referenced URLs for the sources array
+  const allSources = new Set<string>();
+  
+  // Add selected article URLs
+  for (const article of brief.selectedArticles || []) {
+    if (article.url) allSources.add(article.url);
+  }
+  
+  // Add any additional sources from markdown
+  const markdownUrls = extractMarkdownUrls(brief.bodyMarkdown || "");
+  for (const url of markdownUrls) {
+    if (allowedUrls.has(url)) {
+      allSources.add(url);
+    }
+  }
+  
+  return {
+    ...brief,
+    status: "published",
+    sources: Array.from(allSources)
+  };
+}
 
-  return { ...brief, status: "published", sources: Array.from(referencedUrls) };
+/**
+ * Performs a quick sanity check on a brief without full validation.
+ * Used for pre-flight checks before expensive operations.
+ */
+export function quickValidate(brief: Partial<BriefPost>): { ok: boolean; issues: string[] } {
+  const issues: string[] = [];
+  
+  if (!brief.title || brief.title.length < 5) {
+    issues.push("Title too short or missing");
+  }
+  
+  if (!brief.bodyMarkdown || brief.bodyMarkdown.length < 100) {
+    issues.push("Body too short or missing");
+  }
+  
+  if (!brief.selectedArticles || brief.selectedArticles.length === 0) {
+    issues.push("No selected articles");
+  }
+  
+  return {
+    ok: issues.length === 0,
+    issues
+  };
 }
