@@ -1,0 +1,171 @@
+name: Run Daily Briefs
+
+on:
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      run_window:
+        description: 'Run window (am/pm)'
+        required: true
+        default: 'am'
+        type: choice
+        options:
+          - am
+          - pm
+      force:
+        description: 'Force run (bypass schedule window check)'
+        required: false
+        default: true
+        type: boolean
+
+  # Scheduled runs - configurable for both regions
+  # Australia AM: 6:00 AM AWST (22:00 UTC previous day)
+  # Australia PM: 2:45 PM AWST (06:45 UTC)
+  # International AM: 6:00 AM CST (12:00 UTC during DST, 12:00 UTC standard)
+  # International PM: 2:45 PM CST (20:45 UTC during DST, 20:45 UTC standard)
+  schedule:
+    # AM runs at 6:00 AM for each region
+    - cron: '0 22 * * *'   # Australia AM (22:00 UTC = 6:00 AM AWST)
+    - cron: '0 12 * * *'   # International AM (12:00 UTC = 6:00 AM CST)
+    # PM runs at 2:45 PM for each region  
+    - cron: '45 6 * * *'   # Australia PM (06:45 UTC = 2:45 PM AWST)
+    - cron: '45 20 * * *'  # International PM (20:45 UTC = 2:45 PM CST)
+
+jobs:
+  run-briefs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine run parameters
+        id: params
+        run: |
+          RUN_WINDOW="${{ github.event.inputs.run_window || '' }}"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          SCHEDULED="false"
+          
+          # If this is a scheduled run, determine run window from cron schedule
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            SCHEDULED="true"
+            HOUR=$(date -u +%H)
+            MINUTE=$(date -u +%M)
+            
+            # Determine run window based on schedule time
+            # AM times: 22:00 UTC (AU) or 12:00 UTC (Intl)
+            # PM times: 06:45 UTC (AU) or 20:45 UTC (Intl)
+            if [ "$HOUR" = "22" ] || [ "$HOUR" = "12" ]; then
+              RUN_WINDOW="am"
+            elif [ "$HOUR" = "06" ] || [ "$HOUR" = "20" ]; then
+              RUN_WINDOW="pm"
+            else
+              # Fallback: determine from current hour
+              if [ "$HOUR" -lt 12 ]; then
+                RUN_WINDOW="am"
+              else
+                RUN_WINDOW="pm"
+              fi
+            fi
+          fi
+          
+          # Default run window if not specified
+          if [ -z "$RUN_WINDOW" ]; then
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" -lt 12 ]; then
+              RUN_WINDOW="am"
+            else
+              RUN_WINDOW="pm"
+            fi
+          fi
+          
+          echo "run_window=$RUN_WINDOW" >> $GITHUB_OUTPUT
+          echo "force=$FORCE" >> $GITHUB_OUTPUT
+          echo "scheduled=$SCHEDULED" >> $GITHUB_OUTPUT
+          
+          echo "📊 Run Parameters:"
+          echo "  Run Window: $RUN_WINDOW"
+          echo "  Force: $FORCE"
+          echo "  Scheduled: $SCHEDULED"
+          echo "  Running for BOTH regions: Australia (au) and International (us-mx-la-lng)"
+
+      - name: Run daily briefs for Australia (au)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RUNNER_BASE_URL: ${{ secrets.RUNNER_BASE_URL }}
+        run: |
+          RUN_WINDOW="${{ steps.params.outputs.run_window }}"
+          FORCE="${{ steps.params.outputs.force }}"
+          SCHEDULED="${{ steps.params.outputs.scheduled }}"
+          
+          echo "🇦🇺 Triggering daily briefs for Australia..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -d "{\"runWindow\":\"$RUN_WINDOW\",\"region\":\"au\",\"force\":$FORCE,\"scheduled\":$SCHEDULED}" \
+            "$RUNNER_BASE_URL/cron")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "📬 Response (HTTP $HTTP_CODE):"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Australia briefs triggered successfully!"
+          else
+            echo "❌ Failed to trigger Australia briefs"
+            exit 1
+          fi
+
+      - name: Run daily briefs for International (us-mx-la-lng)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RUNNER_BASE_URL: ${{ secrets.RUNNER_BASE_URL }}
+        run: |
+          RUN_WINDOW="${{ steps.params.outputs.run_window }}"
+          FORCE="${{ steps.params.outputs.force }}"
+          SCHEDULED="${{ steps.params.outputs.scheduled }}"
+          
+          echo "🌎 Triggering daily briefs for International (US/MX/LatAm LNG)..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -d "{\"runWindow\":\"$RUN_WINDOW\",\"region\":\"us-mx-la-lng\",\"force\":$FORCE,\"scheduled\":$SCHEDULED}" \
+            "$RUNNER_BASE_URL/cron")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "📬 Response (HTTP $HTTP_CODE):"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ International briefs triggered successfully!"
+          else
+            echo "❌ Failed to trigger International briefs"
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          echo "## 📰 Daily Briefs Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Run Window | ${{ steps.params.outputs.run_window }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Force | ${{ steps.params.outputs.force }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered By | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌏 Regions Processed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 🇦🇺 **Australia (au)** - Perth timezone" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌎 **International (us-mx-la-lng)** - Houston timezone" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Articles Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Each category generates **3 articles per run** for each region." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**14 categories × 3 articles × 2 regions = 84 total articles per run**" >> $GITHUB_STEP_SUMMARY
