@@ -98,6 +98,50 @@ Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds.
 ## Data Model
 Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-date.
 
+## AWS Secrets Manager Integration
+
+The API and runner services support loading secrets from AWS Secrets Manager at startup. This is optional but recommended for production deployments.
+
+### Configuration
+Set the `AWS_SECRET_NAME` environment variable to enable fetching secrets from AWS Secrets Manager:
+
+```bash
+AWS_SECRET_NAME=daily-briefs/app-secrets
+AWS_REGION=us-east-1
+SECRETS_CACHE_TTL_MS=300000  # Optional: cache TTL in ms (default: 5 minutes)
+```
+
+### Secret Format
+Create a secret in AWS Secrets Manager as a JSON object with keys matching the environment variables:
+
+```json
+{
+  "OPENAI_API_KEY": "sk-...",
+  "CRON_SECRET": "your-cron-secret",
+  "ADMIN_TOKEN": "your-admin-token",
+  "DDB_TABLE_NAME": "CMHub",
+  "API_BASE_URL": "https://your-api.awsapprunner.com",
+  "RUNNER_BASE_URL": "https://your-runner.awsapprunner.com"
+}
+```
+
+### Behavior
+- Secrets from AWS Secrets Manager are merged with environment variables at startup
+- Environment variables take precedence over secrets (allows local overrides)
+- If `AWS_SECRET_NAME` is not set, the services fall back to environment variables only
+- Secrets are cached for 5 minutes by default to reduce API calls
+
+### Required IAM Permissions
+The App Runner instance role needs permission to read the secret:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["secretsmanager:GetSecretValue"],
+  "Resource": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:daily-briefs/app-secrets-*"
+}
+```
+
 ## Security
 - Admin and runner endpoints require tokens.
 - No secrets committed; use env vars or AWS Secrets Manager references in App Runner. Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.

@@ -4,21 +4,29 @@ import postsRoutes from "./routes/posts.js";
 import chatRoutes from "./routes/chat.js";
 import adminRoutes from "./routes/admin.js";
 import healthRoutes from "./routes/health.js";
+import { initializeSecrets } from "./lib/secrets.js";
 
-const PORT = Number(process.env.PORT ?? 8080);
-const fastify = Fastify({ logger: true });
+async function main() {
+  // Load secrets from AWS Secrets Manager before starting the server
+  await initializeSecrets();
 
-const origins = process.env.CORS_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? [];
-fastify.register(cors, {
-  origin: origins.length > 0 ? origins : process.env.NODE_ENV === "development"
-});
+  const PORT = Number(process.env.PORT ?? 8080);
+  const fastify = Fastify({ logger: true });
 
-fastify.register(postsRoutes, { prefix: "/posts" });
-fastify.register(chatRoutes, { prefix: "/chat" });
-fastify.register(adminRoutes, { prefix: "/admin" });
-fastify.register(healthRoutes, { prefix: "/health" });
+  const origins = process.env.CORS_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? [];
+  fastify.register(cors, {
+    origin: origins.length > 0 ? origins : process.env.NODE_ENV === "development"
+  });
 
-fastify.listen({ host: "0.0.0.0", port: PORT }).catch((err) => {
-  fastify.log.error(err);
+  fastify.register(postsRoutes, { prefix: "/posts" });
+  fastify.register(chatRoutes, { prefix: "/chat" });
+  fastify.register(adminRoutes, { prefix: "/admin" });
+  fastify.register(healthRoutes, { prefix: "/health" });
+
+  await fastify.listen({ host: "0.0.0.0", port: PORT });
+}
+
+main().catch((err) => {
+  console.error("Failed to start server:", err);
   process.exit(1);
 });
