@@ -1,5 +1,11 @@
+import { extractValidUrl } from "../lib/url";
+
 export function FooterSources({ sources }: { sources?: string[] }) {
-  if (!sources?.length) return null;
+  const normalizedSources = (sources ?? [])
+    .map((source) => extractValidUrl(source))
+    .filter((s): s is string => Boolean(s));
+
+  if (!normalizedSources.length) return null;
   
   // Extract domain from URL for display
   function getDomain(url: string): string {
@@ -21,7 +27,7 @@ export function FooterSources({ sources }: { sources?: string[] }) {
       </div>
       
       <div className="grid gap-2 sm:grid-cols-2">
-        {sources.map((s, i) => (
+        {normalizedSources.map((s, i) => (
           <a
             key={s}
             href={s}

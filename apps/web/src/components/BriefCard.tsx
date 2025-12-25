@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
 import { ProxiedImage } from "./ProxiedImage";
+import { extractValidUrl } from "../lib/url";
 
 function previewText(brief: BriefPost): string {
   if (brief.summary) return brief.summary;
@@ -77,17 +78,18 @@ function TimeAgo({ date }: { date: string }) {
 
 export function BriefCard({ brief }: { brief: BriefPost }) {
   const summary = truncate(previewText(brief) || brief.title);
-  const sourceUrl = brief.heroImageSourceUrl || brief.sources?.[0];
+  const sourceUrl = extractValidUrl(brief.heroImageSourceUrl) ?? extractValidUrl(brief.sources?.[0]);
   const categoryColor = getCategoryColor(brief.portfolio);
   const badgeClass = badgeClasses[categoryColor];
   const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
+  const heroImageUrl = extractValidUrl(brief.heroImageUrl);
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-600/50 hover:shadow-xl hover:shadow-blue-500/5">
       {/* Hero Image */}
       <div className="relative h-48 w-full overflow-hidden">
         <ProxiedImage
-          src={brief.heroImageUrl}
+          src={heroImageUrl}
           alt={heroImageAlt}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
