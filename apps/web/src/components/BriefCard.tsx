@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
+import { ProxiedImage } from "./ProxiedImage";
 
 function previewText(brief: BriefPost): string {
   if (brief.summary) return brief.summary;
@@ -79,15 +80,14 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
   const sourceUrl = brief.heroImageSourceUrl || brief.sources?.[0];
   const categoryColor = getCategoryColor(brief.portfolio);
   const badgeClass = badgeClasses[categoryColor];
-  const heroImageUrl = brief.heroImageUrl?.trim() || "/placeholder.svg";
   const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-600/50 hover:shadow-xl hover:shadow-blue-500/5">
       {/* Hero Image */}
       <div className="relative h-48 w-full overflow-hidden">
-        <img
-          src={heroImageUrl}
+        <ProxiedImage
+          src={brief.heroImageUrl}
           alt={heroImageAlt}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
