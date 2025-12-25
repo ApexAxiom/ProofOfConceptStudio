@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RegionTabs } from "../../../components/RegionTabs";
 import { FooterSources } from "../../../components/FooterSources";
+import { ProxiedImage } from "../../../components/ProxiedImage";
 import { fetchPost } from "../../../lib/api";
 import { portfolioLabel, regionLabel, REGIONS } from "@proof/shared";
 import ReactMarkdown from "react-markdown";
@@ -86,10 +87,11 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
       <article className="overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 shadow-2xl">
         {/* Hero Image */}
         <div className="relative h-72 w-full overflow-hidden md:h-96">
-          <img
-            src={brief.heroImageUrl ?? "/placeholder.svg"}
+          <ProxiedImage
+            src={brief.heroImageUrl}
             alt={brief.heroImageAlt ?? brief.title}
             className="h-full w-full object-cover"
+            loading="eager"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent" />
           
