@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RegionTabs } from "../../../components/RegionTabs";
 import { FooterSources } from "../../../components/FooterSources";
 import { ProxiedImage } from "../../../components/ProxiedImage";
+import { ArticleList } from "../../../components/ArticleCard";
 import { fetchPost } from "../../../lib/api";
 import { extractValidUrl } from "../../../lib/url";
 import { portfolioLabel, regionLabel, REGIONS } from "@proof/shared";
@@ -42,13 +43,6 @@ const badgeClasses: Record<string, string> = {
   facility: "badge-facility"
 };
 
-function previewText(markdown?: string, fallback?: string): string {
-  if (!markdown) return fallback ?? "";
-  const lines = markdown.split(/\r?\n/);
-  const firstLine = lines.find((line) => line.trim() && !line.startsWith("#")) ?? fallback ?? "";
-  return firstLine.replace(/^\*\*Overview:\*\*\s*/i, "").trim();
-}
-
 export default async function BriefDetailPage({ params }: { params: Promise<{ postId: string }> }) {
   const { postId } = await params;
   const brief = await fetchPost(postId);
@@ -63,14 +57,22 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
     hour: "2-digit",
     minute: "2-digit"
   });
-  const sourceUrl = extractValidUrl(brief.heroImageSourceUrl) ?? extractValidUrl(brief.sources?.[0]);
+  
+  // Get the primary source URL (hero article or first source)
+  const primarySourceUrl = extractValidUrl(brief.heroImageSourceUrl) || 
+    extractValidUrl(brief.selectedArticles?.[0]?.url) ||
+    extractValidUrl(brief.sources?.[0]);
+  
+  // Extract all source URLs
   const sources = (brief.sources ?? [])
     .map((source) => extractValidUrl(source))
     .filter((s): s is string => Boolean(s));
-  const overview = brief.summary ?? previewText(brief.bodyMarkdown, "This brief includes a short overview and quick takes.");
+  
+  const overview = brief.summary || "This brief includes a short overview and quick takes.";
   const categoryColor = getCategoryColor(brief.portfolio);
   const badgeClass = badgeClasses[categoryColor];
   const heroImageUrl = extractValidUrl(brief.heroImageUrl);
+  const selectedArticles = brief.selectedArticles || [];
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -125,9 +127,9 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
               <span>{publishedStr}</span>
             </div>
             <div className="flex gap-3">
-              {sourceUrl && (
+              {primarySourceUrl && (
                 <a
-                  href={sourceUrl}
+                  href={primarySourceUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-secondary text-sm"
@@ -135,7 +137,7 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                   </svg>
-                  View Source
+                  View Primary Source
                 </a>
               )}
               <Link
@@ -157,6 +159,14 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
           </div>
 
           <div className="divider" />
+
+          {/* Selected Articles with Direct Links */}
+          {selectedArticles.length > 0 && (
+            <>
+              <ArticleList articles={selectedArticles} />
+              <div className="divider" />
+            </>
+          )}
 
           {/* Markdown Body */}
           <div className="prose prose-invert max-w-none prose-headings:text-white prose-h2:text-2xl prose-h2:font-bold prose-h3:text-xl prose-p:text-slate-300 prose-p:leading-relaxed prose-li:text-slate-300 prose-strong:text-white prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline">
