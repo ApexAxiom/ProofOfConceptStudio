@@ -79,14 +79,16 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
   const sourceUrl = brief.heroImageSourceUrl || brief.sources?.[0];
   const categoryColor = getCategoryColor(brief.portfolio);
   const badgeClass = badgeClasses[categoryColor];
-  
+  const heroImageUrl = brief.heroImageUrl?.trim() || "/placeholder.svg";
+  const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
+
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-600/50 hover:shadow-xl hover:shadow-blue-500/5">
       {/* Hero Image */}
       <div className="relative h-48 w-full overflow-hidden">
         <img
-          src={brief.heroImageUrl ?? "/placeholder.svg"}
-          alt={brief.heroImageAlt ?? brief.title}
+          src={heroImageUrl}
+          alt={heroImageAlt}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
@@ -157,9 +159,13 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
           )}
         </div>
       </div>
-      
+
       {/* Subtle glow effect on hover */}
-      <div className="absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ boxShadow: "inset 0 0 60px rgba(59, 130, 246, 0.03)" }} />
+      <div
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ boxShadow: "inset 0 0 60px rgba(59, 130, 246, 0.03)" }}
+        aria-hidden="true"
+      />
     </article>
   );
 }
