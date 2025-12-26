@@ -13,37 +13,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
 
       - name: Build shared package
-        run: |
-          cd packages/shared
-          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
-          npm run build
+        run: pnpm --filter @proof/shared... build
 
       - name: Build web app
-        run: |
-          cd apps/web
-          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
-          node -e "console.log(require.resolve('@proof/shared/package.json'))"
-          node -e "console.log(require.resolve('@proof/shared'))"
-          npm run build
+        run: pnpm --filter @proof/web... build
 
       - name: Build api app
-        run: |
-          cd apps/api
-          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
-          node -e "console.log(require.resolve('@proof/shared/package.json'))"
-          node -e "console.log(require.resolve('@proof/shared'))"
-          npm run build
+        run: pnpm --filter @proof/api... build
 
       - name: Build runner app
-        run: |
-          cd apps/runner
-          npm install --include=dev --workspaces=false --install-links --no-audit --no-fund
-          node -e "console.log(require.resolve('@proof/shared/package.json'))"
-          node -e "console.log(require.resolve('@proof/shared'))"
-          npm run build
+        run: pnpm --filter @proof/runner... build
