@@ -2,8 +2,10 @@ import Link from "next/link";
 import { BriefsTable } from "../components/BriefsTable";
 import { CoverageMatrix } from "../components/CoverageMatrix";
 import { LiveMarketTicker } from "../components/LiveMarketTicker";
+import { ExecutiveDashboard } from "../components/ExecutiveDashboard";
 import { REGION_LIST, REGIONS, PORTFOLIOS, BriefPost, RegionSlug } from "@proof/shared";
 import { fetchLatest, fetchLatestByPortfolio } from "../lib/api";
+import { getExecutiveDashboardData } from "../lib/executive-dashboard";
 
 // KPI Card Component
 function KPICard({ 
@@ -101,11 +103,12 @@ function RegionCard({
 
 export default async function GlobalDashboard() {
   // Fetch data for all regions in parallel
-  const [auBriefs, usBriefs, auByPortfolio, usByPortfolio] = await Promise.all([
+  const [auBriefs, usBriefs, auByPortfolio, usByPortfolio, executiveDashboard] = await Promise.all([
     fetchLatest("au"),
     fetchLatest("us-mx-la-lng"),
     fetchLatestByPortfolio("au"),
-    fetchLatestByPortfolio("us-mx-la-lng")
+    fetchLatestByPortfolio("us-mx-la-lng"),
+    getExecutiveDashboardData()
   ]);
 
   // Combine briefs for the table (sorted by publishedAt desc)
@@ -207,6 +210,9 @@ export default async function GlobalDashboard() {
           }
         />
       </div>
+
+      {/* Executive Dashboard */}
+      <ExecutiveDashboard data={executiveDashboard} />
 
       {/* Region Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2">
