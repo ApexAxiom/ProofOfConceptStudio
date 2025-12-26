@@ -4,6 +4,7 @@ import postsRoutes from "./routes/posts.js";
 import chatRoutes from "./routes/chat.js";
 import adminRoutes from "./routes/admin.js";
 import healthRoutes from "./routes/health.js";
+import agentsRoutes from "./routes/agents.js";
 import { initializeSecrets } from "./lib/secrets.js";
 
 async function main() {
@@ -21,6 +22,7 @@ async function main() {
   fastify.register(postsRoutes, { prefix: "/posts" });
   fastify.register(chatRoutes, { prefix: "/chat" });
   fastify.register(adminRoutes, { prefix: "/admin" });
+  fastify.register(agentsRoutes, { prefix: "/agents" });
   fastify.register(healthRoutes, { prefix: "/health" });
 
   await fastify.listen({ host: "0.0.0.0", port: PORT });

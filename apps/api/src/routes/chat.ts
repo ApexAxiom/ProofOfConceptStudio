@@ -1,20 +1,44 @@
 import { FastifyPluginAsync } from "fastify";
-import { BriefPost } from "@proof/shared";
+import { AgentFeed, BriefPost, portfolioLabel } from "@proof/shared";
 import { getRegionPosts } from "../db/posts.js";
 import { OpenAI } from "openai";
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 // Default to a widely-available model; override via OPENAI_MODEL.
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
+
+type AgentSummary = {
+  id: string;
+  portfolio: string;
+  label: string;
+  description?: string;
+  articlesPerRun: number;
+  feedsByRegion: Record<string, AgentFeed[]>;
+};
+
+async function findAgent(agentId?: string, portfolio?: string) {
+  if (!agentId && !portfolio) return undefined;
+  try {
+    const res = await fetch(`${RUNNER_BASE_URL}/agents`);
+    if (!res.ok) return undefined;
+    const payload = (await res.json()) as { agents?: AgentSummary[] };
+    return payload.agents?.find((a) => a.id === agentId || a.portfolio === portfolio);
+  } catch (err) {
+    console.warn("Unable to load agent catalog", (err as Error).message);
+    return undefined;
+  }
+}
 
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", async (request, reply) => {
-    const { question, region, portfolio } = request.body as any;
+    const { question, region, portfolio, agentId } = request.body as any;
     if (!region || !portfolio || !question) {
       reply.code(400).send({ error: "question, region, and portfolio are required" });
       return;
     }
 
+    const agent = await findAgent(agentId, portfolio);
     const regionPosts = await getRegionPosts(region);
     const filtered = regionPosts.filter((p) => p.portfolio === portfolio);
     const recent = (filtered.length ? filtered : regionPosts).slice(0, 10);
@@ -48,7 +72,10 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const prompt = `You are a procurement assistant. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable. Do not output any URL that is not in Allowed URLs. If you are unsure, do not cite it.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
+      const assistantIdentity = agent
+        ? `${agent.label} (${portfolioLabel(agent.portfolio)})`
+        : `${portfolioLabel(portfolio)} procurement assistant`;
+      const prompt = `You are ${assistantIdentity}. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable. Do not output any URL that is not in Allowed URLs. If you are unsure, do not cite it.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
       const response = await openai.chat.completions.create({
         model,
         messages: [{ role: "user", content: prompt }]
