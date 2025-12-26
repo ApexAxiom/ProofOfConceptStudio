@@ -6,6 +6,9 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - pnpm workspaces
 - Apps: web (Next.js), api (Fastify), runner (ingestion)
 
+## Documentation
+- [Verified source directory](docs/sources/README.md) – reachability-checked source list for briefs.
+
 ## Setup
 1. Install pnpm (>=9)
 2. `pnpm install`
