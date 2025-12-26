@@ -44,40 +44,35 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-800/80 to-slate-900 p-8 shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-red-500/5" />
-        <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-amber-500/10 blur-3xl" />
-        
-        <div className="relative flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25">
-            <TerminalIcon />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white md:text-3xl">Admin Console</h1>
-            <p className="mt-2 text-base text-slate-300">
-              Manually trigger intelligence runs or manage system operations. Requires admin token for authentication.
-            </p>
-          </div>
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm">
+          <TerminalIcon />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Admin Console</h1>
+          <p className="mt-1 text-muted-foreground">
+            Manually trigger intelligence runs or manage system operations.
+          </p>
         </div>
       </div>
 
       {/* Run Trigger Form */}
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
             <PlayIcon />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Trigger Intelligence Run</h3>
-            <p className="text-sm text-slate-400">Execute a manual run for specific region and portfolio</p>
+            <h3 className="font-semibold text-foreground">Trigger Intelligence Run</h3>
+            <p className="text-sm text-muted-foreground">Execute a manual run for specific region and portfolio</p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Run Window</label>
+            <label className="text-sm font-medium text-foreground">Run Window</label>
             <select
               value={runWindow}
               onChange={(e) => setRunWindow(e.target.value)}
@@ -89,7 +84,7 @@ export default function AdminPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Region</label>
+            <label className="text-sm font-medium text-foreground">Region</label>
             <select
               value={region}
               onChange={(e) => setRegion(e.target.value)}
@@ -102,7 +97,7 @@ export default function AdminPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Portfolio</label>
+            <label className="text-sm font-medium text-foreground">Portfolio</label>
             <select
               value={agentId}
               onChange={(e) => setAgentId(e.target.value)}
@@ -116,7 +111,7 @@ export default function AdminPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Admin Token</label>
+            <label className="text-sm font-medium text-foreground">Admin Token</label>
             <input
               type="password"
               value={adminToken}
@@ -127,7 +122,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-4">
+        <div className="mt-5 flex items-center gap-4">
           <button
             onClick={trigger}
             disabled={loading || !adminToken}
@@ -148,7 +143,7 @@ export default function AdminPage() {
               </>
             )}
           </button>
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             {!adminToken && "Enter admin token to enable"}
           </span>
         </div>
@@ -156,30 +151,30 @@ export default function AdminPage() {
 
       {/* Output */}
       {message && (
-        <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
             </svg>
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Response</h4>
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Response</h4>
           </div>
-          <pre className="overflow-x-auto rounded-xl bg-slate-800/80 p-4 font-mono text-sm text-slate-300">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-sm text-foreground">
             {message}
           </pre>
         </div>
       )}
 
       {/* Info */}
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
-        <div className="flex gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
           </div>
           <div className="text-sm">
-            <p className="font-semibold text-amber-300">Security Notice</p>
-            <p className="mt-1 text-amber-200/70">
+            <p className="font-semibold text-amber-800 dark:text-amber-300">Security Notice</p>
+            <p className="mt-1 text-amber-700 dark:text-amber-400/80">
               This admin console requires proper authentication. Runs are logged and audited. 
               Contact your administrator if you need an access token.
             </p>

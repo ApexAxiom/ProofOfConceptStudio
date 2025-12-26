@@ -34,7 +34,7 @@ export function ProxiedImage({
     <img
       src={proxiedSrc}
       alt={alt}
-      className={`${className} ${isLoading ? "animate-pulse bg-slate-800" : ""}`}
+      className={`${className} ${isLoading ? "animate-pulse bg-muted" : ""}`}
       loading={loading}
       onError={() => {
         if (!hasError) {

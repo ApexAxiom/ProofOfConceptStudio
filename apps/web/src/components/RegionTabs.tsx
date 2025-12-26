@@ -25,39 +25,53 @@ function getTimezoneShort(slug: RegionSlug): string {
   return zones[slug] || "UTC";
 }
 
-export function RegionTabs({ activeRegion }: { activeRegion: RegionSlug }) {
+interface RegionTabsProps {
+  activeRegion: RegionSlug;
+  showGlobalTab?: boolean;
+}
+
+export function RegionTabs({ activeRegion, showGlobalTab = false }: RegionTabsProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <GlobeIcon />
         </div>
-        <span className="text-sm font-medium text-slate-400">Select Region</span>
+        <span className="text-sm font-medium text-muted-foreground">Select Region</span>
       </div>
       
-      <div className="flex flex-wrap gap-2 rounded-xl bg-slate-800/50 p-1.5 backdrop-blur-sm">
+      <div className="flex flex-wrap gap-1.5 rounded-lg bg-muted p-1">
+        {showGlobalTab && (
+          <Link
+            href="/"
+            className="group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 text-muted-foreground hover:bg-background hover:text-foreground"
+          >
+            <span className="text-base">🌐</span>
+            <span className="hidden sm:inline">Global</span>
+          </Link>
+        )}
         {REGION_LIST.map((region) => {
           const isActive = activeRegion === region.slug;
           return (
             <Link
               key={region.slug}
-              href={region.slug === REGION_LIST[0].slug ? "/" : `/${region.slug}`}
-              className={`group relative flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+              href={`/${region.slug}`}
+              className={`group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? "bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-lg shadow-blue-500/25"
-                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
               }`}
             >
               <span className="text-base">{getRegionFlag(region.slug)}</span>
               <span className="hidden sm:inline">{REGIONS[region.slug].city}</span>
               <span className="sm:hidden">{region.label}</span>
               {isActive && (
-                <span className="ml-1 hidden rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider lg:inline">
+                <span className="ml-1 hidden rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary lg:inline">
                   {getTimezoneShort(region.slug)}
                 </span>
               )}
               {!isActive && (
-                <span className="ml-1 hidden text-[10px] font-medium uppercase tracking-wider text-slate-500 group-hover:text-slate-400 lg:inline">
+                <span className="ml-1 hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 lg:inline">
                   {getTimezoneShort(region.slug)}
                 </span>
               )}
