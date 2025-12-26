@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { REGION_LIST, PORTFOLIOS } from "@proof/shared";
+import { REGION_LIST, PORTFOLIOS, type AgentFeed } from "@proof/shared";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -29,12 +29,23 @@ const suggestedQuestions = [
   "Any major project announcements in subsea/offshore?"
 ];
 
+type AgentSummary = {
+  id: string;
+  portfolio: string;
+  label: string;
+  description?: string;
+  articlesPerRun: number;
+  feedsByRegion: Record<string, AgentFeed[]>;
+};
+
 export default function ChatPage() {
   const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
   const [portfolio, setPortfolio] = useState<string>(PORTFOLIOS[0].slug);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [agentError, setAgentError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const answerRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +55,23 @@ export default function ChatPage() {
     }
   }, [answer]);
 
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        const res = await fetch("/api/agents");
+        const json = await res.json();
+        setAgents(json.agents ?? []);
+        setAgentError(null);
+      } catch (err) {
+        setAgentError("Unable to load agent catalog. Chat will use generic context.");
+      }
+    };
+    loadAgents();
+  }, []);
+
+  const activeAgent = agents.find((a) => a.portfolio === portfolio);
+  const regionFeeds = activeAgent?.feedsByRegion?.[region] ?? [];
+
   const ask = async () => {
     if (!question.trim()) return;
     setLoading(true);
@@ -52,7 +80,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, region, portfolio })
+        body: JSON.stringify({ question, region, portfolio, agentId: activeAgent?.id })
       });
       const json = await res.json();
       setAnswer(json.answer || json.error || "No response received");
@@ -123,6 +151,37 @@ export default function ChatPage() {
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="mt-6 space-y-2 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Assigned agent</p>
+              <p className="text-lg font-semibold text-white">{activeAgent?.label ?? "Loading agent..."}</p>
+              <p className="text-sm text-slate-300">{activeAgent?.description ?? "Each portfolio uses a dedicated agent trained on that category."}</p>
+            </div>
+            <div className="rounded-lg bg-slate-900/80 px-3 py-2 text-center shadow-inner">
+              <p className="text-xs uppercase tracking-wide text-slate-400">Articles per run</p>
+              <p className="text-lg font-semibold text-white">{activeAgent?.articlesPerRun ?? 3}</p>
+            </div>
+          </div>
+          {agentError && <p className="text-sm text-amber-400">{agentError}</p>}
+          {regionFeeds.length > 0 && (
+            <div className="text-sm text-slate-300">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Daily sources ({regionFeeds.length})</p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {regionFeeds.slice(0, 6).map((feed) => (
+                  <div key={`${feed.url}-${feed.name}`} className="flex items-center gap-2 rounded-lg bg-slate-900/60 px-2 py-1">
+                    <span className="text-slate-500">•</span>
+                    <div>
+                      <p className="font-medium text-slate-200">{feed.name}</p>
+                      <p className="text-xs text-slate-500">{feed.url}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

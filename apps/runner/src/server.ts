@@ -3,6 +3,8 @@ import { REGIONS, RegionSlug, runWindowFromDate, type RunWindow } from "@proof/s
 import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
+import { loadAgents } from "./agents/config.js";
+import { requiredArticleCount } from "./llm/prompts.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: string, toleranceMinutes = 10): boolean {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -30,6 +32,18 @@ async function main() {
 
   fastify.get("/health", async () => ({ status: "ok" }));
   fastify.get("/healthz", async () => ({ status: "ok" }));
+
+  fastify.get("/agents", async () => {
+    const agents = loadAgents();
+    return agents.map((agent) => ({
+      id: agent.id,
+      portfolio: agent.portfolio,
+      label: agent.label,
+      description: agent.description,
+      articlesPerRun: requiredArticleCount(agent),
+      feedsByRegion: agent.feedsByRegion
+    }));
+  });
 
   fastify.post("/cron", async (request, reply) => {
     if (!CRON_SECRET || request.headers.authorization !== `Bearer ${CRON_SECRET}`) {
