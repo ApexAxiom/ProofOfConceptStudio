@@ -103,32 +103,26 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-800/80 to-slate-900 p-8 shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/5 via-blue-500/5 to-cyan-500/5" />
-        <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-violet-500/10 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-blue-500/10 blur-3xl" />
-        
-        <div className="relative flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 text-white shadow-lg shadow-violet-500/25">
-            <SparklesIcon />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white md:text-3xl">AI Category Assistant</h1>
-            <p className="mt-2 text-base text-slate-300">
-              Ask questions about market intelligence, supplier trends, or any category-related topic. Powered by your curated brief data.
-            </p>
-          </div>
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+          <SparklesIcon />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">AI Category Assistant</h1>
+          <p className="mt-1 text-muted-foreground">
+            Ask questions about market intelligence, supplier trends, or any category-related topic.
+          </p>
         </div>
       </div>
 
       {/* Context Selectors */}
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Context</h3>
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Region</label>
+            <label className="text-sm font-medium text-foreground">Region</label>
             <select
               value={region}
               onChange={(e) => setRegion(e.target.value)}
@@ -140,7 +134,7 @@ export default function ChatPage() {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Portfolio</label>
+            <label className="text-sm font-medium text-foreground">Portfolio</label>
             <select
               value={portfolio}
               onChange={(e) => setPortfolio(e.target.value)}
@@ -153,29 +147,29 @@ export default function ChatPage() {
           </div>
         </div>
 
-        <div className="mt-6 space-y-2 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
+        <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Assigned agent</p>
-              <p className="text-lg font-semibold text-white">{activeAgent?.label ?? "Loading agent..."}</p>
-              <p className="text-sm text-slate-300">{activeAgent?.description ?? "Each portfolio uses a dedicated agent trained on that category."}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assigned agent</p>
+              <p className="text-base font-semibold text-foreground">{activeAgent?.label ?? "Loading agent..."}</p>
+              <p className="text-sm text-muted-foreground">{activeAgent?.description ?? "Each portfolio uses a dedicated agent trained on that category."}</p>
             </div>
-            <div className="rounded-lg bg-slate-900/80 px-3 py-2 text-center shadow-inner">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Articles per run</p>
-              <p className="text-lg font-semibold text-white">{activeAgent?.articlesPerRun ?? 3}</p>
+            <div className="rounded-lg bg-background px-3 py-2 text-center border border-border">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Articles/run</p>
+              <p className="text-lg font-semibold text-foreground">{activeAgent?.articlesPerRun ?? 3}</p>
             </div>
           </div>
-          {agentError && <p className="text-sm text-amber-400">{agentError}</p>}
+          {agentError && <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{agentError}</p>}
           {regionFeeds.length > 0 && (
-            <div className="text-sm text-slate-300">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Daily sources ({regionFeeds.length})</p>
-              <div className="grid gap-1 sm:grid-cols-2">
+            <div className="mt-3 text-sm text-muted-foreground">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Daily sources ({regionFeeds.length})</p>
+              <div className="grid gap-1.5 sm:grid-cols-2">
                 {regionFeeds.slice(0, 6).map((feed) => (
-                  <div key={`${feed.url}-${feed.name}`} className="flex items-center gap-2 rounded-lg bg-slate-900/60 px-2 py-1">
-                    <span className="text-slate-500">•</span>
-                    <div>
-                      <p className="font-medium text-slate-200">{feed.name}</p>
-                      <p className="text-xs text-slate-500">{feed.url}</p>
+                  <div key={`${feed.url}-${feed.name}`} className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 border border-border">
+                    <span className="text-muted-foreground">•</span>
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{feed.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{feed.url}</p>
                     </div>
                   </div>
                 ))}
@@ -188,16 +182,16 @@ export default function ChatPage() {
       {/* Suggested Questions */}
       {!answer && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Suggested Questions</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Suggested Questions</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {suggestedQuestions.map((q, i) => (
               <button
                 key={i}
                 onClick={() => handleSuggestion(q)}
-                className="group flex items-start gap-3 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 text-left text-sm text-slate-300 transition-all hover:border-blue-500/30 hover:bg-slate-800/50"
+                className="group flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-left text-sm text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted"
               >
-                <span className="mt-0.5 text-slate-500 transition-colors group-hover:text-blue-400">→</span>
-                <span>{q}</span>
+                <span className="mt-0.5 text-muted-foreground transition-colors group-hover:text-primary">→</span>
+                <span className="text-foreground">{q}</span>
               </button>
             ))}
           </div>
@@ -206,10 +200,10 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="relative">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-900/80 shadow-lg focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20">
+        <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
           <textarea
             ref={inputRef}
-            className="w-full resize-none border-0 bg-transparent px-5 py-4 pr-16 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-0"
+            className="w-full resize-none border-0 bg-transparent px-4 py-3 pr-14 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
             rows={3}
             placeholder="Ask a question about your category..."
             value={question}
@@ -219,10 +213,10 @@ export default function ChatPage() {
           <button
             onClick={ask}
             disabled={loading || !question.trim()}
-            className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 disabled:opacity-50 disabled:shadow-none"
+            className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
           >
             {loading ? (
-              <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -231,19 +225,19 @@ export default function ChatPage() {
             )}
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">Press Enter to send, Shift+Enter for new line</p>
+        <p className="mt-2 text-xs text-muted-foreground">Press Enter to send, Shift+Enter for new line</p>
       </div>
 
       {/* Answer */}
       {(answer || loading) && (
-        <div ref={answerRef} className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
+        <div ref={answerRef} className="rounded-xl border border-border bg-card p-5">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <SparklesIcon />
             </div>
-            <span className="font-semibold text-white">AI Response</span>
+            <span className="font-semibold text-foreground">AI Response</span>
             {loading && (
-              <span className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
                 <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -254,7 +248,7 @@ export default function ChatPage() {
           </div>
           
           {answer && (
-            <div className="prose prose-invert max-w-none">
+            <div className="prose max-w-none dark:prose-invert">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[
