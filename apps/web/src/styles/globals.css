@@ -391,3 +391,117 @@ tr:hover td {
 .kpi-label {
   @apply text-sm text-muted-foreground;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE MARKET TICKER - Scrolling Animation
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ticker-container {
+  @apply relative overflow-hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 40px,
+    black calc(100% - 40px),
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 40px,
+    black calc(100% - 40px),
+    transparent
+  );
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 40s linear infinite;
+}
+
+.ticker-track.paused {
+  animation-play-state: paused;
+}
+
+.ticker-content {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.ticker-item {
+  @apply transition-all duration-200;
+  position: relative;
+}
+
+.ticker-item:hover {
+  @apply bg-primary/5;
+  transform: translateY(-1px);
+}
+
+.ticker-item:hover .ticker-change {
+  transform: scale(1.05);
+}
+
+.ticker-separator {
+  @apply transition-opacity;
+}
+
+.ticker-item:last-child .ticker-separator {
+  @apply opacity-0;
+}
+
+/* Ticker scrolling animation */
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Subtle glow for live pulse */
+.live-pulse {
+  animation: live-glow 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+@keyframes live-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
+  }
+}
+
+/* Optional: Add a subtle shimmer effect to the ticker background */
+.ticker-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--primary) / 0.03) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ticker-shimmer 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes ticker-shimmer {
+  0%, 100% {
+    background-position: -200% 0;
+  }
+  50% {
+    background-position: 200% 0;
+  }
+}

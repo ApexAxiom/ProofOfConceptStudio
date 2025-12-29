@@ -114,9 +114,12 @@ export default async function GlobalDashboard() {
         </div>
       </div>
 
-      {/* Market Indices - Compact Strip */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <LiveMarketTicker showHeader={true} />
+      {/* Market Indices - Animated Ticker Strip */}
+      <div className="relative rounded-xl border border-border bg-gradient-to-r from-card via-card to-card overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-primary/[0.02]" />
+        <div className="relative py-3">
+          <LiveMarketTicker showHeader={true} />
+        </div>
       </div>
 
       {/* Industry Headlines - APAC */}

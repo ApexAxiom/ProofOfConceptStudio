@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface CommodityPrice {
   symbol: string;
@@ -50,7 +50,7 @@ function getSourceUrl(symbol: string): string {
   return `https://finance.yahoo.com/quote/${yahooSymbol}`;
 }
 
-function CompactTicker({ commodity }: { commodity: CommodityPrice }) {
+function TickerItem({ commodity }: { commodity: CommodityPrice }) {
   const isPositive = commodity.change >= 0;
   const changeText = `${isPositive ? "+" : ""}${commodity.changePercent.toFixed(2)}%`;
   
@@ -59,15 +59,20 @@ function CompactTicker({ commodity }: { commodity: CommodityPrice }) {
       href={getSourceUrl(commodity.symbol)}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card hover:bg-muted/50 transition-colors text-sm"
+      className="ticker-item group flex items-center gap-3 px-4 py-2 whitespace-nowrap"
     >
-      <span className="font-medium text-foreground whitespace-nowrap">{commodity.symbol}</span>
-      <span className="text-foreground font-semibold">
+      <span className="font-semibold text-foreground tracking-tight">{commodity.symbol}</span>
+      <span className="text-foreground/90 font-mono text-sm">
         ${formatPrice(commodity.price)}
       </span>
-      <span className={`text-xs font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-        {changeText}
+      <span className={`ticker-change font-mono text-xs font-semibold px-1.5 py-0.5 rounded ${
+        isPositive 
+          ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" 
+          : "text-red-600 dark:text-red-400 bg-red-500/10"
+      }`}>
+        {isPositive ? "▲" : "▼"} {changeText}
       </span>
+      <span className="ticker-separator text-border/50">│</span>
     </a>
   );
 }
@@ -77,6 +82,8 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [source, setSource] = useState<string>("");
+  const [isPaused, setIsPaused] = useState(false);
+  const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -102,38 +109,67 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
 
   if (loading) {
     return (
-      <div className="flex flex-wrap gap-2">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="h-8 w-32 animate-pulse rounded-md bg-muted" />
-        ))}
+      <div className="ticker-container">
+        <div className="flex items-center gap-6 px-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="h-6 w-28 animate-pulse rounded bg-muted/50" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {showHeader && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
+            <div className="flex items-center gap-1.5">
+              <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
+            </div>
             {(source === "live" || source === "yahoo") && (
-              <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 LIVE
               </span>
             )}
           </div>
           {lastUpdated && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground font-mono">
               {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
-        {data.map((commodity) => (
-          <CompactTicker key={commodity.symbol} commodity={commodity} />
-        ))}
+      
+      {/* Scrolling Ticker */}
+      <div 
+        className="ticker-container"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        <div className="ticker-fade-left" />
+        <div className="ticker-fade-right" />
+        <div 
+          ref={tickerRef}
+          className={`ticker-track ${isPaused ? 'paused' : ''}`}
+        >
+          {/* First set of items */}
+          <div className="ticker-content">
+            {data.map((commodity) => (
+              <TickerItem key={`a-${commodity.symbol}`} commodity={commodity} />
+            ))}
+          </div>
+          {/* Duplicate for seamless loop */}
+          <div className="ticker-content">
+            {data.map((commodity) => (
+              <TickerItem key={`b-${commodity.symbol}`} commodity={commodity} />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -7,23 +7,20 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Rigzone, url: https://www.rigzone.com/, type: web }
-      - { name: Drilling Contractor (IADC), url: https://drillingcontractor.org/, type: web }
-      - { name: World Oil, url: https://www.worldoil.com/, type: web }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
-      - { name: Upstream Online, url: https://www.upstreamonline.com/, type: web, notes: paywall }
-      - { name: Energy Voice, url: https://www.energyvoice.com/, type: web }
-      - { name: IADC (Association), url: https://www.iadc.org/, type: web }
-      - { name: Baker Hughes Rig Count, url: https://bakerhughesrigcount.gcs-web.com/rig-count-overview, type: web }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: Drilling Contractor (IADC), url: https://drillingcontractor.org/feed, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
+      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
       - { name: EIA Drilling Productivity Report, url: https://www.eia.gov/petroleum/drilling/, type: web }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
     au:
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
       - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
       - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: Business News (WA), url: https://www.businessnews.com.au/, type: web, notes: paywall }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
       - { name: NOPTA, url: https://www.nopta.gov.au/, type: web }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: drilling-services
   portfolio: drilling-services
   label: Drilling Services
@@ -33,27 +30,21 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Rigzone, url: https://www.rigzone.com/, type: web }
-      - { name: World Oil, url: https://www.worldoil.com/, type: web }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
-      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/, type: web }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
-      - { name: Hart Energy, url: https://www.hartenergy.com/, type: web }
-      - { name: S&P Global Commodity Insights (Energy), url: https://www.spglobal.com/energy/en/news-research/latest-news, type: web, notes: paywall }
-      - { name: Energy Voice, url: https://www.energyvoice.com/, type: web }
-      - { name: SLB Newsroom, url: https://www.slb.com/newsroom, type: web }
-      - { name: Halliburton Newsroom, url: https://www.halliburton.com/en/newsroom.html, type: web }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
+      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/feed, type: rss }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: Hart Energy, url: https://www.hartenergy.com/rss.xml, type: rss }
+      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
     au:
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
       - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
       - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: AOGR (The Australian Oil & Gas Review), url: https://aogr.com.au/, type: web, notes: paywall }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
       - { name: NOPTA, url: https://www.nopta.gov.au/, type: web }
-      - { name: Business News (WA), url: https://www.businessnews.com.au/, type: web, notes: paywall }
-      - { name: Australian Mining, url: https://www.australianmining.com.au/, type: web }
-      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
-      - { name: Manufacturers' Monthly, url: https://www.manmonthly.com.au/, type: web }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: wells-materials-octg
   portfolio: wells-materials-octg
   label: Wells Materials & OCTG
@@ -63,24 +54,15 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Argus Pipe Logix (OCTG), url: https://www.pipe-logix.com/, type: web, notes: paywall }
-      - { name: Fastmarkets, url: https://www.fastmarkets.com/, type: web, notes: paywall }
-      - { name: CRU Group, url: https://www.crugroup.com/, type: web, notes: paywall }
-      - { name: SteelOrbis, url: https://www.steelorbis.com/, type: web, notes: paywall }
-      - { name: SteelBenchmarker, url: https://steelbenchmarker.com/, type: web, notes: paywall }
-      - { name: S&P Global Metals, url: https://www.spglobal.com/commodityinsights/en/commodities/metals, type: web, notes: paywall }
-      - { name: Argus Metals, url: https://www.argusmedia.com/en/commodities/metals, type: web, notes: paywall }
-      - { name: CME Group – Hot-Rolled Coil (HRC), url: https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html, type: web }
-      - { name: London Metal Exchange (Ferrous), url: https://www.lme.com/en/metals/ferrous, type: web }
-      - { name: Stainless Steel World, url: https://stainless-steel-world.net/, type: web }
+      - { name: American Iron and Steel Institute, url: https://www.steel.org/news/, type: web }
+      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: USGS Minerals News, url: https://www.usgs.gov/centers/national-minerals-information-center/mineral-commodity-summaries, type: web }
     au:
-      - { name: Australian Steel Institute (ASI), url: https://www.steel.org.au/news-and-events/news/, type: web }
-      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/, type: web }
-      - { name: APGA (Australian Pipelines & Gas Association), url: https://apga.org.au/, type: web }
-      - { name: Pump Industry Magazine, url: https://www.pumpindustry.com.au/, type: web }
-      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
-      - { name: Manufacturers' Monthly, url: https://www.manmonthly.com.au/, type: web }
-      - { name: Utility Magazine, url: https://utilitymagazine.com.au/, type: web }
+      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
+      - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
 - id: completions-intervention
   portfolio: completions-intervention
   label: Completions & Intervention
@@ -90,27 +72,17 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: World Oil – Completions, url: https://www.worldoil.com/topics/completions/, type: web }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
-      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/latest-news, type: web }
-      - { name: Rigzone, url: https://www.rigzone.com/, type: web }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
-      - { name: Infill Thinking, url: https://www.infillthinking.com/, type: web, notes: paywall }
-      - { name: Petroleum Connection – Frac Sand Digest, url: https://petroleumconnection.com/digest/, type: web }
-      - { name: Hart Energy, url: https://www.hartenergy.com/, type: web }
-      - { name: Oil & Gas Journal – Drilling & Production, url: https://www.ogj.com/drilling-production, type: web }
-      - { name: SLB Newsroom, url: https://www.slb.com/newsroom, type: web }
+      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
+      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/feed, type: rss }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
+      - { name: Hart Energy, url: https://www.hartenergy.com/rss.xml, type: rss }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
     au:
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: AOGR (The Australian Oil & Gas Review), url: https://aogr.com.au/, type: web, notes: paywall }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
       - { name: NOPTA, url: https://www.nopta.gov.au/, type: web }
-      - { name: Subsea Energy Australia, url: https://subseaenergy.org.au/, type: web }
-      - { name: Offshore Energy, url: https://www.offshore-energy.biz/, type: web }
-      - { name: OE Digital – Australia news, url: https://www.oedigital.com/australia, type: web }
-      - { name: Energy Magazine (AU), url: https://www.energymagazine.com.au/, type: web }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: pa-decommissioning
   portfolio: pa-decommissioning
   label: Plug & Abandonment / Decommissioning
@@ -120,27 +92,15 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Decom Mission, url: https://decommission.net/, type: web, notes: paywall }
-      - { name: OEUK – Decommissioning News, url: https://oeuk.org.uk/category/offshore-energies-news/decommissioning-news/, type: web }
-      - { name: NOPSEMA – Decommissioning, url: https://www.nopsema.gov.au/blogs/categories/decommissioning, type: web }
-      - { name: Decommissioning Regulatory Hub (DecomRegHub), url: https://www.decomreghub.org.uk/, type: web }
-      - { name: Offshore Engineer (OE Digital), url: https://www.oedigital.com/, type: web }
-      - { name: CODA / Decommissioning.org.au News, url: https://decommissioning.org.au/news, type: web }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
-      - { name: Upstream Online, url: https://www.upstreamonline.com/, type: web, notes: paywall }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
       - { name: BSEE – Newsroom, url: https://www.bsee.gov/newsroom, type: web }
+      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
     au:
       - { name: CODA – Centre of Decommissioning Australia, url: https://www.decommissioning.org.au/, type: web }
-      - { name: NOPSEMA – Decommissioning strategy & performance, url: https://www.nopsema.gov.au/offshore-industry/decommissioning/strategy-plan-and-performance, type: web }
-      - { name: NOPSEMA – Decommissioning blog category, url: https://www.nopsema.gov.au/blogs/categories/decommissioning, type: web }
-      - { name: DISR consultation – Decommissioning financial assurance reforms, url: https://consult.industry.gov.au/offshore-decommissioning-financial-assurance-reforms-consultation-paper, type: web }
-      - { name: Industry.gov.au – Decommissioning reforms (Have your say), url: https://www.industry.gov.au/news/offshore-decommissioning-and-financial-assurance-reforms-have-your-say, type: web }
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: OE Digital – Australia news, url: https://www.oedigital.com/australia, type: web }
-      - { name: Business News (WA), url: https://www.businessnews.com.au/, type: web, notes: paywall }
+      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: subsea-surf-offshore
   portfolio: subsea-surf-offshore
   label: Subsea, SURF & Offshore
@@ -150,25 +110,16 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
-      - { name: Offshore Engineer (OE Digital), url: https://www.oedigital.com/, type: web }
-      - { name: Offshore Energy – Subsea World News, url: https://www.offshore-energy.biz/subsea/, type: web }
-      - { name: Offshore Technology, url: https://www.offshore-technology.com/, type: web }
-      - { name: Upstream Online, url: https://www.upstreamonline.com/, type: web, notes: paywall }
-      - { name: Energy Voice, url: https://www.energyvoice.com/, type: web }
-      - { name: Infield, url: https://www.infield.com/, type: web, notes: paywall }
-      - { name: Westwood Global Energy Group, url: https://www.westwoodenergy.com/, type: web, notes: paywall }
-      - { name: Rystad Energy, url: https://www.rystadenergy.com/, type: web, notes: paywall }
-      - { name: Subsea 7 – Newsroom, url: https://www.subsea7.com/en/media/news.html, type: web }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
+      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: gCaptain, url: https://gcaptain.com/feed/, type: rss }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: BSEE Newsroom, url: https://www.bsee.gov/newsroom, type: web }
     au:
-      - { name: Subsea Energy Australia, url: https://subseaenergy.org.au/, type: web }
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: Offshore Energy, url: https://www.offshore-energy.biz/, type: web }
-      - { name: Offshore Technology – Australia tag, url: https://www.offshore-technology.com/tag/australia/, type: web }
-      - { name: OE Digital – Australia news, url: https://www.oedigital.com/australia, type: web }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
       - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
+      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
       - { name: Pilbara Ports – News, url: https://www.pilbaraports.com.au/about-pilbara-ports/news%2C-media-and-statistics/news, type: web }
       - { name: Fremantle Ports – News, url: https://fremantleports.com.au/news, type: web }
 - id: projects-epc-epcm-construction
@@ -180,27 +131,17 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Engineering News-Record (ENR), url: https://www.enr.com/, type: web, notes: paywall }
-      - { name: Hydrocarbon Engineering, url: https://www.hydrocarbonengineering.com/, type: web }
-      - { name: LNG Industry, url: https://www.lngindustry.com/, type: web }
-      - { name: Offshore Engineer (OE Digital), url: https://www.oedigital.com/, type: web }
-      - { name: World Oil, url: https://www.worldoil.com/, type: web }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
-      - { name: Offshore Technology, url: https://www.offshore-technology.com/, type: web }
-      - { name: World Pipelines, url: https://www.worldpipelines.com/, type: web }
-      - { name: Global Construction Review, url: https://www.globalconstructionreview.com/, type: web }
-      - { name: Construction Dive, url: https://www.constructiondive.com/, type: web }
+      - { name: Hydrocarbon Engineering, url: https://www.hydrocarbonengineering.com/feed/, type: rss }
+      - { name: LNG Industry, url: https://www.lngindustry.com/feed/, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: Construction Dive, url: https://www.constructiondive.com/feeds/news/, type: rss }
+      - { name: Global Construction Review, url: https://www.globalconstructionreview.com/feed/, type: rss }
+      - { name: FERC News, url: https://www.ferc.gov/news-events/news/rss, type: rss }
     au:
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: Energy Magazine (AU), url: https://www.energymagazine.com.au/, type: web }
-      - { name: Utility Magazine, url: https://utilitymagazine.com.au/, type: web }
       - { name: Infrastructure Australia – News, url: https://www.infrastructureaustralia.gov.au/listing/news, type: web }
-      - { name: Engineers Australia – News & media, url: https://www.engineersaustralia.org.au/news-and-media, type: web }
-      - { name: Australian Mining, url: https://www.australianmining.com.au/, type: web }
-      - { name: Australian Resources & Investment, url: https://www.australianresourcesandinvestment.com.au/, type: web }
-      - { name: Business News (WA), url: https://www.businessnews.com.au/, type: web, notes: paywall }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: major-equipment-oem-ltsa
   portfolio: major-equipment-oem-ltsa
   label: Major Equipment OEM & LTSA
@@ -210,27 +151,17 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Turbomachinery Magazine, url: https://www.turbomachinerymag.com/, type: web }
-      - { name: CompressorTech2, url: https://www.compressortech2.com/, type: web }
-      - { name: Pumps & Systems, url: https://www.pumpsandsystems.com/, type: web }
-      - { name: Hydrocarbon Processing, url: https://www.hydrocarbonprocessing.com/, type: web }
-      - { name: Power Engineering, url: https://www.power-eng.com/, type: web }
-      - { name: Industrial Equipment News (IEN), url: https://www.ien.com/, type: web }
-      - { name: Siemens Energy – Newsroom, url: https://www.siemens-energy.com/global/en/news.html, type: web }
-      - { name: GE Vernova – News, url: https://www.gevernova.com/news, type: web }
-      - { name: Baker Hughes – News, url: https://www.bakerhughes.com/company/newsroom, type: web }
-      - { name: Sulzer – News, url: https://www.sulzer.com/en/shared/news, type: web }
+      - { name: Turbomachinery Magazine, url: https://www.turbomachinerymag.com/feed/, type: rss }
+      - { name: CompressorTech2, url: https://www.compressortech2.com/feed/, type: rss }
+      - { name: Pumps & Systems, url: https://www.pumpsandsystems.com/rss.xml, type: rss }
+      - { name: Hydrocarbon Processing, url: https://www.hydrocarbonprocessing.com/feed/, type: rss }
+      - { name: Power Engineering, url: https://www.power-eng.com/feed/, type: rss }
+      - { name: Industrial Equipment News, url: https://www.ien.com/rss.xml, type: rss }
     au:
-      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
-      - { name: Manufacturers' Monthly, url: https://www.manmonthly.com.au/, type: web }
-      - { name: Pump Industry Magazine, url: https://www.pumpindustry.com.au/, type: web }
-      - { name: Electrical connection, url: https://electricalconnection.com.au/, type: web }
-      - { name: Energy Magazine (AU), url: https://www.energymagazine.com.au/, type: web }
-      - { name: Utility Magazine, url: https://utilitymagazine.com.au/, type: web }
-      - { name: Australian Mining, url: https://www.australianmining.com.au/, type: web }
-      - { name: Austmine – News, url: https://austmine.com.au/Public/Public/News/News.aspx, type: web }
-      - { name: Engineers Australia – News & media, url: https://www.engineersaustralia.org.au/news-and-media, type: web }
-      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/, type: web }
+      - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
 - id: ops-maintenance-services
   portfolio: ops-maintenance-services
   label: Operations & Maintenance Services
@@ -240,28 +171,17 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Inspectioneering, url: https://inspectioneering.com/, type: web, notes: paywall }
-      - { name: Reliabilityweb, url: https://reliabilityweb.com/, type: web }
-      - { name: AMPP (Corrosion & Coatings), url: https://www.ampp.org/, type: web }
-      - { name: Maintenance World, url: https://maintenance.org/, type: web }
-      - { name: EHS Today, url: https://www.ehstoday.com/, type: web }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
-      - { name: Plant Engineering, url: https://www.plantengineering.com/, type: web }
-      - { name: World Pipelines (Integrity / Maintenance), url: https://www.worldpipelines.com/, type: web }
-      - { name: The Fabricator (Welding/Fab), url: https://www.thefabricator.com/, type: web }
+      - { name: Reliabilityweb, url: https://reliabilityweb.com/feed, type: rss }
+      - { name: EHS Today, url: https://www.ehstoday.com/rss, type: rss }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
+      - { name: Plant Engineering, url: https://www.plantengineering.com/feed/, type: rss }
+      - { name: The Fabricator, url: https://www.thefabricator.com/rss/thefabricator/all, type: rss }
     au:
-      - { name: Energy News Bulletin (ENB), url: https://www.energynewsbulletin.net/, type: web, notes: paywall }
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
-      - { name: The Australian Pipeliner – Integrity & maintenance, url: https://www.pipeliner.com.au/category/integrity-maintenance/, type: web }
-      - { name: Asset Management Council – The Asset Journal, url: https://www.amcouncil.com.au/the-asset-journal/, type: web }
-      - { name: Australasian Corrosion Association – Latest news, url: https://www.corrosion.com.au/about/latest-news/, type: web }
       - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
-      - { name: Energy Magazine (AU), url: https://www.energymagazine.com.au/, type: web }
-      - { name: Utility Magazine, url: https://utilitymagazine.com.au/, type: web }
-      - { name: Plant Engineering, url: https://www.plantengineering.com/, type: web }
+      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: mro-site-consumables
   portfolio: mro-site-consumables
   label: MRO & Site Consumables
@@ -271,26 +191,17 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Valve World, url: https://valve-world.net/, type: web }
-      - { name: Valve Magazine (VMA), url: https://www.valvemagazine.com/, type: web }
-      - { name: Stainless Steel World, url: https://stainless-steel-world.net/, type: web }
-      - { name: Industrial Distribution, url: https://www.inddist.com/, type: web }
-      - { name: Supply Chain Dive, url: https://www.supplychaindive.com/, type: web }
-      - { name: Power & Motion Tech, url: https://www.powermotiontech.com/, type: web }
-      - { name: Fluid Power Journal, url: https://fluidpowerjournal.com/, type: web }
-      - { name: Pumps & Systems, url: https://www.pumpsandsystems.com/, type: web }
-      - { name: Fastener + Fixing, url: http://www.fastenerandfixing.com/, type: web }
-      - { name: Manufacturing.net, url: https://www.manufacturing.net/, type: web }
+      - { name: Supply Chain Dive, url: https://www.supplychaindive.com/feeds/news/, type: rss }
+      - { name: Pumps & Systems, url: https://www.pumpsandsystems.com/rss.xml, type: rss }
+      - { name: Plant Engineering, url: https://www.plantengineering.com/feed/, type: rss }
+      - { name: Manufacturing.net, url: https://www.manufacturing.net/rss.xml, type: rss }
+      - { name: Industrial Distribution, url: https://www.inddist.com/rss.xml, type: rss }
+      - { name: Fluid Power Journal, url: https://fluidpowerjournal.com/feed/, type: rss }
     au:
-      - { name: Pump Industry Magazine, url: https://www.pumpindustry.com.au/, type: web }
-      - { name: Pump Industry Australia – Industry news, url: https://pumps.org.au/category/industry-news/, type: web }
-      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
-      - { name: Manufacturers' Monthly, url: https://www.manmonthly.com.au/, type: web }
-      - { name: Electrical connection, url: https://electricalconnection.com.au/, type: web }
-      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/, type: web }
-      - { name: Utility Magazine, url: https://utilitymagazine.com.au/, type: web }
-      - { name: Australian Steel Institute (ASI), url: https://www.steel.org.au/news-and-events/news/, type: web }
+      - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
+      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
 - id: logistics-marine-aviation
   portfolio: logistics-marine-aviation
   label: Logistics, Marine & Aviation
@@ -300,27 +211,19 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Lloyd's List, url: https://www.lloydslist.com/, type: web, notes: paywall }
-      - { name: Maritime Executive, url: https://www.maritime-executive.com/, type: web }
-      - { name: Tradewinds, url: https://www.tradewindsnews.com/, type: web, notes: paywall }
-      - { name: Journal of Commerce, url: https://www.joc.com/, type: web, notes: paywall }
-      - { name: FreightWaves, url: https://www.freightwaves.com/, type: web }
-      - { name: Drewry, url: https://www.drewry.co.uk/, type: web, notes: paywall }
-      - { name: Freightos FBX, url: https://www.freightos.com/freightos-baltic-index-fbx/, type: web }
-      - { name: Baltic Exchange, url: https://www.balticexchange.com/en/index.html, type: web }
-      - { name: Air Cargo News, url: https://www.aircargonews.net/, type: web }
-      - { name: Vertical Magazine, url: https://verticalmag.com/, type: web }
+      - { name: Maritime Executive, url: https://www.maritime-executive.com/rss, type: rss }
+      - { name: FreightWaves, url: https://www.freightwaves.com/news/rss.xml, type: rss }
+      - { name: Air Cargo News, url: https://www.aircargonews.net/feed/, type: rss }
+      - { name: Supply Chain Dive, url: https://www.supplychaindive.com/feeds/news/, type: rss }
+      - { name: gCaptain, url: https://gcaptain.com/feed/, type: rss }
+      - { name: Splash247, url: https://splash247.com/feed/, type: rss }
+      - { name: Seatrade Maritime, url: https://www.seatrade-maritime.com/rss.xml, type: rss }
     au:
-      - { name: Daily Cargo News (DCN), url: https://www.thedcn.com.au/, type: web }
-      - { name: Shipping Australia, url: https://shippingaustralia.com.au/, type: web }
-      - { name: MHD Supply Chain, url: https://mhdsupplychain.com.au/, type: web }
-      - { name: Fully Loaded, url: https://www.fullyloaded.com.au/, type: web }
-      - { name: Prime Mover Magazine, url: https://primemovermag.com.au/, type: web }
-      - { name: Australian Aviation, url: https://australianaviation.com.au/, type: web }
+      - { name: Daily Cargo News (DCN), url: https://www.thedcn.com.au/feed/, type: rss }
+      - { name: Australian Aviation, url: https://australianaviation.com.au/feed/, type: rss }
+      - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
       - { name: Fremantle Ports – News, url: https://fremantleports.com.au/news, type: web }
       - { name: Pilbara Ports – News, url: https://www.pilbaraports.com.au/about-pilbara-ports/news%2C-media-and-statistics/news, type: web }
-      - { name: Freight & Trade Alliance (FTA) – News, url: https://www.ftalliance.com.au/news, type: web }
-      - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
 - id: site-services-facilities
   portfolio: site-services-facilities
   label: Site Services & Facilities
@@ -330,27 +233,18 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: IFMA, url: https://www.ifma.org/, type: web }
-      - { name: FacilitiesNet, url: https://www.facilitiesnet.com/, type: web }
-      - { name: Facility Executive, url: https://facilityexecutive.com/, type: web }
-      - { name: Waste360, url: https://www.waste360.com/, type: web }
-      - { name: CleanLink, url: https://www.cleanlink.com/, type: web }
-      - { name: Security Magazine, url: https://www.securitymagazine.com/, type: web }
-      - { name: EHS Today, url: https://www.ehstoday.com/, type: web }
+      - { name: FacilitiesNet, url: https://www.facilitiesnet.com/rss/fn_all.xml, type: rss }
+      - { name: Facility Executive, url: https://facilityexecutive.com/feed/, type: rss }
+      - { name: Waste360, url: https://www.waste360.com/rss.xml, type: rss }
+      - { name: Security Magazine, url: https://www.securitymagazine.com/rss, type: rss }
+      - { name: EHS Today, url: https://www.ehstoday.com/rss, type: rss }
       - { name: OSHA News, url: https://www.osha.gov/news/newsreleases, type: web }
-      - { name: ISSA, url: https://www.issa.com/news/, type: web }
-      - { name: FES Magazine, url: https://www.fesmag.com/, type: web }
+      - { name: EPA News, url: https://www.epa.gov/newsreleases/search/rss, type: rss }
     au:
-      - { name: FM Magazine (Australia), url: https://www.fmmagazine.com.au/, type: web }
-      - { name: Waste Management Review, url: https://wastemanagementreview.com.au/, type: web }
-      - { name: Inside Waste, url: https://www.insidewaste.com.au/, type: web }
-      - { name: INCLEAN Magazine, url: https://incleanmag.com.au/, type: web }
-      - { name: Security Solutions Media, url: https://www.securitysolutionsmedia.com/, type: web }
-      - { name: ASIAL – Latest news, url: https://asial.com.au/Web/Web/News/Latest-News.aspx, type: web }
-      - { name: Australian Security Magazine, url: https://australiansecuritymagazine.com.au/, type: web }
       - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
-      - { name: Business News (WA), url: https://www.businessnews.com.au/, type: web, notes: paywall }
       - { name: WorkSafe WA – Media releases, url: https://www.commerce.wa.gov.au/worksafe/media-releases, type: web }
+      - { name: Waste Management Review, url: https://wastemanagementreview.com.au/feed/, type: rss }
+      - { name: Inside Waste, url: https://www.insidewaste.com.au/feed/, type: rss }
 - id: it-telecom-cyber
   portfolio: it-telecom-cyber
   label: IT, Telecom & Cyber
@@ -360,27 +254,21 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Dark Reading, url: https://www.darkreading.com/, type: web }
-      - { name: BleepingComputer, url: https://www.bleepingcomputer.com/, type: web }
-      - { name: The Register, url: https://www.theregister.com/, type: web }
-      - { name: CSO Online, url: https://www.csoonline.com/, type: web }
-      - { name: KrebsOnSecurity, url: https://krebsonsecurity.com/, type: web }
-      - { name: CISA Advisories, url: https://www.cisa.gov/news-events/cybersecurity-advisories, type: web }
-      - { name: Industrial Cyber, url: https://industrialcyber.co/, type: web }
-      - { name: Cybersecurity Dive, url: https://www.cybersecuritydive.com/, type: web }
-      - { name: Gartner Newsroom, url: https://www.gartner.com/en/newsroom, type: web, notes: paywall }
-      - { name: The Hacker News, url: https://thehackernews.com/, type: web }
+      - { name: Dark Reading, url: https://www.darkreading.com/rss.xml, type: rss }
+      - { name: BleepingComputer, url: https://www.bleepingcomputer.com/feed/, type: rss }
+      - { name: The Register, url: https://www.theregister.com/headlines.atom, type: rss }
+      - { name: CSO Online, url: https://www.csoonline.com/feed/, type: rss }
+      - { name: KrebsOnSecurity, url: https://krebsonsecurity.com/feed/, type: rss }
+      - { name: CISA Advisories, url: https://www.cisa.gov/cybersecurity-advisories/all.xml, type: rss }
+      - { name: Industrial Cyber, url: https://industrialcyber.co/feed/, type: rss }
+      - { name: Cybersecurity Dive, url: https://www.cybersecuritydive.com/feeds/news/, type: rss }
+      - { name: The Hacker News, url: https://feeds.feedburner.com/TheHackersNews, type: rss }
     au:
-      - { name: iTnews, url: https://www.itnews.com.au/, type: web }
-      - { name: iTWire, url: https://itwire.com/, type: web }
-      - { name: Information Age (ACS), url: https://ia.acs.org.au/, type: web }
-      - { name: Cyber Daily, url: https://cyberdaily.au/, type: web }
+      - { name: iTnews, url: https://www.itnews.com.au/rss/feed.ashx, type: rss }
+      - { name: iTWire, url: https://itwire.com/feed, type: rss }
+      - { name: Cyber Daily, url: https://cyberdaily.au/feed/, type: rss }
       - { name: ACSC (Cyber.gov.au), url: https://www.cyber.gov.au/, type: web }
-      - { name: Australian Cyber Security Magazine, url: https://australiancybersecuritymagazine.com.au/, type: web }
-      - { name: OAIC – Data breaches & guidance, url: https://www.oaic.gov.au/, type: web }
-      - { name: AFR – Technology, url: https://www.afr.com/technology, type: web, notes: paywall }
-      - { name: Department of Home Affairs, url: https://www.homeaffairs.gov.au/, type: web }
-      - { name: AusCERT, url: https://auscert.org.au/, type: web }
+      - { name: AusCERT, url: https://auscert.org.au/resources/rss/, type: rss }
 - id: professional-services-hr
   portfolio: professional-services-hr
   label: Professional Services & HR
@@ -390,27 +278,15 @@
   lookbackDays: 7
   feedsByRegion:
     us-mx-la-lng:
-      - { name: HR Dive, url: https://www.hrdive.com/, type: web }
-      - { name: SHRM News, url: https://www.shrm.org/topics-tools/news, type: web }
-      - { name: Staffing Industry Analysts, url: https://www.staffingindustry.com/news/global-daily-news, type: web, notes: paywall }
-      - { name: Consulting.us, url: https://www.consulting.us/news, type: web }
-      - { name: Law360, url: https://www.law360.com/, type: web, notes: paywall }
-      - { name: The Lawyer, url: https://www.thelawyer.com/, type: web, notes: paywall }
-      - { name: Accounting Today, url: https://www.accountingtoday.com/, type: web }
-      - { name: Internal Auditor, url: https://internalauditor.theiia.org/en/, type: web }
-      - { name: Harvard Business Review, url: https://hbr.org/, type: web, notes: paywall }
-      - { name: Financial Times, url: https://www.ft.com/, type: web, notes: paywall }
+      - { name: HR Dive, url: https://www.hrdive.com/feeds/news/, type: rss }
+      - { name: SHRM News, url: https://www.shrm.org/rss/pages/rss.aspx, type: rss }
+      - { name: Accounting Today, url: https://www.accountingtoday.com/feed, type: rss }
+      - { name: BLS Economic Releases, url: https://www.bls.gov/feed/bls_latest.rss, type: rss }
     au:
-      - { name: HRM Online (AHRI), url: https://www.hrmonline.com.au/, type: web }
-      - { name: Workplace Express, url: https://www.workplaceexpress.com.au/, type: web, notes: paywall }
       - { name: Fair Work Ombudsman – News, url: https://www.fairwork.gov.au/newsroom/news, type: web }
       - { name: Fair Work Commission – News & media, url: https://www.fwc.gov.au/about-us/news-and-media, type: web }
-      - { name: Accountants Daily, url: https://www.accountantsdaily.com.au/, type: web }
-      - { name: Lawyers Weekly, url: https://www.lawyersweekly.com.au/, type: web }
-      - { name: Consultancy.com.au, url: https://www.consultancy.com.au/news, type: web }
-      - { name: AFR – Consulting topic, url: https://www.afr.com/topic/consulting-1mqc, type: web, notes: paywall }
-      - { name: CPA Australia – Media centre, url: https://www.cpaaustralia.com.au/about-us/media-centre, type: web }
-      - { name: Chartered Accountants ANZ – News, url: https://www.charteredaccountantsanz.com/news-and-analysis, type: web }
+      - { name: Accountants Daily, url: https://www.accountantsdaily.com.au/feed, type: rss }
+      - { name: Lawyers Weekly, url: https://www.lawyersweekly.com.au/feed, type: rss }
 - id: market-dashboard
   portfolio: market-dashboard
   label: Market Dashboard

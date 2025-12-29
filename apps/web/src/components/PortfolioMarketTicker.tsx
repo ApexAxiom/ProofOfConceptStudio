@@ -23,24 +23,30 @@ function formatPrice(price: number): string {
   return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function TickerBadge({ data }: { data: PriceData }) {
+function TickerItem({ data }: { data: PriceData }) {
   const isPositive = data.change >= 0;
+  const changeText = `${isPositive ? "+" : ""}${data.changePercent.toFixed(2)}%`;
   
   return (
     <a
       href={data.sourceUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-sm"
+      className="ticker-item group flex items-center gap-3 px-4 py-2 whitespace-nowrap"
     >
-      <span className="font-medium text-foreground">{data.symbol}</span>
-      <span className="font-semibold text-foreground">
+      <span className="font-semibold text-foreground tracking-tight">{data.symbol}</span>
+      <span className="text-foreground/90 font-mono text-sm">
         {data.unit.startsWith("/") ? "" : "$"}{formatPrice(data.price)}
         {data.unit && <span className="text-xs text-muted-foreground ml-0.5">{data.unit}</span>}
       </span>
-      <span className={`text-xs font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-        {isPositive ? "+" : ""}{data.changePercent.toFixed(2)}%
+      <span className={`ticker-change font-mono text-xs font-semibold px-1.5 py-0.5 rounded ${
+        isPositive 
+          ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" 
+          : "text-red-600 dark:text-red-400 bg-red-500/10"
+      }`}>
+        {isPositive ? "▲" : "▼"} {changeText}
       </span>
+      <span className="ticker-separator text-border/50">│</span>
     </a>
   );
 }
@@ -49,6 +55,7 @@ export function PortfolioMarketTicker({ portfolio }: { portfolio: string }) {
   const [data, setData] = useState<PriceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -145,10 +152,12 @@ export function PortfolioMarketTicker({ portfolio }: { portfolio: string }) {
 
   if (loading) {
     return (
-      <div className="flex flex-wrap gap-2">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-8 w-28 animate-pulse rounded-md bg-muted" />
-        ))}
+      <div className="ticker-container">
+        <div className="flex items-center gap-6 px-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-6 w-28 animate-pulse rounded bg-muted/50" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -159,24 +168,46 @@ export function PortfolioMarketTicker({ portfolio }: { portfolio: string }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
-          <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
+          </div>
+          <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+            <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
             LIVE
           </span>
         </div>
         {lastUpdated && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground font-mono">
             {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {data.map((item) => (
-          <TickerBadge key={item.symbol} data={item} />
-        ))}
+      
+      {/* Scrolling Ticker */}
+      <div 
+        className="ticker-container"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        <div className={`ticker-track ${isPaused ? 'paused' : ''}`}>
+          {/* First set of items */}
+          <div className="ticker-content">
+            {data.map((item) => (
+              <TickerItem key={`a-${item.symbol}`} data={item} />
+            ))}
+          </div>
+          {/* Duplicate for seamless loop */}
+          <div className="ticker-content">
+            {data.map((item) => (
+              <TickerItem key={`b-${item.symbol}`} data={item} />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
