@@ -4,19 +4,11 @@ import Link from "next/link";
 import { ThemeProvider } from "../components/ThemeProvider";
 import { ThemeToggle } from "../components/ThemeToggle";
 
-function Logo() {
+function SiteTitle() {
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-        <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-emerald-500" />
-      </div>
-      <div>
-        <h1 className="text-lg font-bold text-foreground">POC Studio</h1>
-        <p className="text-xs font-medium text-muted-foreground">Category Intelligence Hub</p>
-      </div>
+    <div>
+      <h1 className="text-xl font-bold text-foreground sm:text-2xl">Category Intelligence Hub</h1>
+      <p className="text-sm text-muted-foreground">Market data and intelligence across all categories</p>
     </div>
   );
 }
@@ -113,27 +105,26 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>POC Studio | Category Intelligence Hub</title>
+        <title>Category Intelligence Hub</title>
       </head>
       <body className="min-h-screen">
         <ThemeProvider>
           {/* Header */}
           <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
             <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-              <div className="flex items-center gap-6">
-                <Link href="/">
-                  <Logo />
-                </Link>
+              <Link href="/">
+                <SiteTitle />
+              </Link>
+              <div className="flex items-center gap-1">
                 <nav className="hidden items-center gap-1 md:flex">
                   <NavLink href="/" icon={<DashboardIcon />}>Dashboard</NavLink>
                   <RegionsDropdown />
                   <NavLink href="/chat" icon={<ChatIcon />}>AI Assistant</NavLink>
                   <NavLink href="/admin" icon={<SettingsIcon />}>Admin</NavLink>
                 </nav>
-              </div>
-              <div className="flex items-center gap-3">
+                <div className="hidden h-6 w-px bg-border mx-2 lg:block" />
                 <LiveIndicator />
-                <div className="hidden h-6 w-px bg-border lg:block" />
+                <div className="hidden h-6 w-px bg-border mx-2 lg:block" />
                 <ThemeToggle />
               </div>
             </div>

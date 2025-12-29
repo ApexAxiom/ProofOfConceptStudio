@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
-import { categoryForPortfolio, getCategoryBadgeClass } from "@proof/shared";
+import { categoryForPortfolio, getCategoryBadgeClass, CATEGORY_META } from "@proof/shared";
 import { ProxiedImage } from "./ProxiedImage";
 import { extractValidUrl } from "../lib/url";
 import { inferSignals } from "../lib/signals";
@@ -12,7 +12,7 @@ function previewText(brief: BriefPost): string {
   return firstLine.replace(/^\*\*Overview:\*\*\s*/i, "").trim();
 }
 
-function truncate(text: string, max = 150): string {
+function truncate(text: string, max = 120): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max).trim()}…`;
 }
@@ -38,10 +38,7 @@ function TimeAgo({ date }: { date: string }) {
   }
   
   return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+    <span className="text-xs text-muted-foreground">
       {timeStr}
     </span>
   );
@@ -53,88 +50,111 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
     extractValidUrl(brief.selectedArticles?.[0]?.url) ??
     extractValidUrl(brief.heroImageSourceUrl) ?? 
     extractValidUrl(brief.sources?.[0]);
-  const badgeClass = getCategoryBadgeClass(brief.portfolio);
+  const category = categoryForPortfolio(brief.portfolio);
+  const categoryMeta = CATEGORY_META[category];
   const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
   const heroImageUrl = extractValidUrl(brief.heroImageUrl);
   const signals = inferSignals(brief);
   const sourceCount = brief.selectedArticles?.length || brief.sources?.length || 0;
 
+  // Get first article's key metrics if available
+  const keyMetrics = brief.selectedArticles?.[0]?.keyMetrics?.slice(0, 2);
+
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:border-border/80">
-      {/* Hero Image */}
-      <div className="relative h-40 w-full overflow-hidden bg-muted">
+    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/30">
+      {/* Hero Image with Overlay */}
+      <div className="relative h-36 w-full overflow-hidden bg-muted">
         <ProxiedImage
           src={heroImageUrl}
           alt={heroImageAlt}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         
-        {/* Run window badge */}
+        {/* Edition Badge */}
         <div className="absolute right-2 top-2">
-          <span className="rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground backdrop-blur-sm">
+          <span className="rounded-md bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
             {brief.runWindow}
           </span>
         </div>
         
-        {/* Bottom tags */}
-        <div className="absolute bottom-2 left-2 flex flex-wrap gap-1.5">
-          <span className={`badge ${badgeClass}`}>
+        {/* Category Badge on Image */}
+        <div className="absolute bottom-2 left-2">
+          <span 
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm"
+            style={{ backgroundColor: `${categoryMeta.color}dd` }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
             {portfolioLabel(brief.portfolio)}
-          </span>
-          <span className="badge badge-neutral">
-            {regionLabel(brief.region)}
           </span>
         </div>
       </div>
       
       {/* Content */}
       <div className="flex flex-1 flex-col gap-3 p-4">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center justify-between">
+        {/* Meta Row */}
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
             <TimeAgo date={brief.publishedAt} />
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground">{sourceCount} sources</span>
-            </div>
+            <span className="text-muted-foreground/50">•</span>
+            <span className="text-muted-foreground">{regionLabel(brief.region)}</span>
           </div>
-          
-          <h3 className="text-base font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-            {brief.title}
-          </h3>
-          
-          {/* Signals */}
-          {signals.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {signals.map((signal) => (
-                <span key={signal.type} className={signal.className}>
-                  {signal.label}
-                </span>
-              ))}
-            </div>
-          )}
-          
-          <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2">
-            {summary}
-          </p>
+          <span className="text-muted-foreground">{sourceCount} sources</span>
         </div>
         
+        {/* Title */}
+        <h3 className="text-sm font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+          {brief.title}
+        </h3>
+        
+        {/* Key Metrics Strip */}
+        {keyMetrics && keyMetrics.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {keyMetrics.map((metric, idx) => (
+              <span 
+                key={idx} 
+                className="inline-flex items-center rounded bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+              >
+                {metric}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Signals */}
+        {signals.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {signals.slice(0, 2).map((signal) => (
+              <span key={signal.type} className={`${signal.className} text-[10px] px-2 py-0.5`}>
+                {signal.label}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Summary */}
+        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2 flex-1">
+          {summary}
+        </p>
+        
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-border">
+        <div className="flex items-center gap-2 pt-2 border-t border-border mt-auto">
           <Link
             href={`/brief/${brief.postId}`}
-            className="btn-primary flex-1 justify-center py-2 text-sm"
+            className="btn-primary flex-1 justify-center py-1.5 text-xs"
           >
-            Open Brief
+            Read Brief
           </Link>
           {primaryArticleUrl && (
             <a
               href={primaryArticleUrl}
               target="_blank"
               rel="noreferrer"
-              className="btn-secondary px-3 py-2"
-              title="View original article"
+              className="btn-secondary px-2.5 py-1.5"
+              title="View primary source"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
               </svg>
             </a>

@@ -209,11 +209,22 @@ Your daily intelligence brief must follow this structure:
 - Include the key number or data point
 
 ### 3. Article Briefs (3 articles, ~100 words each)
-For each selected article:
-- **Lead sentence**: The key fact with numbers
-- **Context**: Why this matters for the category
-- **Supplier impact**: How this affects key suppliers or supply market
-- **Category manager action**: What to consider or monitor
+For each selected article, provide:
+
+**briefContent** (100 words):
+- Lead sentence with the key fact and numbers
+- Context about why this matters for the category  
+- Supplier impact showing how this affects key suppliers or supply market
+- Market dynamics and what to monitor
+
+**categoryImportance** (1-2 sentences):
+- Direct, actionable insight for category managers
+- Start with "This signals..." or "Monitor this because..." or "Consider..."
+- Connect the news directly to procurement decisions or supplier negotiations
+
+**keyMetrics** (2-4 data points):
+- Extract specific numbers, percentages, prices, dates, or quantities
+- Format as concise strings: "$72/bbl", "+15% YoY", "Q2 2025", "3.2M barrels"
 
 ### 4. Market Indicators
 - Select 2-3 most relevant indices for this category

@@ -38,6 +38,8 @@ export interface BriefOutput {
   selectedArticles: Array<{
     articleIndex: number;
     briefContent: string;
+    categoryImportance: string;
+    keyMetrics?: string[];
     imageAlt?: string;
   }>;
   heroSelection: { articleIndex: number };
@@ -135,7 +137,9 @@ Return ONLY valid JSON with this exact structure:
   "selectedArticles": [
     {
       "articleIndex": 1,
-      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief of this article with sourcing context",
+      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief covering: key facts, supplier impact, and market context",
+      "categoryImportance": "1-2 sentence explanation of why this matters for category managers. Focus on actionable insight: 'This signals X for your supplier negotiations' or 'Monitor this because Y affects your contracts'",
+      "keyMetrics": ["$72/bbl WTI", "+15% YoY", "Q2 2025 timeline"],
       "imageAlt": "Descriptive alt text for the image"
     }
   ],
@@ -155,6 +159,8 @@ Return ONLY valid JSON with this exact structure:
 4. **HERO MUST BE SELECTED**: heroSelection.articleIndex must match one of the selectedArticles entries
 5. **MARKET INDICATORS BY ID**: For marketIndicators, pick by indexId from the list below (no URLs in JSON)
 6. **ANALYST TONE**: Write like a procurement analyst, not a journalist. Facts and implications, no filler.
+7. **CATEGORY IMPORTANCE REQUIRED**: Each article MUST include a categoryImportance field explaining why this matters for category managers
+8. **KEY METRICS**: Extract 2-4 key numbers, percentages, dates, or values from each article
 
 ## MARKET INDICES
 
@@ -233,6 +239,8 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     selectedArticles: selected.map((article: any) => ({
       articleIndex: Number(article.articleIndex),
       briefContent: article.briefContent || "",
+      categoryImportance: article.categoryImportance || "",
+      keyMetrics: Array.isArray(article.keyMetrics) ? article.keyMetrics : [],
       imageAlt: article.imageAlt
     })),
     heroSelection: { articleIndex: Number(heroIndex) },

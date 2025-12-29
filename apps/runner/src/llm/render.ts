@@ -60,7 +60,19 @@ export function renderBriefMarkdown({
 
   selectedArticles.forEach((article, idx) => {
     lines.push("", `### ${idx + 1}. ${article.title}`);
+    
+    // Key metrics if available
+    if (article.keyMetrics && article.keyMetrics.length > 0) {
+      lines.push("", `📊 **Key Data:** ${article.keyMetrics.join(" • ")}`);
+    }
+    
     lines.push("", article.briefContent.trim());
+    
+    // Category importance callout
+    if (article.categoryImportance) {
+      lines.push("", `> 💡 **Why This Matters:** ${article.categoryImportance}`);
+    }
+    
     lines.push("", `**Source:** [${article.title}](${article.url})`);
     lines.push("", "---");
   });

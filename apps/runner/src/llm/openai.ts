@@ -59,6 +59,8 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
       title: inputArticle.title,
       url: inputArticle.url,
       briefContent: article.briefContent,
+      categoryImportance: article.categoryImportance,
+      keyMetrics: article.keyMetrics,
       imageUrl: inputArticle.ogImageUrl,
       imageAlt: article.imageAlt || inputArticle.title,
       sourceName: inputArticle.sourceName,

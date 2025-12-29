@@ -27,6 +27,10 @@ export interface SelectedArticle {
   url: string;
   /** Brief summary generated for this article */
   briefContent: string;
+  /** Why this matters for category management - actionable insight */
+  categoryImportance?: string;
+  /** Key data points or numbers from the article */
+  keyMetrics?: string[];
   /** Image URL from this article */
   imageUrl?: string;
   /** Alt text for the image */
