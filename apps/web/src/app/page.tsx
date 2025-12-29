@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BriefsTable } from "../components/BriefsTable";
 import { CoverageMatrix } from "../components/CoverageMatrix";
 import { LiveMarketTicker } from "../components/LiveMarketTicker";
@@ -93,17 +92,6 @@ export default async function GlobalDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Quick Actions */}
-      <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-        <span>Updated {new Date(executiveDashboard.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-        <Link href="/chat" className="btn-primary text-sm">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          Ask AI
-        </Link>
-      </div>
-
       {/* Market Indices - Animated Ticker Strip */}
       <div className="relative rounded-xl border border-border bg-gradient-to-r from-card via-card to-card overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-primary/[0.02]" />

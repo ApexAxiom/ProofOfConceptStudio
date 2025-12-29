@@ -110,7 +110,12 @@ export default function ChatPage() {
           <SparklesIcon />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">AI Category Assistant</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">AI Category Assistant</h1>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+              Offline mode only
+            </span>
+          </div>
           <p className="mt-1 text-muted-foreground">
             Ask questions about market intelligence, supplier trends, or any category-related topic.
           </p>
