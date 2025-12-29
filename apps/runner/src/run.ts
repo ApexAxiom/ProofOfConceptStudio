@@ -1,5 +1,5 @@
 import { RegionSlug, RunWindow, indicesForRegion } from "@proof/shared";
-import { loadAgents } from "./agents/config.js";
+import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { ingestAgent, ArticleDetail } from "./ingest/fetch.js";
 import { generateBrief, ArticleInput } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
@@ -54,24 +54,20 @@ export async function handleCron(
   const tasks: (() => Promise<RunResult>)[] = [];
   const regionFilter = opts?.regions ? new Set(opts.regions) : null;
 
-  for (const agent of normalAgents) {
-    for (const region of Object.keys(agent.feedsByRegion) as RegionSlug[]) {
-      if (!regionFilter || regionFilter.has(region)) {
-        tasks.push(() => runAgent(agent.id, region, runWindow, runId));
-      }
-    }
+  const regionList = regionFilter ? Array.from(regionFilter) : undefined;
+  const targetedAgents = expandAgentsByRegion({ agents: normalAgents, regions: regionList });
+
+  for (const { agent, region } of targetedAgents) {
+    tasks.push(() => runAgent(agent.id, region, runWindow, runId));
   }
 
   const results = await runWithLimit(tasks, 4);
 
   // Run market dashboard agents after normal briefs are published
-  for (const agent of dashboardAgents) {
-    for (const region of Object.keys(agent.feedsByRegion) as RegionSlug[]) {
-      if (!regionFilter || regionFilter.has(region)) {
-        const dashboardResult = await runMarketDashboard(agent, region, runWindow, runId);
-        results.push(dashboardResult);
-      }
-    }
+  const dashboardTargets = expandAgentsByRegion({ agents: dashboardAgents, regions: regionList });
+  for (const { agent, region } of dashboardTargets) {
+    const dashboardResult = await runMarketDashboard(agent, region, runWindow, runId);
+    results.push(dashboardResult);
   }
   const summary = results.reduce(
     (acc, r) => {
@@ -102,9 +98,16 @@ export async function runAgent(
     await logRunResult(runId ?? crypto.randomUUID(), agentId, region, "failed", error);
     return { agentId, region, ok: false, error };
   }
-  
+
+  const feeds = agent.feedsByRegion[region];
+  if (!feeds || feeds.length === 0) {
+    const error = `Region ${region} is not configured for agent ${agentId}`;
+    await logRunResult(runId ?? crypto.randomUUID(), agentId, region, "failed", error);
+    return { agentId, region, ok: false, error };
+  }
+
   const runIdentifier = runId ?? crypto.randomUUID();
-  
+
   try {
     // Step 1: Ingest articles from all feeds
     console.log(`[${agentId}/${region}] Ingesting articles...`);
