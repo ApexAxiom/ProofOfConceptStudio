@@ -13,10 +13,10 @@ function getHoursSince(dateStr: string): number {
 }
 
 function getFreshnessClass(hours: number | null): string {
-  if (hours === null) return "freshness-none";
-  if (hours < 6) return "freshness-fresh";
-  if (hours <= 24) return "freshness-stale";
-  return "freshness-old";
+  if (hours === null) return "text-muted-foreground bg-muted/50";
+  if (hours < 6) return "text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-500/20";
+  if (hours <= 24) return "text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-500/20";
+  return "text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-500/20";
 }
 
 function formatFreshness(hours: number | null): string {
@@ -28,7 +28,6 @@ function formatFreshness(hours: number | null): string {
 }
 
 export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
-  // Create a lookup: portfolio slug -> region -> latest brief
   const coverage: Record<string, Record<RegionSlug, BriefPost | null>> = {};
   
   for (const portfolio of PORTFOLIOS) {
@@ -41,100 +40,87 @@ export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="border-b border-border bg-muted/30 px-4 py-3">
-        <h3 className="font-semibold text-foreground">Coverage Matrix</h3>
-        <p className="text-sm text-muted-foreground">Portfolio freshness across regions • Click to view details</p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-foreground">Portfolio Coverage</h2>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Fresh
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            Stale
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            Old
+          </span>
+        </div>
       </div>
       
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/20">
-              <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-medium text-muted-foreground">
-                Portfolio
-              </th>
-              {REGION_LIST.map(region => (
-                <th key={region.slug} className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">
-                  <span className="mr-1.5">{region.slug === "au" ? "🇦🇺" : "🇺🇸"}</span>
-                  {region.label.split(" ")[0]}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="sticky left-0 z-10 bg-muted/30 px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  Category
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PORTFOLIOS.map((portfolio) => {
-              const category = categoryForPortfolio(portfolio.slug);
-              const meta = CATEGORY_META[category];
-              
-              return (
-                <tr 
-                  key={portfolio.slug} 
-                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                >
-                  <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground">
-                    <Link 
-                      href={`/category/${category}`}
-                      className="flex items-center gap-2 hover:text-primary transition-colors"
-                    >
-                      <span 
-                        className="h-2 w-2 rounded-full" 
-                        style={{ backgroundColor: meta.color }}
-                      />
-                      <span className="truncate max-w-[200px]" title={portfolio.label}>
-                        {portfolio.label}
-                      </span>
-                    </Link>
-                  </td>
-                  {REGION_LIST.map(region => {
-                    const brief = coverage[portfolio.slug][region.slug];
-                    const hours = brief ? getHoursSince(brief.publishedAt) : null;
-                    const freshnessClass = getFreshnessClass(hours);
-                    const freshnessText = formatFreshness(hours);
-                    
-                    return (
-                      <td key={region.slug} className="px-4 py-2.5 text-center">
-                        {brief ? (
-                          <Link
-                            href={`/${region.slug}/${portfolio.slug}`}
-                            className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium transition-all hover:scale-105 ${freshnessClass}`}
-                            title={`Last updated: ${new Date(brief.publishedAt).toLocaleString()}`}
-                          >
-                            {freshnessText}
-                          </Link>
-                        ) : (
-                          <span className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium ${freshnessClass}`}>
-                            {freshnessText}
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      
-      <div className="border-t border-border bg-muted/20 px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm freshness-fresh" />
-            Fresh (&lt;6h)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm freshness-stale" />
-            Stale (6-24h)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm freshness-old" />
-            Old (&gt;24h)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm freshness-none" />
-            No coverage
-          </span>
+                {REGION_LIST.map(region => (
+                  <th key={region.slug} className="px-3 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    {region.slug === "au" ? "🇦🇺 AU" : "🇺🇸 US"}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PORTFOLIOS.map((portfolio) => {
+                const category = categoryForPortfolio(portfolio.slug);
+                const meta = CATEGORY_META[category];
+                
+                return (
+                  <tr key={portfolio.slug} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="sticky left-0 z-10 bg-card px-3 py-2">
+                      <Link 
+                        href={`/category/${category}`}
+                        className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
+                        <span className="truncate max-w-[180px] text-foreground" title={portfolio.label}>
+                          {portfolio.label}
+                        </span>
+                      </Link>
+                    </td>
+                    {REGION_LIST.map(region => {
+                      const brief = coverage[portfolio.slug][region.slug];
+                      const hours = brief ? getHoursSince(brief.publishedAt) : null;
+                      const freshnessClass = getFreshnessClass(hours);
+                      const freshnessText = formatFreshness(hours);
+                      
+                      return (
+                        <td key={region.slug} className="px-3 py-2 text-center">
+                          {brief ? (
+                            <Link
+                              href={`/${region.slug}/${portfolio.slug}`}
+                              className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${freshnessClass} hover:opacity-80 transition-opacity`}
+                              title={`Updated: ${new Date(brief.publishedAt).toLocaleString()}`}
+                            >
+                              {freshnessText}
+                            </Link>
+                          ) : (
+                            <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${freshnessClass}`}>
+                              {freshnessText}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
