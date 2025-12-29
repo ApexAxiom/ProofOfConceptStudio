@@ -63,15 +63,19 @@ jobs:
         run: |
           echo "🚀 Triggering ${{ steps.window.outputs.window }} briefs for ${{ matrix.region }}"
           
+          # For manual triggers (workflow_dispatch), set force=true to bypass time window check
+          IS_MANUAL=${{ github.event_name == 'workflow_dispatch' }}
+          
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "${{ secrets.RUNNER_BASE_URL }}/cron" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            -d '{
-              "runWindow": "${{ steps.window.outputs.window }}",
-              "regions": ["${{ matrix.region }}"],
-              "scheduled": true
-            }')
+            -d "{
+              \"runWindow\": \"${{ steps.window.outputs.window }}\",
+              \"regions\": [\"${{ matrix.region }}\"],
+              \"scheduled\": true,
+              \"force\": $IS_MANUAL
+            }")
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
