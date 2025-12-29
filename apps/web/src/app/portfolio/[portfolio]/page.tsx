@@ -17,6 +17,30 @@ interface PortfolioDashboardProps {
   params: Promise<{ portfolio: string }>;
 }
 
+// Featured brief card - shows the latest brief prominently
+function FeaturedBrief({ brief, region }: { brief: BriefPost; region: string }) {
+  return (
+    <Link 
+      href={`/brief/${brief.postId}`}
+      className="block rounded-lg border border-border bg-card p-4 hover:border-primary/40 hover:shadow-sm transition-all"
+    >
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+          {region === "au" ? "🇦🇺 APAC" : "🇺🇸 INTL"}
+        </span>
+        <span>{new Date(brief.publishedAt).toLocaleDateString("en-US", { 
+          weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" 
+        })}</span>
+      </div>
+      <h3 className="text-lg font-semibold text-foreground leading-snug mb-2">{brief.title}</h3>
+      {brief.summary && (
+        <p className="text-sm text-muted-foreground line-clamp-3">{brief.summary}</p>
+      )}
+      <div className="mt-3 text-sm text-primary font-medium">Read full brief →</div>
+    </Link>
+  );
+}
+
 // Source card component
 function SourceCard({ source }: { source: PortfolioSource }) {
   const regionLabel = source.region === "apac" ? "🌏 APAC" : source.region === "intl" ? "🌎 INTL" : "🌐 Global";
@@ -64,13 +88,18 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
   const intlSources = getPortfolioSources(portfolio, "intl");
   const globalSources = getPortfolioSources(portfolio).filter(s => s.region === "both");
   
-  // Fetch briefs for this portfolio
-  const regions: RegionSlug[] = ["au", "us-mx-la-lng"];
-  const briefResults = await Promise.all(
-    regions.map(region => fetchPosts({ region, portfolio, limit: 15 }).catch(() => [] as BriefPost[]))
-  );
+  // Fetch briefs for this portfolio - separate by region
+  const [auBriefs, usBriefs] = await Promise.all([
+    fetchPosts({ region: "au", portfolio, limit: 10 }).catch(() => [] as BriefPost[]),
+    fetchPosts({ region: "us-mx-la-lng", portfolio, limit: 10 }).catch(() => [] as BriefPost[])
+  ]);
   
-  const allBriefs = briefResults.flat()
+  // Get latest briefs for each region
+  const latestApacBrief = auBriefs[0];
+  const latestIntlBrief = usBriefs[0];
+  
+  // All briefs for history table
+  const allBriefs = [...auBriefs, ...usBriefs]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 20);
 
@@ -104,10 +133,55 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
         </div>
       </div>
 
+      {/* TODAY'S INTELLIGENCE BRIEFS - Featured at top */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h2 className="text-lg font-semibold text-foreground">Today's Intelligence Briefs</h2>
+          </div>
+          <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary font-medium">
+            Updated {latestApacBrief || latestIntlBrief ? "today" : "awaiting first run"}
+          </span>
+        </div>
+
+        {(latestApacBrief || latestIntlBrief) ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {latestApacBrief && (
+              <FeaturedBrief brief={latestApacBrief} region="au" />
+            )}
+            {latestIntlBrief && (
+              <FeaturedBrief brief={latestIntlBrief} region="us-mx-la-lng" />
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
+            <svg className="h-12 w-12 text-muted-foreground mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h4 className="text-base font-semibold text-foreground mb-1">Intelligence briefs coming soon</h4>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Your dedicated Category Management AI Agent is analyzing sources and will publish the first daily brief shortly.
+              Briefs are generated twice daily for each region.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Market Indices */}
       <div className="rounded-lg border border-border bg-card p-4">
         <PortfolioMarketTicker portfolio={portfolio} />
       </div>
+
+      {/* Brief History */}
+      {allBriefs.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Brief History</h2>
+          <BriefsTable briefs={allBriefs} showRegion={true} />
+        </div>
+      )}
 
       {/* Sources Grid */}
       <div className="space-y-4">
@@ -150,28 +224,6 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
         </div>
       </div>
 
-      {/* Intelligence Briefs */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Intelligence Briefs</h2>
-          <span className="text-xs text-muted-foreground">{allBriefs.length} briefs</span>
-        </div>
-        
-        {allBriefs.length > 0 ? (
-          <BriefsTable briefs={allBriefs} showRegion={true} />
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
-            <svg className="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-            <h4 className="text-base font-semibold text-foreground">No briefs yet</h4>
-            <p className="mt-1 text-sm text-muted-foreground max-w-xs">
-              Intelligence briefs will appear here once the AI agents complete their scheduled runs.
-            </p>
-          </div>
-        )}
-      </div>
-
       {/* Category Navigation */}
       <div className="pt-4 border-t border-border">
         <div className="flex items-center justify-between">
@@ -191,4 +243,3 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 import { AgentConfig, MarketIndex, RegionSlug, RunWindow } from "@proof/shared";
 import { getWritingInstructions, getCitationInstructions, getImageInstructions, WRITING_GUIDE } from "./writing-guide.js";
+import { getCategoryManagerPersona, getCategorySelectionGuidance, getCategoryBriefStructure } from "./category-manager-prompt.js";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -44,8 +45,16 @@ export interface BriefOutput {
 }
 
 /**
- * Builds the LLM prompt for brief generation with strict article linking requirements.
- * Uses the centralized writing guide for consistent output across all categories.
+ * Builds the LLM prompt for Category Management brief generation.
+ * 
+ * This prompt positions the AI as a Category Management Intelligence Analyst,
+ * writing daily briefs specifically tailored for category managers in O&G/LNG.
+ * 
+ * The briefs are:
+ * - Fact-based and analytical (not journalistic)
+ * - Category-specific with industry context
+ * - Action-oriented for procurement decisions
+ * - Concise and data-driven
  */
 export function buildPrompt({ agent, region, runWindow, articles, indices, repairIssues, previousJson }: PromptInput): string {
   const regionLabel = region === "au" ? "Australia (Perth)" : "Americas (Houston)";
@@ -56,8 +65,9 @@ export function buildPrompt({ agent, region, runWindow, articles, indices, repai
     .map((a, idx) => {
       const imageInfo = a.ogImageUrl ? `\nImage: ${a.ogImageUrl}` : "";
       const sourceInfo = a.sourceName ? ` (${a.sourceName})` : "";
+      const dateInfo = a.publishedAt ? ` [${new Date(a.publishedAt).toLocaleDateString()}]` : "";
       return `
-### Article ${idx + 1}${sourceInfo}
+### Article ${idx + 1}${sourceInfo}${dateInfo}
 **Title:** ${a.title}
 **URL:** ${a.url}${imageInfo}
 **Content Preview:**
@@ -91,16 +101,20 @@ ${previousJson}
 `
     : "";
 
-  return `# Brief Generation Task
+  // Build the full prompt with Category Manager context
+  return `# Category Management Daily Intelligence Brief
 
-You are generating a news brief for **${agent.label}** in **${regionLabel}** for the **${runWindow.toUpperCase()}** edition.
+${getCategoryManagerPersona(agent, region)}
 
-## YOUR MISSION
+---
 
-1. Select the **${requiredCount} most newsworthy articles** from the provided list
-2. Write a brief summary for each selected article
-3. Create an overall headline and summary
-4. Do NOT output URLs; only reference articles by their index numbers
+## BRIEF GENERATION TASK
+
+You are generating the **${runWindow.toUpperCase()}** edition of the daily intelligence brief for **${agent.label}** covering **${regionLabel}**.
+
+${getCategoryBriefStructure()}
+
+${getCategorySelectionGuidance(agent)}
 
 ${getWritingInstructions()}
 
@@ -108,36 +122,39 @@ ${getCitationInstructions()}
 
 ${getImageInstructions()}
 
+---
+
 ## OUTPUT FORMAT
 
 Return ONLY valid JSON with this exact structure:
 
 \`\`\`json
 {
-  "title": "Attention-grabbing headline (max ${WRITING_GUIDE.wordLimits.headline} words)",
-  "summary": "1-2 sentence executive summary with key insight (max ${WRITING_GUIDE.wordLimits.summary} words)",
+  "title": "Attention-grabbing headline for Category Managers (max ${WRITING_GUIDE.wordLimits.headline} words)",
+  "summary": "Executive summary with key insight and procurement implications (max ${WRITING_GUIDE.wordLimits.summary} words)",
   "selectedArticles": [
     {
       "articleIndex": 1,
-      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word brief of this article",
+      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief of this article with sourcing context",
       "imageAlt": "Descriptive alt text for the image"
     }
   ],
   "heroSelection": { "articleIndex": 1 },
   "marketIndicators": [
-    { "indexId": "cme-wti", "note": "1 sentence context" },
-    { "indexId": "ice-brent", "note": "1 sentence context" }
+    { "indexId": "cme-wti", "note": "1 sentence procurement context (e.g., 'WTI at $72 supports drilling activity, positive for rig demand')" },
+    { "indexId": "ice-brent", "note": "1 sentence procurement context" }
   ]
 }
 \`\`\`
 
 ## CRITICAL REQUIREMENTS
 
-1. **NO URL OUTPUT**: Do NOT output any URLs. Only reference articles by `articleIndex`.
-2. **SELECT ${requiredCount} ARTICLES**: Choose exactly ${requiredCount} UNIQUE articleIndex values from 1..${articles.length}.
-3. **HERO MUST BE SELECTED**: heroSelection.articleIndex must match one of the selectedArticles entries.
-4. **MARKET INDICATORS BY ID**: For marketIndicators, pick by indexId from the list below (no URLs in JSON).
-5. **NO FILLER**: Every sentence must add value. Cut anything that doesn't.
+1. **CATEGORY MANAGER FOCUS**: Every insight must connect to sourcing implications for ${agent.label}
+2. **NO URL OUTPUT**: Do NOT output any URLs. Only reference articles by \`articleIndex\`
+3. **SELECT ${requiredCount} ARTICLES**: Choose exactly ${requiredCount} UNIQUE articleIndex values from 1..${articles.length}
+4. **HERO MUST BE SELECTED**: heroSelection.articleIndex must match one of the selectedArticles entries
+5. **MARKET INDICATORS BY ID**: For marketIndicators, pick by indexId from the list below (no URLs in JSON)
+6. **ANALYST TONE**: Write like a procurement analyst, not a journalist. Facts and implications, no filler.
 
 ## MARKET INDICES
 
@@ -146,19 +163,22 @@ ${indexList}
 
 ## ARTICLES TO ANALYZE
 
-Select the ${requiredCount} most newsworthy unique articles from:
+Select the ${requiredCount} most relevant articles for ${agent.label} category managers:
 
 ${articleList}
 
 ${repairSection}
 
-## FINAL REMINDER
+## FINAL CHECKLIST
 
-- Do NOT output URLs; only use articleIndex values
-- Keep selections unique and aligned to the provided list
-- No filler phrases or duplication
-- Lead with impact and numbers
-- Write for busy executives
+Before submitting, verify:
+- [ ] Headline leads with impact and includes a number
+- [ ] Summary explains "so what" for category managers
+- [ ] Each article brief connects news to sourcing implications
+- [ ] Market indicators include procurement context
+- [ ] No filler phrases or generic statements
+- [ ] Exactly ${requiredCount} unique articles selected
+- [ ] JSON is valid and complete
 `;
 }
 
@@ -166,7 +186,14 @@ ${repairSection}
  * Validates and extracts the structured output from LLM response
  */
 export function parsePromptOutput(raw: string, requiredCount: number): BriefOutput {
-  const parsed = JSON.parse(raw);
+  // Extract JSON from the response (handle markdown code blocks)
+  let jsonStr = raw;
+  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1].trim();
+  }
+  
+  const parsed = JSON.parse(jsonStr);
 
   const selected = Array.isArray(parsed.selectedArticles) ? parsed.selectedArticles : [];
   const heroIndex = parsed?.heroSelection?.articleIndex;
