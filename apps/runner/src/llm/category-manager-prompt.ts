@@ -221,8 +221,3 @@ For each selected article:
 `.trim();
 }
 
-/**
- * Exports for use in the main prompt builder
- */
-export { getCategoryManagerPersona, getCategorySelectionGuidance, getCategoryBriefStructure };
-

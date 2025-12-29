@@ -112,7 +112,11 @@ export async function runMarketDashboard(
       heroImageAlt
     };
 
-    const ingestStub: IngestResult = { articles: [], scannedSources: [], metrics: {} } as IngestResult;
+    const ingestStub: IngestResult = { 
+      articles: [], 
+      scannedSources: [], 
+      metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } 
+    };
     await publishBrief(published, ingestStub, runId);
     await logRunResult(runId, agent.id, region, "success");
     return { agentId: agent.id, region, ok: true };

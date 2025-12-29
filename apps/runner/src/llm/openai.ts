@@ -4,6 +4,7 @@ import {
   buildPrompt,
   PromptInput,
   ArticleInput,
+  BriefOutput,
   parsePromptOutput,
   requiredArticleCount
 } from "./prompts.js";
