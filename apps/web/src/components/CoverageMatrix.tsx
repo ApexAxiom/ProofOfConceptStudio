@@ -83,7 +83,7 @@ export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
                   <tr key={portfolio.slug} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                     <td className="sticky left-0 z-10 bg-card px-3 py-2">
                       <Link 
-                        href={`/category/${category}`}
+                        href={`/portfolio/${portfolio.slug}`}
                         className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
                       >
                         <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
