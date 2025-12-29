@@ -3,7 +3,7 @@ import { REGIONS, RegionSlug, runWindowFromDate, type RunWindow } from "@proof/s
 import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
-import { loadAgents } from "./agents/config.js";
+import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { requiredArticleCount } from "./llm/prompts.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: string, toleranceMinutes = 10): boolean {
@@ -35,13 +35,16 @@ async function main() {
 
   fastify.get("/agents", async () => {
     const agents = loadAgents();
-    return agents.map((agent) => ({
+    const expanded = expandAgentsByRegion({ agents });
+
+    return expanded.map(({ agent, region, feeds }) => ({
       id: agent.id,
+      region,
       portfolio: agent.portfolio,
       label: agent.label,
       description: agent.description,
       articlesPerRun: requiredArticleCount(agent),
-      feedsByRegion: agent.feedsByRegion
+      feeds
     }));
   });
 
