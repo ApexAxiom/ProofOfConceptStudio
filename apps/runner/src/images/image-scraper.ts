@@ -118,7 +118,7 @@ async function bingFallback(query: string): Promise<{ url: string; alt?: string 
   if (!apiKey) return null;
   try {
     const res = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&count=5`, {
-      headers: { Ocp-Apim-Subscription-Key: apiKey }
+      headers: { "Ocp-Apim-Subscription-Key": apiKey }
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { value?: Array<{ contentUrl?: string; name?: string }> };
