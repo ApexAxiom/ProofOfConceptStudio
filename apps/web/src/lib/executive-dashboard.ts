@@ -26,12 +26,16 @@ export interface ExecutiveArticle {
   publishedAt: string;
   category: string;
   summary?: string;
+  region: "apac" | "international";
+  imageUrl?: string;
 }
 
 export interface ExecutiveDashboardPayload {
   generatedAt: string;
   indices: ExecutiveIndex[];
   articles: ExecutiveArticle[];
+  apacArticles: ExecutiveArticle[];
+  internationalArticles: ExecutiveArticle[];
   sources: { pricing: string; news: string };
 }
 
@@ -135,21 +139,57 @@ const INDEX_CONFIG: IndexConfig[] = [
   },
 ];
 
-const NEWS_FEEDS: Array<{ url: string; category: string; source: string }> = [
+// News feeds organized by region
+const NEWS_FEEDS: Array<{ url: string; category: string; source: string; region: "apac" | "international" }> = [
+  // APAC Sources (Australia, Asia-Pacific)
+  {
+    url: "https://www.energynewsbulletin.net/rss",
+    category: "Energy",
+    source: "Energy News Bulletin",
+    region: "apac",
+  },
+  {
+    url: "https://www.offshore-energy.biz/feed/",
+    category: "Offshore",
+    source: "Offshore Energy",
+    region: "apac",
+  },
+  {
+    url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx",
+    category: "Drilling",
+    source: "Rigzone APAC",
+    region: "apac",
+  },
+  // International Sources (Houston, Mexico, Senegal, LNG)
   {
     url: "https://feeds.marketwatch.com/marketwatch/energy",
-    category: "Crude & Products",
-    source: "MarketWatch Energy",
+    category: "Energy",
+    source: "MarketWatch",
+    region: "international",
   },
   {
     url: "https://www.lngindustry.com/rss/",
     category: "LNG",
     source: "LNG Industry",
+    region: "international",
   },
   {
     url: "https://www.reutersagency.com/feed/?best-topics=energy",
-    category: "Macro",
-    source: "Reuters Energy",
+    category: "Energy",
+    source: "Reuters",
+    region: "international",
+  },
+  {
+    url: "https://www.worldoil.com/rss/",
+    category: "Oil & Gas",
+    source: "World Oil",
+    region: "international",
+  },
+  {
+    url: "https://www.ogj.com/rss",
+    category: "Oil & Gas",
+    source: "Oil & Gas Journal",
+    region: "international",
   },
 ];
 
@@ -245,45 +285,88 @@ function getFallbackArticles(): ExecutiveArticle[] {
   const iso = (daysAgo: number) => new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
 
   return [
+    // APAC
     {
-      title: "Refiners lock in crude runs ahead of summer driving season",
-      url: "https://www.reuters.com",
-      source: "Reuters Energy",
-      publishedAt: iso(2),
-      category: "Crude",
-      summary: "Gulf Coast refiners signal strong gasoline pull with utilization rates rising while crude inventories flatten.",
+      title: "Woodside Scarborough project reaches key milestone",
+      url: "https://www.energynewsbulletin.net",
+      source: "Energy News Bulletin",
+      publishedAt: iso(1),
+      category: "LNG",
+      region: "apac",
+      summary: "Major Australian LNG development achieves drilling milestone as export capacity ramps up.",
     },
     {
-      title: "LNG buyers eye flexible cargoes as Asian spot remains elevated",
+      title: "Perth Basin gas exploration intensifies",
+      url: "https://www.offshore-energy.biz",
+      source: "Offshore Energy",
+      publishedAt: iso(2),
+      category: "Exploration",
+      region: "apac",
+      summary: "WA operators fast-track appraisal drilling to meet domestic gas reservation policy.",
+    },
+    {
+      title: "NWS extension discussions continue with Chevron",
+      url: "https://www.rigzone.com",
+      source: "Rigzone",
+      publishedAt: iso(3),
+      category: "Offshore",
+      region: "apac",
+      summary: "Chevron and partners negotiate extended production rights for North West Shelf facilities.",
+    },
+    {
+      title: "Browse Basin FID timeline firming up",
+      url: "https://www.energynewsbulletin.net",
+      source: "Energy News Bulletin",
+      publishedAt: iso(4),
+      category: "Projects",
+      region: "apac",
+      summary: "Woodside targets late 2025 FID for Browse to Pluto Train 2 backfill project.",
+    },
+    // International
+    {
+      title: "Golden Pass LNG construction hits 90% complete",
       url: "https://www.lngindustry.com",
       source: "LNG Industry",
-      publishedAt: iso(3),
+      publishedAt: iso(1),
       category: "LNG",
-      summary: "JKM premium to TTF widens on heat-driven demand and tight vessel availability through Singapore lanes.",
+      region: "international",
+      summary: "Qatar-Exxon Texas facility on track for first cargo in 2025 as Train 1 commissioning begins.",
     },
     {
-      title: "US gas drillers trim rigs as Henry Hub hovers below $3",
+      title: "Mexico Pacific LNG secures additional offtakers",
+      url: "https://www.reuters.com",
+      source: "Reuters",
+      publishedAt: iso(2),
+      category: "LNG",
+      region: "international",
+      summary: "New 20-year SPAs signed with Asian buyers for Sonora coast export terminal.",
+    },
+    {
+      title: "Permian operators lock in rig contracts through 2026",
+      url: "https://www.worldoil.com",
+      source: "World Oil",
+      publishedAt: iso(3),
+      category: "Drilling",
+      region: "international",
+      summary: "Drilling contractors see improved visibility as E&Ps commit to multi-year programs.",
+    },
+    {
+      title: "Senegal offshore oil production ramps up at Sangomar",
+      url: "https://www.ogj.com",
+      source: "Oil & Gas Journal",
+      publishedAt: iso(4),
+      category: "Offshore",
+      region: "international",
+      summary: "Woodside-operated field hits 100,000 bpd ahead of schedule in West Africa.",
+    },
+    {
+      title: "US Gulf shelf activity picks up on higher oil prices",
       url: "https://www.marketwatch.com",
       source: "MarketWatch",
       publishedAt: iso(5),
-      category: "Gas",
-      summary: "Producers shift capital toward liquids-rich plays; Appalachia basis narrows on lower output guidance.",
-    },
-    {
-      title: "Baltic Dry cools after capesize surge",
-      url: "https://www.hellenicshippingnews.com",
-      source: "Hellenic Shipping",
-      publishedAt: iso(6),
-      category: "Shipping",
-      summary: "Charterers step back following iron ore rally; forward curves still imply firm Q4 demand.",
-    },
-    {
-      title: "Energy equities lag crude rally as macro risk stays in focus",
-      url: "https://www.wsj.com",
-      source: "WSJ Markets",
-      publishedAt: iso(7),
-      category: "Macro",
-      summary: "Investors rotate defensively despite supportive commodity backdrop; dividends cushion downside.",
+      category: "Offshore",
+      region: "international",
+      summary: "Shallow water operators return as economics improve for mature field development.",
     },
   ];
 }
@@ -300,8 +383,9 @@ function parseTagValue(item: string, tag: string): string | null {
   return cdataMatch?.[1]?.trim() ?? null;
 }
 
-async function fetchArticles(): Promise<ExecutiveArticle[]> {
-  const articles: ExecutiveArticle[] = [];
+async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; international: ExecutiveArticle[] }> {
+  const apacArticles: ExecutiveArticle[] = [];
+  const internationalArticles: ExecutiveArticle[] = [];
 
   for (const feed of NEWS_FEEDS) {
     try {
@@ -312,20 +396,29 @@ async function fetchArticles(): Promise<ExecutiveArticle[]> {
       const xml = await res.text();
       const itemRegex = /<item>([\s\S]*?)<\/item>/g;
       let match: RegExpExecArray | null = null;
+      const targetArray = feed.region === "apac" ? apacArticles : internationalArticles;
 
-      while ((match = itemRegex.exec(xml)) && articles.length < 10) {
+      while ((match = itemRegex.exec(xml)) && targetArray.length < 6) {
         const item = match[1];
         const title = parseTagValue(item, "title");
         const link = parseTagValue(item, "link");
         const pubDate = parseTagValue(item, "pubDate") ?? new Date().toISOString();
+        const description = parseTagValue(item, "description");
+        
+        // Try to extract image from media:content or enclosure
+        const mediaMatch = item.match(/url="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/i);
+        const imageUrl = mediaMatch?.[1];
 
         if (title && link) {
-          articles.push({
+          targetArray.push({
             title,
             url: link,
             source: feed.source,
             publishedAt: new Date(pubDate).toISOString(),
             category: feed.category,
+            region: feed.region,
+            summary: description?.slice(0, 150),
+            imageUrl,
           });
         }
       }
@@ -334,19 +427,26 @@ async function fetchArticles(): Promise<ExecutiveArticle[]> {
     }
   }
 
-  if (!articles.length) {
-    return getFallbackArticles();
+  // Use fallbacks if no articles fetched
+  if (apacArticles.length === 0 || internationalArticles.length === 0) {
+    const fallback = getFallbackArticles();
+    if (apacArticles.length === 0) {
+      apacArticles.push(...fallback.filter(a => a.region === "apac"));
+    }
+    if (internationalArticles.length === 0) {
+      internationalArticles.push(...fallback.filter(a => a.region === "international"));
+    }
   }
 
-  return articles
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, 10);
+  return {
+    apac: apacArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).slice(0, 6),
+    international: internationalArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).slice(0, 6),
+  };
 }
 
 /**
  * Builds the executive dashboard payload with 6-month price history and energy headlines.
- * Attempts to use free, no-auth data feeds (Yahoo Finance spark + open RSS) and
- * falls back to synthetic series so the dashboard still renders offline.
+ * Articles are split by region: APAC (Australia/Asia-Pacific) and International (Houston/Mexico/Senegal/LNG).
  */
 export const getExecutiveDashboardData = cache(async (): Promise<ExecutiveDashboardPayload> => {
   const now = new Date().toISOString();
@@ -360,15 +460,20 @@ export const getExecutiveDashboardData = cache(async (): Promise<ExecutiveDashbo
     return buildIndex(config, series);
   });
 
-  const articles = await fetchArticles();
+  const { apac, international } = await fetchArticles();
+  const allArticles = [...apac, ...international].sort((a, b) => 
+    new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
 
   return {
     generatedAt: now,
     indices,
-    articles,
+    articles: allArticles,
+    apacArticles: apac,
+    internationalArticles: international,
     sources: {
       pricing: "Yahoo Finance Spark (6 month, 1d interval) with synthetic fallback",
-      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters) with curated fallback",
+      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters, World Oil, OGJ) with curated fallback",
     },
   };
 });

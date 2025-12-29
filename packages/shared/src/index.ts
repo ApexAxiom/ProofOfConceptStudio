@@ -7,3 +7,4 @@ export * from "./keywords.js";
 export * from "./mock-posts.js";
 export * from "./secrets.js";
 export * from "./category.js";
+export * from "./category-indices.js";
