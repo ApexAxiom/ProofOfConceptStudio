@@ -16,11 +16,10 @@
       - { name: EIA Drilling Productivity Report, url: https://www.eia.gov/petroleum/drilling/, type: web }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
     au:
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
-      - { name: NOPTA, url: https://www.nopta.gov.au/, type: web }
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
+      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
 - id: drilling-services
   portfolio: drilling-services
   label: Drilling Services
@@ -38,11 +37,10 @@
       - { name: Hart Energy, url: https://www.hartenergy.com/rss.xml, type: rss }
       - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
-      - { name: Energy Today, url: https://www.energytodaymag.com.au/, type: web }
-      - { name: Petroleum Australia, url: https://petroleumaustralia.com.au/, type: web }
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
-      - { name: NOPTA, url: https://www.nopta.gov.au/, type: web }
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: wells-materials-octg
@@ -58,11 +56,13 @@
       - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
-      - { name: USGS Minerals News, url: https://www.usgs.gov/centers/national-minerals-information-center/mineral-commodity-summaries, type: web }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
       - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
-      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
 - id: completions-intervention
   portfolio: completions-intervention
   label: Completions & Intervention
@@ -79,10 +79,13 @@
       - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
       - { name: Hart Energy, url: https://www.hartenergy.com/rss.xml, type: rss }
       - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
-      - { name: NOPTA, url: https://www.nopta.gov.au/, type: web }
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
+      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
 - id: pa-decommissioning
   portfolio: pa-decommissioning
   label: Plug & Abandonment / Decommissioning
@@ -97,10 +100,12 @@
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
       - { name: BSEE – Newsroom, url: https://www.bsee.gov/newsroom, type: web }
       - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
-      - { name: CODA – Centre of Decommissioning Australia, url: https://www.decommissioning.org.au/, type: web }
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
+      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
 - id: subsea-surf-offshore
   portfolio: subsea-surf-offshore
   label: Subsea, SURF & Offshore
@@ -116,12 +121,13 @@
       - { name: gCaptain, url: https://gcaptain.com/feed/, type: rss }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: BSEE Newsroom, url: https://www.bsee.gov/newsroom, type: web }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
       - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
-      - { name: Pilbara Ports – News, url: https://www.pilbaraports.com.au/about-pilbara-ports/news%2C-media-and-statistics/news, type: web }
-      - { name: Fremantle Ports – News, url: https://fremantleports.com.au/news, type: web }
 - id: projects-epc-epcm-construction
   portfolio: projects-epc-epcm-construction
   label: Projects (EPC/EPCM & Construction)
@@ -138,7 +144,11 @@
       - { name: Construction Dive, url: https://www.constructiondive.com/feeds/news/, type: rss }
       - { name: Global Construction Review, url: https://www.globalconstructionreview.com/feed/, type: rss }
       - { name: FERC News, url: https://www.ferc.gov/news-events/news/rss, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Infrastructure Australia – News, url: https://www.infrastructureaustralia.gov.au/listing/news, type: web }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
@@ -157,11 +167,14 @@
       - { name: Hydrocarbon Processing, url: https://www.hydrocarbonprocessing.com/feed/, type: rss }
       - { name: Power Engineering, url: https://www.power-eng.com/feed/, type: rss }
       - { name: Industrial Equipment News, url: https://www.ien.com/rss.xml, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
-      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
 - id: ops-maintenance-services
   portfolio: ops-maintenance-services
   label: Operations & Maintenance Services
@@ -177,8 +190,11 @@
       - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
       - { name: Plant Engineering, url: https://www.plantengineering.com/feed/, type: rss }
       - { name: The Fabricator, url: https://www.thefabricator.com/rss/thefabricator/all, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
       - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
@@ -197,11 +213,14 @@
       - { name: Manufacturing.net, url: https://www.manufacturing.net/rss.xml, type: rss }
       - { name: Industrial Distribution, url: https://www.inddist.com/rss.xml, type: rss }
       - { name: Fluid Power Journal, url: https://fluidpowerjournal.com/feed/, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
-      - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
 - id: logistics-marine-aviation
   portfolio: logistics-marine-aviation
   label: Logistics, Marine & Aviation
@@ -218,12 +237,13 @@
       - { name: gCaptain, url: https://gcaptain.com/feed/, type: rss }
       - { name: Splash247, url: https://splash247.com/feed/, type: rss }
       - { name: Seatrade Maritime, url: https://www.seatrade-maritime.com/rss.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Daily Cargo News (DCN), url: https://www.thedcn.com.au/feed/, type: rss }
       - { name: Australian Aviation, url: https://australianaviation.com.au/feed/, type: rss }
       - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
-      - { name: Fremantle Ports – News, url: https://fremantleports.com.au/news, type: web }
-      - { name: Pilbara Ports – News, url: https://www.pilbaraports.com.au/about-pilbara-ports/news%2C-media-and-statistics/news, type: web }
 - id: site-services-facilities
   portfolio: site-services-facilities
   label: Site Services & Facilities
@@ -240,9 +260,12 @@
       - { name: EHS Today, url: https://www.ehstoday.com/rss, type: rss }
       - { name: OSHA News, url: https://www.osha.gov/news/newsreleases, type: web }
       - { name: EPA News, url: https://www.epa.gov/newsreleases/search/rss, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
-      - { name: WorkSafe WA – Media releases, url: https://www.commerce.wa.gov.au/worksafe/media-releases, type: web }
       - { name: Waste Management Review, url: https://wastemanagementreview.com.au/feed/, type: rss }
       - { name: Inside Waste, url: https://www.insidewaste.com.au/feed/, type: rss }
 - id: it-telecom-cyber
@@ -263,11 +286,14 @@
       - { name: Industrial Cyber, url: https://industrialcyber.co/feed/, type: rss }
       - { name: Cybersecurity Dive, url: https://www.cybersecuritydive.com/feeds/news/, type: rss }
       - { name: The Hacker News, url: https://feeds.feedburner.com/TheHackersNews, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: iTnews, url: https://www.itnews.com.au/rss/feed.ashx, type: rss }
       - { name: iTWire, url: https://itwire.com/feed, type: rss }
       - { name: Cyber Daily, url: https://cyberdaily.au/feed/, type: rss }
-      - { name: ACSC (Cyber.gov.au), url: https://www.cyber.gov.au/, type: web }
       - { name: AusCERT, url: https://auscert.org.au/resources/rss/, type: rss }
 - id: professional-services-hr
   portfolio: professional-services-hr
@@ -282,9 +308,12 @@
       - { name: SHRM News, url: https://www.shrm.org/rss/pages/rss.aspx, type: rss }
       - { name: Accounting Today, url: https://www.accountingtoday.com/feed, type: rss }
       - { name: BLS Economic Releases, url: https://www.bls.gov/feed/bls_latest.rss, type: rss }
+      - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
+      - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
     au:
+      - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
+      - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Fair Work Ombudsman – News, url: https://www.fairwork.gov.au/newsroom/news, type: web }
-      - { name: Fair Work Commission – News & media, url: https://www.fwc.gov.au/about-us/news-and-media, type: web }
       - { name: Accountants Daily, url: https://www.accountantsdaily.com.au/feed, type: rss }
       - { name: Lawyers Weekly, url: https://www.lawyersweekly.com.au/feed, type: rss }
 - id: market-dashboard
