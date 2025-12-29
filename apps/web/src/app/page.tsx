@@ -7,36 +7,6 @@ import { REGION_LIST, REGIONS, PORTFOLIOS, BriefPost, RegionSlug } from "@proof/
 import { fetchLatest, fetchLatestByPortfolio } from "../lib/api";
 import { getExecutiveDashboardData } from "../lib/executive-dashboard";
 
-// KPI Card Component
-function KPICard({ 
-  label, 
-  value, 
-  subtitle,
-  icon 
-}: { 
-  label: string; 
-  value: string | number; 
-  subtitle?: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="kpi-card">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="kpi-label">{label}</p>
-          <p className="kpi-value mt-1">{value}</p>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-          )}
-        </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Region Overview Card
 function RegionCard({ 
   region, 
@@ -101,14 +71,41 @@ function RegionCard({
   );
 }
 
+async function fetchMarketData() {
+  try {
+    // For server-side fetching in Next.js, we need an absolute URL
+    // In development, use localhost, in production use the VERCEL_URL
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/market-data`, {
+      next: { revalidate: 300 }, // Cache for 5 minutes
+      cache: 'no-store', // For development, always fetch fresh data
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch market data: ${response.status}`);
+    }
+    
+    const json = await response.json();
+    return json.success ? json.data : [];
+  } catch (error) {
+    console.error('Error fetching market data:', error);
+    // Return empty array on error so the page still renders
+    return [];
+  }
+}
+
 export default async function GlobalDashboard() {
   // Fetch data for all regions in parallel
-  const [auBriefs, usBriefs, auByPortfolio, usByPortfolio, executiveDashboard] = await Promise.all([
+  const [auBriefs, usBriefs, auByPortfolio, usByPortfolio, executiveDashboard, marketData] = await Promise.all([
     fetchLatest("au"),
     fetchLatest("us-mx-la-lng"),
     fetchLatestByPortfolio("au"),
     fetchLatestByPortfolio("us-mx-la-lng"),
-    getExecutiveDashboardData()
+    getExecutiveDashboardData(),
+    fetchMarketData()
   ]);
 
   // Combine briefs for the table (sorted by publishedAt desc)
@@ -121,26 +118,6 @@ export default async function GlobalDashboard() {
     au: auByPortfolio,
     "us-mx-la-lng": usByPortfolio
   };
-
-  // Calculate KPIs
-  const totalBriefs = auBriefs.length + usBriefs.length;
-  const uniquePortfolios = new Set([
-    ...auByPortfolio.map(b => b.portfolio),
-    ...usByPortfolio.map(b => b.portfolio)
-  ]).size;
-
-  // Calculate freshness (find oldest brief to show staleness)
-  const allLatestBriefs = [...auByPortfolio, ...usByPortfolio];
-  let freshness = "—";
-  if (allLatestBriefs.length > 0) {
-    const oldestMs = Math.min(...allLatestBriefs.map(b => new Date(b.publishedAt).getTime()));
-    const hoursOld = Math.floor((Date.now() - oldestMs) / (1000 * 60 * 60));
-    if (hoursOld < 24) {
-      freshness = `${hoursOld}h`;
-    } else {
-      freshness = `${Math.floor(hoursOld / 24)}d`;
-    }
-  }
 
   const auPortfolioCount = new Set(auByPortfolio.map(b => b.portfolio)).size;
   const usPortfolioCount = new Set(usByPortfolio.map(b => b.portfolio)).size;
@@ -167,52 +144,8 @@ export default async function GlobalDashboard() {
         </div>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard
-          label="Total Briefs"
-          value={totalBriefs}
-          subtitle="Across all regions"
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          }
-        />
-        <KPICard
-          label="Active Portfolios"
-          value={uniquePortfolios}
-          subtitle={`of ${PORTFOLIOS.length} total`}
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" />
-            </svg>
-          }
-        />
-        <KPICard
-          label="Oldest Coverage"
-          value={freshness}
-          subtitle="Most stale portfolio"
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-        />
-        <KPICard
-          label="Active Regions"
-          value={REGION_LIST.length}
-          subtitle="Monitored globally"
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-            </svg>
-          }
-        />
-      </div>
-
       {/* Executive Dashboard */}
-      <ExecutiveDashboard data={executiveDashboard} />
+      <ExecutiveDashboard data={executiveDashboard} marketData={marketData} />
 
       {/* Region Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2">
