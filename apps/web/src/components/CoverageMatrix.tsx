@@ -68,9 +68,15 @@ export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
               const meta = CATEGORY_META[category];
               
               return (
-                <tr key={portfolio.slug} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                <tr 
+                  key={portfolio.slug} 
+                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                >
                   <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground">
-                    <div className="flex items-center gap-2">
+                    <Link 
+                      href={`/category/${category}`}
+                      className="flex items-center gap-2 hover:text-primary transition-colors"
+                    >
                       <span 
                         className="h-2 w-2 rounded-full" 
                         style={{ backgroundColor: meta.color }}
@@ -78,7 +84,7 @@ export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
                       <span className="truncate max-w-[200px]" title={portfolio.label}>
                         {portfolio.label}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   {REGION_LIST.map(region => {
                     const brief = coverage[portfolio.slug][region.slug];

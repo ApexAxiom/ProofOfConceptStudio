@@ -80,8 +80,7 @@ async function fetchMarketData() {
       : 'http://localhost:3000';
     
     const response = await fetch(`${baseUrl}/api/market-data`, {
-      next: { revalidate: 300 }, // Cache for 5 minutes
-      cache: 'no-store', // For development, always fetch fresh data
+      next: { revalidate: 900 }, // Cache for 15 minutes
     });
     
     if (!response.ok) {
@@ -144,8 +143,11 @@ export default async function GlobalDashboard() {
         </div>
       </div>
 
-      {/* Executive Dashboard */}
+      {/* Energy Headlines - First */}
       <ExecutiveDashboard data={executiveDashboard} marketData={marketData} />
+
+      {/* Market Pulse - Below Headlines */}
+      <LiveMarketTicker />
 
       {/* Region Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -163,9 +165,6 @@ export default async function GlobalDashboard() {
 
       {/* Coverage Matrix */}
       <CoverageMatrix briefsByRegion={briefsByRegion} />
-
-      {/* Market Pulse */}
-      <LiveMarketTicker />
 
       {/* Latest Briefs Table */}
       <div>

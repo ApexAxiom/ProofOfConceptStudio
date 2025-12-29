@@ -133,6 +133,35 @@ function HeadlineList({ items }: { items: ExecutiveDashboardPayload["articles"] 
   );
 }
 
+function HeadlineListHorizontal({ items }: { items: ExecutiveDashboardPayload["articles"] }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {items.map((article) => (
+        <Link
+          key={`${article.source}-${article.title}`}
+          href={article.url}
+          className="flex flex-col gap-2 rounded-lg border border-border bg-card/70 p-3 transition hover:border-primary/40 hover:shadow-sm"
+          target="_blank"
+        >
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <CategoryBadge label={article.category} />
+            <span>{article.source}</span>
+            <span>•</span>
+            <span>{new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+          </div>
+          <p className="text-sm font-semibold leading-snug text-foreground line-clamp-2">{article.title}</p>
+          {article.summary && <p className="text-xs text-muted-foreground line-clamp-2">{article.summary}</p>}
+          <div className="mt-auto flex items-center justify-end">
+            <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M7 5h8M7 10h8M7 15h8M5 5h.01M5 10h.01M5 15h.01" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function ExecutiveDashboard({ 
   data, 
   marketData 
@@ -141,41 +170,21 @@ export function ExecutiveDashboard({
   marketData: CommodityPrice[];
 }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-background/80 p-5 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Executive dashboard</p>
-          <h2 className="text-2xl font-bold text-foreground">Category Management</h2>
-          <p className="text-sm text-muted-foreground">Market pulse data for category managers.</p>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Updated {new Date(data.generatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-foreground">Category view</h3>
-            <span className="text-xs text-muted-foreground">Market pulse with sparkline</span>
+    <section className="space-y-6">
+      {/* Energy Headlines - Horizontal First */}
+      <div className="rounded-2xl border border-border bg-background/80 p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Latest News</p>
+            <h2 className="text-2xl font-bold text-foreground">Energy Headlines</h2>
+            <p className="text-sm text-muted-foreground">Latest industry news and market updates</p>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {marketData.map((commodity) => (
-              <MarketPulseSparkline key={commodity.symbol} commodity={commodity} />
-            ))}
+          <div className="text-xs text-muted-foreground">
+            Updated {new Date(data.generatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           </div>
         </div>
-        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">Energy headlines</h3>
-              <p className="text-sm text-muted-foreground">Linked to free industry feeds</p>
-            </div>
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Top 10</span>
-          </div>
-          <HeadlineList items={data.articles} />
-          <p className="text-[10px] text-muted-foreground">Sources: {data.sources.news}</p>
-        </div>
+        <HeadlineListHorizontal items={data.articles} />
+        <p className="mt-3 text-[10px] text-muted-foreground">Sources: {data.sources.news}</p>
       </div>
     </section>
   );

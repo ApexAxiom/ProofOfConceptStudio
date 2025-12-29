@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 300; // Cache for 5 minutes
+export const revalidate = 900; // Cache for 15 minutes
 
 interface CommodityPrice {
   symbol: string;
@@ -58,7 +58,7 @@ async function fetchYahooFinanceQuotes(symbols: string[]): Promise<Map<string, a
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; POCStudio/1.0)",
       },
-      next: { revalidate: 300 },
+      next: { revalidate: 900 }, // 15 minutes
     });
 
     if (!response.ok) {

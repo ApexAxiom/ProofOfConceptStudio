@@ -53,8 +53,32 @@ function CommodityCard({ commodity }: { commodity: CommodityPrice }) {
   const { text, isPositive } = formatChange(commodity.change, commodity.changePercent);
   const regionBadge = getRegionBadge(commodity.region);
   
+  // Get Yahoo Finance URL for the commodity
+  const getSourceUrl = () => {
+    const symbolMap: Record<string, string> = {
+      "WTI": "CL=F",
+      "BRENT": "BZ=F",
+      "GOLD": "GC=F",
+      "COPPER": "HG=F",
+      "NATGAS-US": "NG=F",
+      "HRC-STEEL": "HRC1!",
+      "LNG-US": "LNG",
+      "AUD-USD": "AUDUSD=X",
+      "LNG-ASIA": "LNG-ASIA",
+      "IRON-ORE": "TIO=F",
+      "BDI": "^BDI"
+    };
+    const yahooSymbol = symbolMap[commodity.symbol] || commodity.symbol;
+    return `https://finance.yahoo.com/quote/${yahooSymbol}`;
+  };
+  
   return (
-    <div className="flex min-w-[200px] flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-all hover:shadow-sm">
+    <a
+      href={getSourceUrl()}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-all hover:shadow-sm hover:border-primary/40 cursor-pointer"
+    >
       <div className="flex items-center justify-between gap-2">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${regionBadge.className}`}>
           {regionBadge.label}
@@ -86,7 +110,7 @@ function CommodityCard({ commodity }: { commodity: CommodityPrice }) {
       <div className={`text-sm font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
         {text}
       </div>
-    </div>
+    </a>
   );
 }
 
@@ -114,7 +138,7 @@ export function LiveMarketTicker() {
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    const interval = setInterval(fetchData, 15 * 60 * 1000); // Update every 15 minutes
     return () => clearInterval(interval);
   }, []);
 
@@ -174,7 +198,7 @@ export function LiveMarketTicker() {
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {data.map((commodity) => (
           <CommodityCard key={commodity.symbol} commodity={commodity} />
         ))}
