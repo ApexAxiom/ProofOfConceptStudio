@@ -100,6 +100,14 @@ export default async function GlobalDashboard() {
         </div>
       </div>
 
+      {/* Woodside Energy Spotlight */}
+      <HeadlinesSection
+        title="Woodside Energy Spotlight"
+        subtitle="Operator updates across Scarborough, Sangomar, Browse and new energy"
+        articles={executiveDashboard.woodsideArticles}
+        flag="🛢️"
+      />
+
       {/* Industry Headlines - APAC */}
       <HeadlinesSection
         title="Industry Headlines APAC"
