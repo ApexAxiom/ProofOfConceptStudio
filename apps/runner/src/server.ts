@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { REGIONS, RegionSlug, runWindowFromDate, type RunWindow } from "@proof/shared";
+import { REGIONS, RegionSlug, type RunWindow } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
@@ -19,6 +19,17 @@ function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: stri
   const target = runWindow === "am" ? { h: 6, m: 0 } : { h: 14, m: 45 };
   const diff = Math.abs((hour * 60 + minute) - (target.h * 60 + target.m));
   return diff <= toleranceMinutes;
+}
+
+function runWindowForTimeZone(now: Date, timeZone: string): RunWindow {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    hour12: false
+  });
+  const parts = formatter.formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  return hour < 12 ? "am" : "pm";
 }
 
 async function main() {
@@ -54,8 +65,8 @@ async function main() {
       return;
     }
     const body = (request.body as any) || {};
-    const runWindow: RunWindow = body.runWindow ?? runWindowFromDate(new Date());
     const runId = crypto.randomUUID();
+    const now = new Date();
 
     const regionInput = Array.isArray(body?.regions)
       ? body.regions
@@ -63,29 +74,48 @@ async function main() {
         ? [body.region]
         : undefined;
 
-    const regions = regionInput
+    const requestedRegions = regionInput
       ?.map((r: string) => r as RegionSlug)
       .filter((r: RegionSlug) => Boolean(REGIONS[r]));
 
-    if (body.scheduled === true && !body.force) {
-      const now = new Date();
-      const inWindow = regions?.length
-        ? regions.some((region: RegionSlug) => isWithinScheduledWindow(runWindow, now, REGIONS[region].timeZone))
-        : isWithinScheduledWindow(runWindow, now, "America/Chicago");
+    const regionRuns = (requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[])).map(
+      (region) => {
+        const localizedRunWindow: RunWindow = body.runWindow ?? runWindowForTimeZone(now, REGIONS[region].timeZone);
+        const inWindow =
+          body.scheduled === true && !body.force
+            ? isWithinScheduledWindow(localizedRunWindow, now, REGIONS[region].timeZone)
+            : true;
 
-      if (!inWindow) {
-        reply.code(202).send({ ok: true, accepted: true, skipped: true, runWindow, runId });
-        return;
+        return { region, runWindow: localizedRunWindow, inWindow };
       }
+    );
+
+    const readyRegions = body.scheduled === true && !body.force
+      ? regionRuns.filter((r) => r.inWindow)
+      : regionRuns;
+
+    if (body.scheduled === true && readyRegions.length === 0) {
+      reply.code(202).send({ ok: true, accepted: true, skipped: true, runId });
+      return;
     }
 
-    reply.code(202).send({ ok: true, accepted: true, runWindow, runId });
+    reply.code(202).send({
+      ok: true,
+      accepted: true,
+      runId,
+      regions: readyRegions.map((r) => ({ region: r.region, runWindow: r.runWindow }))
+    });
+
     setImmediate(() => {
-      handleCron(runWindow, {
-        runId,
-        scheduled: body.scheduled === true,
-        regions: regions?.length ? regions : undefined
-      }).catch((err) => fastify.log.error(err));
+      Promise.all(
+        readyRegions.map((target) =>
+          handleCron(target.runWindow, {
+            runId,
+            scheduled: body.scheduled === true,
+            regions: [target.region]
+          })
+        )
+      ).catch((err) => fastify.log.error(err));
     });
   });
 
@@ -98,7 +128,7 @@ async function main() {
     const body = (request.body as any) || {};
     reply.code(202).send({ ok: true, accepted: true });
     setImmediate(() => {
-      const runWindow: RunWindow = body.runWindow ?? runWindowFromDate(new Date());
+      const runWindow: RunWindow = body.runWindow ?? runWindowForTimeZone(new Date(), "America/Chicago");
       runAgent(agentId, body.region, runWindow).catch((err) => fastify.log.error(err));
     });
   });
