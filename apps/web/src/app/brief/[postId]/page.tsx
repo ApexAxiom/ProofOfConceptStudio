@@ -3,9 +3,10 @@ import { RegionTabs } from "../../../components/RegionTabs";
 import { FooterSources } from "../../../components/FooterSources";
 import { ProxiedImage } from "../../../components/ProxiedImage";
 import { ArticleList } from "../../../components/ArticleCard";
+import { InsightListCard } from "../../../components/InsightListCard";
 import { fetchPost } from "../../../lib/api";
 import { extractValidUrl } from "../../../lib/url";
-import { portfolioLabel, regionLabel, REGIONS } from "@proof/shared";
+import { portfolioLabel, regionLabel, REGIONS, BriefPost } from "@proof/shared";
 import { getCategoryBadgeClass, categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 import { inferSignals } from "../../../lib/signals";
 import ReactMarkdown from "react-markdown";
@@ -33,11 +34,7 @@ function formatPublishTime(dateStr: string): string {
   });
 }
 
-export default async function BriefDetailPage({ params }: { params: Promise<{ postId: string }> }) {
-  const { postId } = await params;
-  const brief = await fetchPost(postId);
-  if (!brief) return notFound();
-
+export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   const published = new Date(brief.publishedAt);
   const publishedDate = formatPublishDate(brief.publishedAt);
   const publishedTime = formatPublishTime(brief.publishedAt);
@@ -57,6 +54,12 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
   const selectedArticles = brief.selectedArticles || [];
   const signals = inferSignals(brief);
   const sourceCount = selectedArticles.length || sources.length || 0;
+  const actionableSections = [
+    { title: "Market Highlights", items: brief.highlights, icon: "⚡" },
+    { title: "Procurement Actions", items: brief.procurementActions, icon: "🛠️" },
+    { title: "Watchlist", items: brief.watchlist, icon: "👀" },
+    { title: "Changes Since Last Brief", items: brief.deltaSinceLastRun, icon: "🔄" }
+  ].filter((section) => (section.items?.length ?? 0) > 0);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -197,27 +200,68 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
             </div>
           )}
 
+          {actionableSections.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {actionableSections.map((section) => (
+                <InsightListCard
+                  key={section.title}
+                  title={section.title}
+                  items={section.items}
+                  icon={<span>{section.icon}</span>}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Selected Articles with Enhanced Cards */}
           {selectedArticles.length > 0 && (
             <ArticleList articles={selectedArticles} />
           )}
 
-          {/* Additional Markdown Content */}
-          {brief.bodyMarkdown && (
-            <>
-              <div className="h-px bg-border" />
-              <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[
-                    rehypeSanitize,
-                    [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
-                  ]}
-                >
-                  {brief.bodyMarkdown}
-                </ReactMarkdown>
+          {brief.marketIndicators && brief.marketIndicators.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <span role="img" aria-label="market">📊</span>
+                <span>Market indicators</span>
               </div>
-            </>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {brief.marketIndicators.map((indicator) => (
+                  <li key={indicator.id} className="space-y-1">
+                    <div className="font-medium text-foreground">{indicator.label}</div>
+                    <div className="leading-relaxed">{indicator.note}</div>
+                    <a
+                      href={indicator.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-primary text-xs hover:underline"
+                    >
+                      View source →
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {brief.bodyMarkdown && (
+            <div className="rounded-xl border border-border bg-muted/40">
+              <details className="group" aria-label="Raw brief markdown">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-foreground group-open:border-b group-open:border-border">
+                  Raw brief (markdown)
+                </summary>
+                <div className="prose prose-sm max-w-none px-4 pb-4 pt-2 dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[
+                      rehypeSanitize,
+                      [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
+                    ]}
+                  >
+                    {brief.bodyMarkdown}
+                  </ReactMarkdown>
+                </div>
+              </details>
+            </div>
           )}
 
           {/* Sources Footer */}
@@ -253,4 +297,12 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
       </div>
     </div>
   );
+}
+
+export default async function BriefDetailPage({ params }: { params: Promise<{ postId: string }> }) {
+  const { postId } = await params;
+  const brief = await fetchPost(postId);
+  if (!brief) return notFound();
+
+  return <BriefDetailContent brief={brief} />;
 }

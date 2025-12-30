@@ -69,12 +69,12 @@ export function Sidebar() {
               {PORTFOLIOS.map((portfolio) => {
                 const category = categoryForPortfolio(portfolio.slug);
                 const meta = CATEGORY_META[category];
-                const isActive = pathname === `/category/${portfolio.slug}`;
-                
+                const isActive = pathname === `/portfolio/${portfolio.slug}`;
+
                 return (
                   <Link
                     key={portfolio.slug}
-                    href={`/category/${portfolio.slug}`}
+                    href={`/portfolio/${portfolio.slug}`}
                     className={`sidebar-category-link ${isActive ? "active" : ""}`}
                     title={portfolio.label}
                   >

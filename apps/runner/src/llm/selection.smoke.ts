@@ -11,6 +11,10 @@ const articles: ArticleInput[] = [
 const raw = JSON.stringify({
   title: "Test",
   summary: "Summary",
+  highlights: ["One", ""],
+  procurementActions: ["Do this"],
+  watchlist: ["Monitor X"],
+  deltaSinceLastRun: ["Changed"],
   selectedArticles: [
     { articleIndex: 2, briefContent: "Brief 2" },
     { articleIndex: 1, briefContent: "Brief 1" },
@@ -29,5 +33,9 @@ const mapped = parsed.selectedArticles.map((item) => {
 
 assert.deepStrictEqual(mapped, ["https://example.com/a2", "https://example.com/a1", "https://example.com/a3"]);
 assert.strictEqual(parsed.heroSelection.articleIndex, 2);
+assert.deepStrictEqual(parsed.highlights, ["One"]);
+assert.deepStrictEqual(parsed.procurementActions, ["Do this"]);
+assert.deepStrictEqual(parsed.watchlist, ["Monitor X"]);
+assert.deepStrictEqual(parsed.deltaSinceLastRun, ["Changed"]);
 
 console.log("selection.smoke passed");

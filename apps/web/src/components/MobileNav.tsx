@@ -98,12 +98,12 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             {PORTFOLIOS.map((portfolio) => {
               const category = categoryForPortfolio(portfolio.slug);
               const meta = CATEGORY_META[category];
-              const isActive = pathname === `/category/${portfolio.slug}`;
-              
+              const isActive = pathname === `/portfolio/${portfolio.slug}`;
+
               return (
                 <Link
                   key={portfolio.slug}
-                  href={`/category/${portfolio.slug}`}
+                  href={`/portfolio/${portfolio.slug}`}
                   onClick={onClose}
                   className={`mobile-nav-category ${isActive ? "active" : ""}`}
                 >

@@ -13,8 +13,8 @@ import { renderBriefMarkdown } from "./render.js";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-// Default to gpt-4o-mini for cost efficiency; override via OPENAI_MODEL
-const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+// Default to gpt-4o for quality; override via OPENAI_MODEL
+const model = process.env.OPENAI_MODEL || "gpt-4o";
 
 /**
  * Generates a brief from the provided articles using OpenAI.
@@ -74,7 +74,7 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     .map((m) => {
       const match = input.indices.find((idx) => idx.id === m.indexId);
       if (!match) return null;
-      return { ...match, note: m.note || "" };
+      return { id: match.id, label: match.label, url: match.url, note: m.note || "" };
     })
     .filter((m): m is NonNullable<typeof m> => Boolean(m));
 
@@ -86,7 +86,11 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     runWindow: input.runWindow,
     publishedAtISO: now,
     selectedArticles,
-    marketIndicators: marketIndicators.map((mi) => ({ label: mi.label, url: mi.url, note: mi.note }))
+    highlights: parsed.highlights,
+    procurementActions: parsed.procurementActions,
+    watchlist: parsed.watchlist,
+    deltaSinceLastRun: parsed.deltaSinceLastRun,
+    marketIndicators
   });
 
   const sourceUrls = new Set<string>([
@@ -105,6 +109,11 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     summary: parsed.summary,
     bodyMarkdown,
     sources: Array.from(sourceUrls),
+    highlights: parsed.highlights,
+    procurementActions: parsed.procurementActions,
+    watchlist: parsed.watchlist,
+    deltaSinceLastRun: parsed.deltaSinceLastRun,
+    marketIndicators,
     selectedArticles,
     heroImageUrl: heroArticle?.imageUrl,
     heroImageSourceUrl: heroArticle?.url,

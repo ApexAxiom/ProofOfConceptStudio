@@ -1,4 +1,4 @@
-import { AgentConfig, AgentFeed, RegionSlug, keywordsForPortfolio } from "@proof/shared";
+import { AgentConfig, AgentFeed, RegionSlug, keywordsForPortfolio, categoryForPortfolio } from "@proof/shared";
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
@@ -18,11 +18,15 @@ export interface ArticleDetail extends ArticleCandidate {
   ogImageUrl?: string;
 }
 
-/**
- * Fallback feeds by region - reliable, high-volume sources used when primary feeds fail
- * These are general O&G/energy feeds that provide content relevant to all categories
- */
-const FALLBACK_FEEDS: Record<RegionSlug, AgentFeed[]> = {
+function computeKeywordScore(text: string, categoryKeywords: string[], generalKeywords: string[]): number {
+  if (!text) return 0;
+  const haystack = text.toLowerCase();
+  const categoryScore = categoryKeywords.reduce((acc, kw) => (haystack.includes(kw) ? acc + 2 : acc), 0);
+  const generalScore = generalKeywords.reduce((acc, kw) => (haystack.includes(kw) ? acc + 1 : acc), 0);
+  return categoryScore + generalScore;
+}
+
+const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
   "us-mx-la-lng": [
     { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
     { name: "World Oil", url: "https://www.worldoil.com/rss/news", type: "rss" },
@@ -40,6 +44,47 @@ const FALLBACK_FEEDS: Record<RegionSlug, AgentFeed[]> = {
     { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
   ]
 };
+
+const FREIGHT_FALLBACK: AgentFeed[] = [
+  { name: "FreightWaves", url: "https://www.freightwaves.com/news/feed", type: "rss" },
+  { name: "Supply Chain Dive", url: "https://www.supplychaindive.com/feeds/news/", type: "rss" },
+  { name: "The Loadstar", url: "https://theloadstar.com/feed/", type: "rss" }
+];
+
+const CYBER_FALLBACK: AgentFeed[] = [
+  { name: "KrebsOnSecurity", url: "https://krebsonsecurity.com/feed/", type: "rss" },
+  { name: "Dark Reading", url: "https://www.darkreading.com/rss.xml", type: "rss" },
+  { name: "Ars Technica Security", url: "https://feeds.arstechnica.com/arstechnica/security", type: "rss" }
+];
+
+const STEEL_FALLBACK: AgentFeed[] = [
+  { name: "Mining Weekly", url: "https://www.miningweekly.com/page/rss", type: "rss" },
+  { name: "MetalMiner", url: "https://agmetalminer.com/metal-prices/feed/", type: "rss" },
+  { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" }
+];
+
+const SERVICES_FALLBACK: AgentFeed[] = [
+  { name: "Consultancy.org", url: "https://www.consultancy.org/news/rss", type: "rss" },
+  { name: "Harvard Business Review", url: "https://hbr.org/feed", type: "rss" }
+];
+
+const FACILITY_FALLBACK: AgentFeed[] = [
+  { name: "FacilitiesNet", url: "https://www.facilitiesnet.com/rss/maintenancenews.aspx", type: "rss" },
+  { name: "Buildings.com", url: "https://www.buildings.com/rss.xml", type: "rss" }
+];
+
+function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
+  const category = categoryForPortfolio(portfolioSlug);
+  if (category === "energy") {
+    return ENERGY_FALLBACK[region] ?? [];
+  }
+  if (category === "freight") return FREIGHT_FALLBACK;
+  if (category === "cyber") return CYBER_FALLBACK;
+  if (category === "steel") return STEEL_FALLBACK;
+  if (category === "services") return SERVICES_FALLBACK;
+  if (category === "facility") return FACILITY_FALLBACK;
+  return [];
+}
 
 /**
  * Fetches articles from a list of feeds
@@ -93,7 +138,7 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   // Step 2: If not enough articles, use fallback feeds
   if (collected.length < minArticlesNeeded) {
     console.log(`[${agent.id}/${region}] Not enough articles (${collected.length}), trying fallback feeds...`);
-    const fallbackFeeds = FALLBACK_FEEDS[region] ?? [];
+    const fallbackFeeds = getFallbackFeeds(region, agent.portfolio);
     
     // Filter out feeds we already tried
     const primaryUrls = new Set(feeds.map((f) => f.url));
@@ -164,26 +209,12 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   
   // Score articles by keyword relevance
   const categoryKeywords = keywordsForPortfolio(agent.portfolio).map((k) => k.toLowerCase());
-  const keywords = categoryKeywords.length > 0 ? categoryKeywords : generalKeywords;
-  
+
   const scored = dedupeSafeList
     .map((item) => {
-      const hay = `${item.title} ${item.url}`.toLowerCase();
-      
-      // Primary score: category-specific keywords (weight: 2)
-      const categoryScore = categoryKeywords.reduce((acc, kw) => {
-        return hay.includes(kw) ? acc + 2 : acc;
-      }, 0);
-      
-      // Secondary score: general O&G keywords (weight: 1)
-      const generalScore = generalKeywords.reduce((acc, kw) => {
-        return hay.includes(kw) ? acc + 1 : acc;
-      }, 0);
-      
-      return {
-        ...item,
-        score: categoryScore + generalScore
-      };
+      const hay = `${item.title} ${item.url}`;
+      const score = computeKeywordScore(hay, categoryKeywords, generalKeywords);
+      return { ...item, score };
     })
     .sort((a, b) => b.score - a.score);
   
@@ -228,8 +259,17 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   // Filter out undefined results while preserving valid articles
   const articles = orderedResults.filter((r): r is ArticleDetail => Boolean(r));
 
+  const rankedByContent = articles
+    .map((article, idx) => {
+      const contentScore = computeKeywordScore(article.content ?? "", categoryKeywords, generalKeywords);
+      const baseScore = top[idx]?.score ?? 0;
+      return { article, combinedScore: baseScore + contentScore };
+    })
+    .sort((a, b) => b.combinedScore - a.combinedScore)
+    .map((entry) => entry.article);
+
   return {
-    articles,
+    articles: rankedByContent,
     scannedSources: feeds.map((f) => f.url),
     metrics: {
       collectedCount: collected.length,

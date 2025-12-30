@@ -70,14 +70,14 @@ Shared
 API
 - `PORT=8080`
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default `gpt-5.2`)
+- `OPENAI_MODEL` (default `gpt-4o`; set explicitly for production quality)
 - `ADMIN_TOKEN`
 - `CORS_ORIGINS` (optional)
 
 Runner
 - `PORT=8080`
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL`
+- `OPENAI_MODEL` (default `gpt-4o`; prefer an explicit value for consistent briefs)
 - `CRON_SECRET`
 
 Web
