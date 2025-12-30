@@ -1,4 +1,4 @@
-import { SelectedArticle } from "@proof/shared";
+import { BriefMarketIndicator, SelectedArticle } from "@proof/shared";
 
 interface RenderParams {
   title: string;
@@ -8,10 +8,11 @@ interface RenderParams {
   runWindow: string;
   publishedAtISO: string;
   selectedArticles: SelectedArticle[];
-  marketIndicators: Array<{ label: string; url: string; note: string }>;
+  marketIndicators: BriefMarketIndicator[];
   highlights?: string[];
   procurementActions?: string[];
   watchlist?: string[];
+  deltaSinceLastRun?: string[];
   topStoriesTitle?: string;
 }
 
@@ -30,6 +31,7 @@ export function renderBriefMarkdown({
   highlights = [],
   procurementActions = [],
   watchlist = [],
+  deltaSinceLastRun = [],
   topStoriesTitle = "## 📰 Top Stories"
 }: RenderParams): string {
   const publishedAt = new Date(publishedAtISO).toISOString();
@@ -54,6 +56,11 @@ export function renderBriefMarkdown({
   if (watchlist.length > 0) {
     lines.push("", "## 👀 Watchlist");
     watchlist.forEach((item) => lines.push(`- ${item}`));
+  }
+
+  if (deltaSinceLastRun.length > 0) {
+    lines.push("", "## 🔄 Changes Since Last Brief");
+    deltaSinceLastRun.forEach((item) => lines.push(`- ${item}`));
   }
 
   lines.push("", "---", "", topStoriesTitle);

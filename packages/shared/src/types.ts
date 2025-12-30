@@ -41,6 +41,13 @@ export interface SelectedArticle {
   sourceName?: string;
 }
 
+export interface BriefMarketIndicator {
+  id: string;
+  label: string;
+  url: string;
+  note: string;
+}
+
 export interface BriefPost {
   postId: string;
   title: string;
@@ -55,6 +62,21 @@ export interface BriefPost {
   
   /** The 3 selected articles with their briefs and exact source links */
   selectedArticles?: SelectedArticle[];
+
+  /** Curated takeaways for quick scanning */
+  highlights?: string[];
+
+  /** Explicit procurement actions to take */
+  procurementActions?: string[];
+
+  /** Items to monitor closely */
+  watchlist?: string[];
+
+  /** Change log against the previous run */
+  deltaSinceLastRun?: string[];
+
+  /** Structured market indicator notes */
+  marketIndicators?: BriefMarketIndicator[];
   
   /** Hero image from the primary article */
   heroImageUrl?: string;

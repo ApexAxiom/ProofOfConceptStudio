@@ -4,8 +4,8 @@ import { getRegionPosts } from "../db/posts.js";
 import { OpenAI } from "openai";
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-// Default to a widely-available model; override via OPENAI_MODEL.
-const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+// Default to a widely-available quality model; override via OPENAI_MODEL.
+const model = process.env.OPENAI_MODEL || "gpt-4o";
 const MAX_CONTEXT_CHARS = 100_000; // ~25k token budget
 const MAX_COMPLETION_TOKENS = 1000;
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";

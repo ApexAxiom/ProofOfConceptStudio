@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { BriefsTable } from "../../../components/BriefsTable";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
-import { 
-  PORTFOLIOS, 
-  portfolioLabel, 
+import { InsightListCard } from "../../../components/InsightListCard";
+import {
+  PORTFOLIOS,
+  portfolioLabel,
   categoryForPortfolio, 
   CATEGORY_META,
   getPortfolioSources,
@@ -102,6 +103,15 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
   const allBriefs = [...auBriefs, ...usBriefs]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 20);
+  const latestBrief = allBriefs[0];
+  const actionableSections = latestBrief
+    ? [
+        { title: "Market Highlights", items: latestBrief.highlights, icon: "⚡" },
+        { title: "Procurement Actions", items: latestBrief.procurementActions, icon: "🛠️" },
+        { title: "Watchlist", items: latestBrief.watchlist, icon: "👀" },
+        { title: "Changes Since Last Brief", items: latestBrief.deltaSinceLastRun, icon: "🔄" }
+      ].filter((section) => (section.items?.length ?? 0) > 0)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -111,7 +121,7 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
             <span>/</span>
-            <Link href={`/category/${category}`} className="hover:text-foreground transition-colors">{categoryMeta.label}</Link>
+            <span className="text-foreground">{categoryMeta.label}</span>
             <span>/</span>
             <span className="text-foreground">{portfolioLabel(portfolio)}</span>
           </div>
@@ -132,6 +142,19 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
           </Link>
         </div>
       </div>
+
+      {actionableSections.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {actionableSections.map((section) => (
+            <InsightListCard
+              key={section.title}
+              title={section.title}
+              items={section.items}
+              icon={<span>{section.icon}</span>}
+            />
+          ))}
+        </div>
+      )}
 
       {/* TODAY'S INTELLIGENCE BRIEFS - Featured at top */}
       <div className="space-y-4">
@@ -228,7 +251,7 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
       <div className="pt-4 border-t border-border">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Part of <Link href={`/category/${category}`} className="text-primary hover:underline">{categoryMeta.label}</Link> category
+            Part of {categoryMeta.label} category
           </span>
           <div className="flex gap-2">
             <Link href={`/au/${portfolio}`} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted/50 transition-colors">

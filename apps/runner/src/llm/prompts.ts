@@ -35,6 +35,10 @@ export interface PromptInput {
 export interface BriefOutput {
   title: string;
   summary: string;
+  highlights?: string[];
+  procurementActions?: string[];
+  watchlist?: string[];
+  deltaSinceLastRun?: string[];
   selectedArticles: Array<{
     articleIndex: number;
     briefContent: string;
@@ -44,6 +48,14 @@ export interface BriefOutput {
   }>;
   heroSelection: { articleIndex: number };
   marketIndicators: Array<{ indexId: string; note: string }>;
+}
+
+function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0)
+    .slice(0, maxItems);
 }
 
 /**
@@ -134,6 +146,10 @@ Return ONLY valid JSON with this exact structure:
 {
   "title": "Attention-grabbing headline for Category Managers (max ${WRITING_GUIDE.wordLimits.headline} words)",
   "summary": "Executive summary with key insight and procurement implications (max ${WRITING_GUIDE.wordLimits.summary} words)",
+  "highlights": ["Top 3 market shifts (1 sentence each)", "..."],
+  "procurementActions": ["Actionable step for category managers", "..."],
+  "watchlist": ["Supplier/market item to monitor", "..."],
+  "deltaSinceLastRun": ["What's changed vs. last run"],
   "selectedArticles": [
     {
       "articleIndex": 1,
@@ -161,6 +177,7 @@ Return ONLY valid JSON with this exact structure:
 6. **ANALYST TONE**: Write like a procurement analyst, not a journalist. Facts and implications, no filler.
 7. **CATEGORY IMPORTANCE REQUIRED**: Each article MUST include a categoryImportance field explaining why this matters for category managers
 8. **KEY METRICS**: Extract 2-4 key numbers, percentages, dates, or values from each article
+9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
 
 ## MARKET INDICES
 
@@ -204,6 +221,10 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   const selected = Array.isArray(parsed.selectedArticles) ? parsed.selectedArticles : [];
   const heroIndex = parsed?.heroSelection?.articleIndex;
   const marketIndicators = Array.isArray(parsed.marketIndicators) ? parsed.marketIndicators : [];
+  const highlights = sanitizeStringArray(parsed.highlights, 5);
+  const procurementActions = sanitizeStringArray(parsed.procurementActions, 5);
+  const watchlist = sanitizeStringArray(parsed.watchlist, 5);
+  const deltaSinceLastRun = sanitizeStringArray(parsed.deltaSinceLastRun, 3);
 
   const issues: string[] = [];
   const indices = new Set<number>();
@@ -236,6 +257,10 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   return {
     title: parsed.title || "Untitled Brief",
     summary: parsed.summary || "",
+    highlights,
+    procurementActions,
+    watchlist,
+    deltaSinceLastRun,
     selectedArticles: selected.map((article: any) => ({
       articleIndex: Number(article.articleIndex),
       briefContent: article.briefContent || "",
@@ -244,6 +269,6 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
       imageAlt: article.imageAlt
     })),
     heroSelection: { articleIndex: Number(heroIndex) },
-    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: m.note || "" }))
+    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: (m.note || "").toString() }))
   };
 }
