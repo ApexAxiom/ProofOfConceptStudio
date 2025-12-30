@@ -196,12 +196,6 @@ const NEWS_FEEDS: Array<{ url: string; category: string; source: string; region:
 
 const WOODSIDE_FEEDS: Array<{ url: string; category: string; source: string; region: ExecutiveRegion }> = [
   {
-    url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-AU&gl=AU&ceid=AU:en",
-    category: "Woodside",
-    source: "Google News",
-    region: "woodside",
-  },
-  {
     url: "https://www.offshore-energy.biz/feed/",
     category: "Offshore",
     source: "Offshore Energy",
@@ -527,7 +521,7 @@ export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPay
     woodsideArticles: woodside,
     sources: {
       pricing: "Yahoo Finance Spark (6 month, 1d interval) with synthetic fallback",
-      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters, World Oil, OGJ) with Woodside spotlight (Google News, Offshore Energy) and curated fallback",
+      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters, World Oil, OGJ) with Woodside spotlight (Offshore Energy) and curated fallback",
     },
   };
 }
