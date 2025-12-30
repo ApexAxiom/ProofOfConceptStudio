@@ -1,7 +1,6 @@
-import { CoverageMatrix } from "../components/CoverageMatrix";
+import { LatestBriefsList } from "../components/LatestBriefsList";
 import { LiveMarketTicker } from "../components/LiveMarketTicker";
-import { BriefPost, RegionSlug } from "@proof/shared";
-import { fetchLatestByPortfolio } from "../lib/api";
+import { fetchLatest } from "../lib/api";
 import { getExecutiveDashboardData, ExecutiveArticle } from "../lib/executive-dashboard";
 
 // Compact article card for news sections
@@ -80,16 +79,16 @@ function SectionHeader({ icon, title, subtitle }: { icon: string; title: string;
 }
 
 export default async function Dashboard() {
-  const [auByPortfolio, usByPortfolio, executiveDashboard] = await Promise.all([
-    fetchLatestByPortfolio("au"),
-    fetchLatestByPortfolio("us-mx-la-lng"),
+  const [auBriefs, usBriefs, executiveDashboard] = await Promise.all([
+    fetchLatest("au"),
+    fetchLatest("us-mx-la-lng"),
     getExecutiveDashboardData()
   ]);
 
-  const briefsByRegion: Record<RegionSlug, BriefPost[]> = {
-    au: auByPortfolio,
-    "us-mx-la-lng": usByPortfolio
-  };
+  // Combine and sort all briefs by date, then take the 10 latest
+  const allBriefs = [...auBriefs, ...usBriefs]
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    .slice(0, 10);
 
   return (
     <div className="space-y-8">
@@ -147,9 +146,9 @@ export default async function Dashboard() {
         </div>
       </section>
 
-      {/* Portfolio Coverage Overview */}
+      {/* Latest Briefs */}
       <section className="dashboard-section">
-        <CoverageMatrix briefsByRegion={briefsByRegion} />
+        <LatestBriefsList briefs={allBriefs} />
       </section>
     </div>
   );
