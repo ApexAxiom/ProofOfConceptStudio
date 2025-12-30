@@ -75,7 +75,7 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
         {/* Edition Badge */}
         <div className="absolute right-2 top-2">
           <span className="rounded-md bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-            {brief.runWindow}
+            {brief.runWindow.toUpperCase()}
           </span>
         </div>
         

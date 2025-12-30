@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
+import { runWindowForRegion, RegionSlug } from "@proof/shared";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "";
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
@@ -14,7 +15,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post("/run", async (request) => {
     const body = request.body as any;
-    const runWindow = body.runWindow || "am";
+    const region = (body.region as RegionSlug) ?? "us-mx-la-lng";
+    const runWindow = body.runWindow || runWindowForRegion(region);
     const agentId = body.agentId;
     const url = agentId
       ? `${RUNNER_BASE_URL}/run/${agentId}`
@@ -25,7 +27,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         Authorization: `Bearer ${process.env.CRON_SECRET}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ runWindow, region: body.region })
+      body: JSON.stringify({ runWindow, region })
     });
     const json = await res.json();
     return json;

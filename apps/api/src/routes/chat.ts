@@ -6,6 +6,8 @@ const openaiApiKey = process.env.OPENAI_API_KEY;
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 // Default to a widely-available model; override via OPENAI_MODEL.
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const MAX_CONTEXT_CHARS = 100_000; // ~25k token budget
+const MAX_COMPLETION_TOKENS = 1000;
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
 
 type AgentSummary = {
@@ -41,16 +43,25 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const agent = await findAgent(agentId, portfolio);
     const regionPosts = await getRegionPosts(region);
     const filtered = regionPosts.filter((p) => p.portfolio === portfolio);
-    const recent = (filtered.length ? filtered : regionPosts).slice(0, 10);
+    const candidatePosts = filtered.length ? filtered : regionPosts;
 
-    if (recent.length === 0) {
+    const contextBlocks: string[] = [];
+    const selectedPosts: BriefPost[] = [];
+    let usedChars = 0;
+    for (const post of candidatePosts) {
+      const block = `${post.title}\n${post.bodyMarkdown}\nSources: ${(post.sources || []).join(", ")}`;
+      if (usedChars + block.length > MAX_CONTEXT_CHARS) break;
+      selectedPosts.push(post);
+      contextBlocks.push(block);
+      usedChars += block.length;
+    }
+
+    if (selectedPosts.length === 0) {
       return { answer: "No briefs are available yet. Please run an ingestion cycle and try again." };
     }
 
-    const allowedSources = new Set<string>(recent.flatMap((p) => p.sources || []));
-    const context = recent
-      .map((p) => `${p.title}\n${p.bodyMarkdown}\nSources: ${(p.sources || []).join(", ")}`)
-      .join("\n\n---\n\n");
+    const allowedSources = new Set<string>(selectedPosts.flatMap((p) => p.sources || []));
+    const context = contextBlocks.join("\n\n---\n\n");
 
     const buildFallbackAnswer = (posts: BriefPost[]) => {
       const bullets = posts.slice(0, 3).map((p) => {
@@ -68,16 +79,17 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     if (!openai) {
-      return { answer: buildFallbackAnswer(recent) };
+      return { answer: buildFallbackAnswer(selectedPosts) };
     }
 
     try {
       const assistantIdentity = agent
-        ? `${agent.label} (${portfolioLabel(agent.portfolio)})`
-        : `${portfolioLabel(portfolio)} procurement assistant`;
-      const prompt = `You are ${assistantIdentity}. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable. Do not output any URL that is not in Allowed URLs. If you are unsure, do not cite it.\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
+        ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
+        : `${portfolioLabel(portfolio)} category management advisor`;
+      const prompt = `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls. Use the following briefs to answer in Markdown with bullet points and short paragraphs. Every factual statement must include a citation using only the provided URLs. Do not emit HTML. If you lack a citation, state that the information is unavailable. Do not output any URL that is not in Allowed URLs. Keep answers concise (max ${MAX_COMPLETION_TOKENS} tokens).\n\nAllowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${question}`;
       const response = await openai.chat.completions.create({
         model,
+        max_tokens: MAX_COMPLETION_TOKENS,
         messages: [{ role: "user", content: prompt }]
       });
       const answer = response.choices?.[0]?.message?.content ?? "";
@@ -87,13 +99,13 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       const hasAllowed = [...found].some((u) => allowedSources.has(u));
 
       if (!hasAllowed || disallowed.length > 0) {
-        return { answer: buildFallbackAnswer(recent) };
+        return { answer: buildFallbackAnswer(selectedPosts) };
       }
 
       return { answer };
     } catch (err) {
       request.log.error({ err }, "AI call failed; using fallback answer");
-      return { answer: buildFallbackAnswer(recent) };
+      return { answer: buildFallbackAnswer(selectedPosts) };
     }
   });
 };

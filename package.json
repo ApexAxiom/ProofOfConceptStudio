@@ -7,7 +7,7 @@
     "dev": "pnpm -r --parallel dev --filter web --filter api --filter runner",
     "lint": "pnpm -r lint",
     "build": "pnpm -r build",
-    "run:am": "pnpm --filter runner run cron:am",
-    "run:pm": "pnpm --filter runner run cron:pm"
+    "run:apac": "pnpm --filter runner run cron:apac",
+    "run:international": "pnpm --filter runner run cron:international"
   }
 }

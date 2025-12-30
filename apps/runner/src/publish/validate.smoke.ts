@@ -52,7 +52,7 @@ const brief: BriefPost = {
   title: "Demo Brief",
   region: "au",
   portfolio: "demo",
-  runWindow: "am",
+    runWindow: "apac",
   status: "draft",
   publishedAt: new Date().toISOString(),
   summary: "This is a demo brief summary that satisfies the minimum length rule.",

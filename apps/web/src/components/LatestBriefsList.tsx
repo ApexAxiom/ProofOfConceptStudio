@@ -66,7 +66,7 @@ export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
                         <span>•</span>
                         <span>{formatTimeAgo(brief.publishedAt)}</span>
                         <span className="rounded bg-muted px-1 py-0.5 text-[10px] font-bold uppercase">
-                          {brief.runWindow}
+                          {brief.runWindow.toUpperCase()}
                         </span>
                       </div>
                     </div>

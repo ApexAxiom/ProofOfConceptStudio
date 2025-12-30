@@ -102,7 +102,7 @@ export default async function BriefDetailPage({ params }: { params: Promise<{ po
                   {regionLabel(brief.region)}
                 </span>
                 <span className="rounded-full bg-primary/90 px-3 py-1 text-xs font-semibold uppercase text-white">
-                  {brief.runWindow} Edition
+                  {brief.runWindow.toUpperCase()} Edition
                 </span>
               </div>
               

@@ -122,7 +122,7 @@ export function BriefsTable({ briefs, showRegion = true }: BriefsTableProps) {
                           {formatTimeAgo(brief.publishedAt)}
                         </span>
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                          {brief.runWindow}
+                          {brief.runWindow.toUpperCase()}
                         </span>
                       </div>
                     </td>

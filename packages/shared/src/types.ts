@@ -1,6 +1,6 @@
 import { RegionSlug } from "./regions.js";
 
-export type RunWindow = "am" | "pm";
+export type RunWindow = "apac" | "international";
 
 export interface MarketIndex {
   id: string;
