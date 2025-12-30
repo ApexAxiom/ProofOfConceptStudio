@@ -111,16 +111,33 @@ export async function runAgent(
   try {
     // Step 1: Ingest articles from all feeds
     console.log(`[${agentId}/${region}] Ingesting articles...`);
-    const ingestResult = await ingestAgent(agent, region);
-    const articles = ingestResult.articles ?? [];
-    
-    if (articles.length === 0) {
-      const error = "No articles found after ingestion";
+    let ingestResult;
+    try {
+      ingestResult = await ingestAgent(agent, region);
+    } catch (ingestErr) {
+      console.error(`[${agentId}/${region}] Ingestion failed:`, ingestErr);
+      const error = `Ingestion error: ${(ingestErr as Error).message}`;
       await logRunResult(runIdentifier, agent.id, region, "failed", error);
       return { agentId: agent.id, region, ok: false, error };
     }
     
-    console.log(`[${agentId}/${region}] Found ${articles.length} articles`);
+    const articles = ingestResult.articles ?? [];
+    
+    // Minimum articles required - at least 1, but preferably the configured amount
+    const minRequired = Math.max(1, Math.min(agent.articlesPerRun ?? 3, 2));
+    
+    if (articles.length === 0) {
+      const error = `No articles found after ingestion (scanned ${ingestResult.scannedSources?.length ?? 0} sources)`;
+      console.error(`[${agentId}/${region}] ${error}`);
+      await logRunResult(runIdentifier, agent.id, region, "failed", error);
+      return { agentId: agent.id, region, ok: false, error };
+    }
+    
+    if (articles.length < minRequired) {
+      console.warn(`[${agentId}/${region}] Only ${articles.length} articles found (wanted ${minRequired}), proceeding anyway...`);
+    }
+    
+    console.log(`[${agentId}/${region}] Found ${articles.length} articles (metrics: ${JSON.stringify(ingestResult.metrics)})`);
     
     // Step 2: Get market indices for this region/portfolio
     const indices = indicesForRegion(agent.portfolio, region);
