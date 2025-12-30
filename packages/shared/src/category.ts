@@ -74,11 +74,60 @@ export const CATEGORY_META: Record<CategoryGroup, CategoryMeta> = {
 
 /**
  * Determines the category group for a given portfolio slug.
+ * 
+ * IMPORTANT: Order matters! More specific checks must come before generic ones.
+ * The "it" check uses word boundary matching to avoid matching "site", "facilities", etc.
  */
 export function categoryForPortfolio(slug: string): CategoryGroup {
   const lowerSlug = slug.toLowerCase();
   
-  // Energy-related portfolios
+  // Steel/Materials - check FIRST to catch octg, mro before other checks
+  // "wells-materials-octg" and "mro-site-consumables" should be steel
+  if (
+    lowerSlug.includes("octg") ||
+    lowerSlug.includes("mro")
+  ) {
+    return "steel";
+  }
+  
+  // Facility - check before services to catch "site-services-facilities"
+  if (
+    lowerSlug.includes("facility") ||
+    lowerSlug.includes("facilities")
+  ) {
+    return "facility";
+  }
+  
+  // Cyber/IT - use word boundary check for "it" to avoid matching "site", "facilities"
+  // Only match "it-" at start or "-it-" or "-it" at end
+  if (
+    lowerSlug.includes("cyber") ||
+    lowerSlug.includes("telecom") ||
+    lowerSlug.startsWith("it-") ||
+    lowerSlug.includes("-it-") ||
+    lowerSlug.endsWith("-it")
+  ) {
+    return "cyber";
+  }
+  
+  // Freight/Logistics
+  if (
+    lowerSlug.includes("logistics") ||
+    lowerSlug.includes("marine") ||
+    lowerSlug.includes("aviation")
+  ) {
+    return "freight";
+  }
+  
+  // Professional Services - check for HR and professional services
+  if (
+    lowerSlug.includes("professional") ||
+    lowerSlug.includes("-hr")
+  ) {
+    return "services";
+  }
+  
+  // Energy-related portfolios (most common, check last among specifics)
   if (
     lowerSlug.includes("drill") ||
     lowerSlug.includes("rig") ||
@@ -93,50 +142,6 @@ export function categoryForPortfolio(slug: string): CategoryGroup {
     lowerSlug.includes("market-dashboard")
   ) {
     return "energy";
-  }
-  
-  // Freight/Logistics
-  if (
-    lowerSlug.includes("logistics") ||
-    lowerSlug.includes("marine") ||
-    lowerSlug.includes("aviation")
-  ) {
-    return "freight";
-  }
-  
-  // Cyber/IT
-  if (
-    lowerSlug.includes("cyber") ||
-    lowerSlug.includes("it") ||
-    lowerSlug.includes("telecom")
-  ) {
-    return "cyber";
-  }
-  
-  // Professional Services
-  if (
-    lowerSlug.includes("services") ||
-    lowerSlug.includes("hr") ||
-    lowerSlug.includes("professional")
-  ) {
-    return "services";
-  }
-  
-  // Facility
-  if (
-    lowerSlug.includes("facility") ||
-    lowerSlug.includes("site")
-  ) {
-    return "facility";
-  }
-  
-  // Steel/Materials
-  if (
-    lowerSlug.includes("mro") ||
-    lowerSlug.includes("materials") ||
-    lowerSlug.includes("octg")
-  ) {
-    return "steel";
   }
   
   // Default to energy
