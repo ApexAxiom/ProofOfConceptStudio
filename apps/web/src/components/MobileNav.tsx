@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CategoryGroup, CATEGORY_META } from "@proof/shared";
-
-const CATEGORIES: CategoryGroup[] = ["energy", "steel", "freight", "services", "cyber", "facility"];
+import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 
 function DashboardIcon() {
   return (
@@ -97,14 +95,15 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
           <div className="mobile-nav-section">
             <span className="mobile-nav-section-title">Categories</span>
-            {CATEGORIES.map((categoryId) => {
-              const meta = CATEGORY_META[categoryId];
-              const isActive = pathname === `/category/${categoryId}`;
+            {PORTFOLIOS.map((portfolio) => {
+              const category = categoryForPortfolio(portfolio.slug);
+              const meta = CATEGORY_META[category];
+              const isActive = pathname === `/category/${portfolio.slug}`;
               
               return (
                 <Link
-                  key={categoryId}
-                  href={`/category/${categoryId}`}
+                  key={portfolio.slug}
+                  href={`/category/${portfolio.slug}`}
                   onClick={onClose}
                   className={`mobile-nav-category ${isActive ? "active" : ""}`}
                 >
@@ -112,7 +111,7 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                     className="h-2 w-2 rounded-full flex-shrink-0" 
                     style={{ backgroundColor: meta.color }}
                   />
-                  <span>{meta.label}</span>
+                  <span className="truncate">{portfolio.label}</span>
                 </Link>
               );
             })}

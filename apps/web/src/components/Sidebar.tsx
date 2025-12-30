@@ -2,22 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CategoryGroup, CATEGORY_META } from "@proof/shared";
-
-const CATEGORIES: CategoryGroup[] = ["energy", "steel", "freight", "services", "cyber", "facility"];
+import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 
 function DashboardIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-    </svg>
-  );
-}
-
-function CategoryIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
     </svg>
   );
 }
@@ -39,23 +29,8 @@ function SettingsIcon() {
   );
 }
 
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg 
-      className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} 
-      fill="none" 
-      viewBox="0 0 24 24" 
-      stroke="currentColor" 
-      strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-    </svg>
-  );
-}
-
 export function Sidebar() {
   const pathname = usePathname();
-  const isCategoryPage = pathname.startsWith("/category/");
 
   return (
     <aside className="sidebar">
@@ -85,28 +60,29 @@ export function Sidebar() {
             </Link>
           </div>
 
-          {/* Categories Section */}
+          {/* Categories Section - All 15 Portfolios */}
           <div className="sidebar-section">
             <div className="sidebar-section-header">
-              <CategoryIcon />
-              <span>Categories</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categories</span>
             </div>
             <div className="sidebar-section-items">
-              {CATEGORIES.map((categoryId) => {
-                const meta = CATEGORY_META[categoryId];
-                const isActive = pathname === `/category/${categoryId}`;
+              {PORTFOLIOS.map((portfolio) => {
+                const category = categoryForPortfolio(portfolio.slug);
+                const meta = CATEGORY_META[category];
+                const isActive = pathname === `/category/${portfolio.slug}`;
                 
                 return (
                   <Link
-                    key={categoryId}
-                    href={`/category/${categoryId}`}
+                    key={portfolio.slug}
+                    href={`/category/${portfolio.slug}`}
                     className={`sidebar-category-link ${isActive ? "active" : ""}`}
+                    title={portfolio.label}
                   >
                     <span 
                       className="sidebar-category-dot" 
                       style={{ backgroundColor: meta.color }}
                     />
-                    <span className="truncate">{meta.label}</span>
+                    <span className="truncate">{portfolio.label}</span>
                   </Link>
                 );
               })}
