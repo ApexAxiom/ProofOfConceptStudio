@@ -89,10 +89,15 @@ function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[
 /**
  * Fetches articles from a list of feeds
  */
-async function fetchFromFeeds(feeds: AgentFeed[], maxArticles: number): Promise<ArticleCandidate[]> {
+async function fetchFromFeeds(
+  feeds: AgentFeed[],
+  maxArticles: number,
+  attemptedFeeds: Set<string>
+): Promise<ArticleCandidate[]> {
   const collected: ArticleCandidate[] = [];
-  
+
   for (const feed of feeds) {
+    attemptedFeeds.add(feed.url);
     try {
       if (feed.type === "rss") {
         const items = await fetchRss(feed);
@@ -132,7 +137,8 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   const minArticlesNeeded = Math.max(agent.articlesPerRun ?? 3, 3) * 2; // Need at least 2x required articles
   
   // Step 1: Fetch from primary feeds
-  let collected = await fetchFromFeeds(feeds, agent.maxArticlesToConsider);
+  const attemptedFeeds = new Set<string>();
+  let collected = await fetchFromFeeds(feeds, agent.maxArticlesToConsider, attemptedFeeds);
   console.log(`[${agent.id}/${region}] Primary feeds returned ${collected.length} articles`);
   
   // Step 2: If not enough articles, use fallback feeds
@@ -145,7 +151,7 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
     const newFallbacks = fallbackFeeds.filter((f) => !primaryUrls.has(f.url));
     
     if (newFallbacks.length > 0) {
-      const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider);
+      const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider, attemptedFeeds);
       collected = [...collected, ...fallbackArticles];
       console.log(`[${agent.id}/${region}] After fallback feeds: ${collected.length} articles`);
     }
@@ -270,7 +276,7 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
 
   return {
     articles: rankedByContent,
-    scannedSources: feeds.map((f) => f.url),
+    scannedSources: Array.from(attemptedFeeds),
     metrics: {
       collectedCount: collected.length,
       dedupedCount: deduped.length,

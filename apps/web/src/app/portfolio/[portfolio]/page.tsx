@@ -103,13 +103,22 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
   const allBriefs = [...auBriefs, ...usBriefs]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 20);
-  const latestBrief = allBriefs[0];
-  const actionableSections = latestBrief
+
+  const apacActionable = latestApacBrief
     ? [
-        { title: "Market Highlights", items: latestBrief.highlights, icon: "⚡" },
-        { title: "Procurement Actions", items: latestBrief.procurementActions, icon: "🛠️" },
-        { title: "Watchlist", items: latestBrief.watchlist, icon: "👀" },
-        { title: "Changes Since Last Brief", items: latestBrief.deltaSinceLastRun, icon: "🔄" }
+        { title: "Market Highlights", items: latestApacBrief.highlights, icon: "⚡" },
+        { title: "Procurement Actions", items: latestApacBrief.procurementActions, icon: "🛠️" },
+        { title: "Watchlist", items: latestApacBrief.watchlist, icon: "👀" },
+        { title: "Changes Since Last Brief", items: latestApacBrief.deltaSinceLastRun, icon: "🔄" }
+      ].filter((section) => (section.items?.length ?? 0) > 0)
+    : [];
+
+  const intlActionable = latestIntlBrief
+    ? [
+        { title: "Market Highlights", items: latestIntlBrief.highlights, icon: "⚡" },
+        { title: "Procurement Actions", items: latestIntlBrief.procurementActions, icon: "🛠️" },
+        { title: "Watchlist", items: latestIntlBrief.watchlist, icon: "👀" },
+        { title: "Changes Since Last Brief", items: latestIntlBrief.deltaSinceLastRun, icon: "🔄" }
       ].filter((section) => (section.items?.length ?? 0) > 0)
     : [];
 
@@ -143,16 +152,67 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
         </div>
       </div>
 
-      {actionableSections.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {actionableSections.map((section) => (
-            <InsightListCard
-              key={section.title}
-              title={section.title}
-              items={section.items}
-              icon={<span>{section.icon}</span>}
-            />
-          ))}
+      {(apacActionable.length > 0 || intlActionable.length > 0) && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-6-6h12" />
+            </svg>
+            <h2 className="text-lg font-semibold text-foreground">Regional Action Cards</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🇦🇺</span>
+                  <span className="text-sm font-semibold text-foreground">APAC Actions</span>
+                </div>
+                {latestApacBrief && (
+                  <Link href={`/brief/${latestApacBrief.postId}`} className="text-xs font-medium text-primary hover:underline">
+                    View brief
+                  </Link>
+                )}
+              </div>
+              {apacActionable.length === 0 && (
+                <p className="text-sm text-muted-foreground">No APAC actions yet.</p>
+              )}
+              {apacActionable.map((section) => (
+                <InsightListCard
+                  key={`apac-${section.title}`}
+                  title={section.title}
+                  items={section.items}
+                  icon={<span>{section.icon}</span>}
+                />
+              ))}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🇺🇸</span>
+                  <span className="text-sm font-semibold text-foreground">International Actions</span>
+                </div>
+                {latestIntlBrief && (
+                  <Link
+                    href={`/brief/${latestIntlBrief.postId}`}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    View brief
+                  </Link>
+                )}
+              </div>
+              {intlActionable.length === 0 && (
+                <p className="text-sm text-muted-foreground">No International actions yet.</p>
+              )}
+              {intlActionable.map((section) => (
+                <InsightListCard
+                  key={`intl-${section.title}`}
+                  title={section.title}
+                  items={section.items}
+                  icon={<span>{section.icon}</span>}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -187,7 +247,7 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
             <h4 className="text-base font-semibold text-foreground mb-1">Intelligence briefs coming soon</h4>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Your dedicated Category Management AI Agent is analyzing sources and will publish the first daily brief shortly.
-              Briefs are generated twice daily for each region.
+              Briefs are generated daily at 06:00 local time for each region.
             </p>
           </div>
         )}

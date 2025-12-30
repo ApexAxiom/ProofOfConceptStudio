@@ -16,8 +16,8 @@ Internal procurement intelligence hub with regional agents generating citation-l
 
 ## Scripts
 - `pnpm dev` – run web, api, runner
-- `pnpm run:am` – trigger AM run locally
-- `pnpm run:pm` – trigger PM run locally
+- `pnpm run:apac` – trigger APAC run locally
+- `pnpm run:international` – trigger International run locally
 - `pnpm exec tsx scripts/smoke.ts` – quick end-to-end smoke (runner + api)
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
@@ -30,7 +30,9 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
-- Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge schedules (06:00 & 14:45 America/Chicago) to `runner` `/cron` with Bearer `CRON_SECRET`.
+- Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge schedules to `runner` `/cron` with Bearer `CRON_SECRET`.
+  - APAC: 06:00 Australia/Perth (22:00 UTC prior day) with body `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`.
+  - International: 06:00 America/Chicago (11:00/12:00 UTC) with body `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`.
 
 ### App Runner configuration files
 When creating App Runner services, choose **Use a configuration file**. Set the Source directory to the service folder so App Runner can find `apprunner.yaml`:
@@ -86,9 +88,9 @@ Web
 - Web uses server-side proxy routes to call the API; set `API_BASE_URL` to the deployed api endpoint.
 
 ### Scheduler
-Use EventBridge Scheduler (America/Chicago). POST to runner `/cron` with header `Authorization: Bearer <CRON_SECRET>` and bodies:
-- `{ "runWindow": "am", "scheduled": true }`
-- `{ "runWindow": "pm", "scheduled": true }`
+Use EventBridge Scheduler with region-specific times. POST to runner `/cron` with header `Authorization: Bearer <CRON_SECRET>`:
+- APAC (06:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`
+- International (06:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`
 
 ### Lockfile discipline
 Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds. Dockerfiles will use `--frozen-lockfile` when the lockfile is present.
@@ -97,7 +99,7 @@ Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds.
 - [ ] Deploy DynamoDB table via `infra/cloudformation/main.yml`
 - [ ] Build and deploy App Runner services (web, api, runner) using `apprunner.yaml`
 - [ ] Set required environment variables and secrets per service
-- [ ] Configure EventBridge schedules for AM/PM runs
+- [ ] Configure EventBridge schedules for APAC (06:00 Perth) and International (06:00 Chicago) runs
 - [ ] Run `pnpm exec tsx scripts/smoke.ts` locally or against deployed endpoints
 
 ## Data Model

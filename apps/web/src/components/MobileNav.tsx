@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META } from "@proof/shared";
+import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META, REGION_LIST } from "@proof/shared";
 
 function DashboardIcon() {
   return (
@@ -30,6 +30,14 @@ function SettingsIcon() {
   );
 }
 
+function ActionIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 4.5h10.5m-10.5 5.25h10.5M6.75 15h3.75m-3.75 4.5h3.75M13.5 19.5l3-3-3-3" />
+    </svg>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -40,6 +48,7 @@ function CloseIcon() {
 
 export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const defaultActionCenter = REGION_LIST[0].slug;
 
   // Close on route change
   useEffect(() => {
@@ -91,6 +100,14 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           >
             <DashboardIcon />
             <span>Dashboard</span>
+          </Link>
+          <Link
+            href={`/actions/${defaultActionCenter}`}
+            onClick={onClose}
+            className={`mobile-nav-link ${pathname?.startsWith("/actions") ? "active" : ""}`}
+          >
+            <ActionIcon />
+            <span>Action Center</span>
           </Link>
 
           <div className="mobile-nav-section">
