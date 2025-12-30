@@ -43,16 +43,18 @@ function HeadlineCard({ article }: { article: ExecutiveArticle }) {
 }
 
 // Region headlines section
-function HeadlinesSection({ 
-  title, 
+function HeadlinesSection({
+  title,
   subtitle,
-  articles, 
-  flag 
-}: { 
-  title: string; 
+  articles,
+  flag,
+  showArticles = true
+}: {
+  title: string;
   subtitle: string;
-  articles: ExecutiveArticle[]; 
+  articles: ExecutiveArticle[];
   flag: string;
+  showArticles?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -63,11 +65,13 @@ function HeadlinesSection({
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {articles.map((article) => (
-          <HeadlineCard key={`${article.source}-${article.title}`} article={article} />
-        ))}
-      </div>
+      {showArticles && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {articles.map((article) => (
+            <HeadlineCard key={`${article.source}-${article.title}`} article={article} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -106,6 +110,7 @@ export default async function GlobalDashboard() {
         subtitle="Operator updates across Scarborough, Sangomar, Browse and new energy"
         articles={executiveDashboard.woodsideArticles}
         flag="🛢️"
+        showArticles={false}
       />
 
       {/* Industry Headlines - APAC */}
