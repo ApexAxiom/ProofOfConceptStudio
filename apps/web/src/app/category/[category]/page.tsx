@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BriefsTable } from "../../../components/BriefsTable";
 import { CategoryMarketTicker } from "../../../components/CategoryMarketTicker";
-import { CategoryGroup, CATEGORY_META, categoryForPortfolio, PORTFOLIOS, BriefPost, RegionSlug } from "@proof/shared";
+import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META, BriefPost, RegionSlug } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 import { getExecutiveDashboardData } from "../../../lib/executive-dashboard";
 
@@ -18,103 +18,89 @@ function HeadlineCard({ article }: {
       href={article.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-lg border border-border bg-card overflow-hidden hover:border-primary/40 hover:shadow-sm transition-all"
+      className="article-card"
     >
       {article.imageUrl && (
-        <div className="aspect-video bg-muted overflow-hidden">
+        <div className="article-card-image">
           <img 
             src={article.imageUrl} 
             alt={article.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
       )}
-      <div className="p-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-          <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium uppercase">
-            {article.category}
-          </span>
+      <div className="article-card-content">
+        <div className="article-card-meta">
+          <span className="article-card-badge">{article.category}</span>
           <span>{article.source}</span>
           <span>•</span>
           <span>{new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
         </div>
-        <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">{article.title}</p>
+        <p className="article-card-title">{article.title}</p>
         {article.summary && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{article.summary}</p>
+          <p className="article-card-summary">{article.summary}</p>
         )}
       </div>
     </a>
   );
 }
 
-function getPortfoliosForCategory(category: CategoryGroup): string[] {
-  return PORTFOLIOS
-    .filter(p => categoryForPortfolio(p.slug) === category)
-    .map(p => p.slug);
-}
-
 export default async function CategoryDashboard({ params }: CategoryDashboardProps) {
-  const { category } = await params;
-  const categoryGroup = category as CategoryGroup;
+  const { category: portfolioSlug } = await params;
   
-  // Validate category
-  if (!CATEGORY_META[categoryGroup]) {
+  // Find the portfolio by slug
+  const portfolio = PORTFOLIOS.find(p => p.slug === portfolioSlug);
+  
+  // If not found, show error
+  if (!portfolio) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground mb-2">Category Not Found</h2>
-          <p className="text-muted-foreground mb-4">The category "{category}" does not exist.</p>
+          <p className="text-muted-foreground mb-4">The category "{portfolioSlug}" does not exist.</p>
           <Link href="/" className="btn-primary">Back to Dashboard</Link>
         </div>
       </div>
     );
   }
   
+  const categoryGroup = categoryForPortfolio(portfolio.slug);
   const meta = CATEGORY_META[categoryGroup];
-  const portfolioSlugs = getPortfoliosForCategory(categoryGroup);
   
   // Fetch briefs and headlines in parallel
-  const [executiveDashboard, ...briefResults] = await Promise.all([
+  const [executiveDashboard, auBriefs, usBriefs] = await Promise.all([
     getExecutiveDashboardData(),
-    ...portfolioSlugs.flatMap(portfolio => 
-      (["au", "us-mx-la-lng"] as RegionSlug[]).map(region =>
-        fetchPosts({ region, portfolio, limit: 5 }).catch(() => [] as BriefPost[])
-      )
-    )
+    fetchPosts({ region: "au", portfolio: portfolio.slug, limit: 15 }).catch(() => [] as BriefPost[]),
+    fetchPosts({ region: "us-mx-la-lng", portfolio: portfolio.slug, limit: 15 }).catch(() => [] as BriefPost[])
   ]);
   
-  const allBriefs = briefResults.flat() as BriefPost[];
-  const sortedBriefs = allBriefs
+  const allBriefs = [...auBriefs, ...usBriefs]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 25);
 
-  // Filter relevant articles (use all for now, category-specific filtering can be added)
-  const apacArticles = executiveDashboard.apacArticles.slice(0, 4);
-  const intlArticles = executiveDashboard.internationalArticles.slice(0, 4);
+  // Get articles for the headlines
+  const apacArticles = executiveDashboard.apacArticles.slice(0, 3);
+  const intlArticles = executiveDashboard.internationalArticles.slice(0, 3);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
             <span>/</span>
-            <span className="text-foreground">{meta.label}</span>
+            <span className="text-foreground">{portfolio.label}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meta.color }} />
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">{meta.label}</h1>
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">{portfolio.label}</h1>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Market intelligence and sourcing insights for {meta.label.toLowerCase()} category managers
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+            {portfolio.description}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {portfolioSlugs.length} portfolios
-          </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Link href="/chat" className="btn-secondary text-sm">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -135,11 +121,11 @@ export default async function CategoryDashboard({ params }: CategoryDashboardPro
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">🌏</span>
-            <h2 className="text-sm font-semibold text-foreground">APAC Headlines</h2>
+            <h2 className="text-sm font-semibold text-foreground">APAC Market Intel</h2>
           </div>
           <div className="grid gap-3">
-            {apacArticles.map((article) => (
-              <HeadlineCard key={`${article.source}-${article.title}`} article={article} />
+            {apacArticles.map((article, idx) => (
+              <HeadlineCard key={`apac-${idx}`} article={article} />
             ))}
           </div>
         </div>
@@ -148,44 +134,25 @@ export default async function CategoryDashboard({ params }: CategoryDashboardPro
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">🌎</span>
-            <h2 className="text-sm font-semibold text-foreground">International Headlines</h2>
+            <h2 className="text-sm font-semibold text-foreground">International Market Intel</h2>
           </div>
           <div className="grid gap-3">
-            {intlArticles.map((article) => (
-              <HeadlineCard key={`${article.source}-${article.title}`} article={article} />
+            {intlArticles.map((article, idx) => (
+              <HeadlineCard key={`intl-${idx}`} article={article} />
             ))}
           </div>
-        </div>
-      </div>
-
-      {/* Related Portfolios */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Related Portfolios</h2>
-        <div className="flex flex-wrap gap-2">
-          {portfolioSlugs.map(slug => {
-            const portfolio = PORTFOLIOS.find(p => p.slug === slug);
-            return (
-              <Link
-                key={slug}
-                href={`/au/${slug}`}
-                className="px-3 py-1.5 rounded-md border border-border bg-card text-sm text-foreground hover:bg-muted/50 transition-colors"
-              >
-                {portfolio?.label ?? slug}
-              </Link>
-            );
-          })}
         </div>
       </div>
 
       {/* Intelligence Briefs */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Intelligence Briefs</h2>
-          <span className="text-xs text-muted-foreground">{sortedBriefs.length} briefs</span>
+          <h2 className="text-base font-semibold text-foreground">Intelligence Briefs</h2>
+          <span className="text-xs text-muted-foreground">{allBriefs.length} briefs</span>
         </div>
         
-        {sortedBriefs.length > 0 ? (
-          <BriefsTable briefs={sortedBriefs} showRegion={true} />
+        {allBriefs.length > 0 ? (
+          <BriefsTable briefs={allBriefs} showRegion={true} />
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
             <svg className="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -193,10 +160,27 @@ export default async function CategoryDashboard({ params }: CategoryDashboardPro
             </svg>
             <h4 className="text-base font-semibold text-foreground">No briefs yet</h4>
             <p className="mt-1 text-sm text-muted-foreground max-w-xs">
-              Briefs for {meta.label.toLowerCase()} portfolios will appear here once runs complete.
+              Briefs for {portfolio.label} will appear here once runs complete.
             </p>
           </div>
         )}
+      </div>
+
+      {/* Quick Links to Region Views */}
+      <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
+        <span className="text-xs text-muted-foreground mr-2">View by region:</span>
+        <Link
+          href={`/au/${portfolio.slug}`}
+          className="px-3 py-1.5 rounded-md border border-border bg-card text-xs text-foreground hover:bg-muted/50 transition-colors"
+        >
+          🇦🇺 Australia
+        </Link>
+        <Link
+          href={`/us-mx-la-lng/${portfolio.slug}`}
+          className="px-3 py-1.5 rounded-md border border-border bg-card text-xs text-foreground hover:bg-muted/50 transition-colors"
+        >
+          🇺🇸 International
+        </Link>
       </div>
     </div>
   );

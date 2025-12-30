@@ -1,93 +1,90 @@
-import { BriefsTable } from "../components/BriefsTable";
 import { CoverageMatrix } from "../components/CoverageMatrix";
 import { LiveMarketTicker } from "../components/LiveMarketTicker";
-import { REGIONS, BriefPost, RegionSlug } from "@proof/shared";
-import { fetchLatest, fetchLatestByPortfolio } from "../lib/api";
+import { BriefPost, RegionSlug } from "@proof/shared";
+import { fetchLatestByPortfolio } from "../lib/api";
 import { getExecutiveDashboardData, ExecutiveArticle } from "../lib/executive-dashboard";
 
-// Headline card with optional image
-function HeadlineCard({ article }: { article: ExecutiveArticle }) {
+// Compact article card for news sections
+function ArticleCard({ article }: { article: ExecutiveArticle }) {
   return (
     <a
       href={article.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-lg border border-border bg-card overflow-hidden hover:border-primary/40 hover:shadow-sm transition-all"
+      className="article-card"
     >
       {article.imageUrl && (
-        <div className="aspect-video bg-muted overflow-hidden">
+        <div className="article-card-image">
           <img 
             src={article.imageUrl} 
             alt={article.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
       )}
-      <div className="p-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-          <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium uppercase">
-            {article.category}
-          </span>
+      <div className="article-card-content">
+        <div className="article-card-meta">
+          <span className="article-card-badge">{article.category}</span>
           <span>{article.source}</span>
           <span>•</span>
           <span>{new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
         </div>
-        <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">{article.title}</p>
+        <p className="article-card-title">{article.title}</p>
         {article.summary && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{article.summary}</p>
+          <p className="article-card-summary">{article.summary}</p>
         )}
       </div>
     </a>
   );
 }
 
-// Region headlines section
-function HeadlinesSection({
-  title,
-  subtitle,
-  articles,
-  flag,
-  showArticles = true
-}: {
-  title: string;
-  subtitle: string;
-  articles: ExecutiveArticle[];
-  flag: string;
-  showArticles?: boolean;
-}) {
+// Simple headline list for Woodside section
+function WoodsideHeadline({ article }: { article: ExecutiveArticle }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{flag}</span>
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex items-start gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-muted/30 transition-all"
+    >
+      <div className="flex-shrink-0 mt-0.5">
+        <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+          <span className="text-amber-600 dark:text-amber-400 text-sm">W</span>
         </div>
       </div>
-      {showArticles && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {articles.map((article) => (
-            <HeadlineCard key={`${article.source}-${article.title}`} article={article} />
-          ))}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
+          {article.title}
+        </p>
+        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <span>{article.source}</span>
+          <span>•</span>
+          <span>{new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
         </div>
-      )}
+      </div>
+    </a>
+  );
+}
+
+// Section header component
+function SectionHeader({ icon, title, subtitle }: { icon: string; title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <span className="text-xl">{icon}</span>
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
     </div>
   );
 }
 
-export default async function GlobalDashboard() {
-  const [auBriefs, usBriefs, auByPortfolio, usByPortfolio, executiveDashboard] = await Promise.all([
-    fetchLatest("au"),
-    fetchLatest("us-mx-la-lng"),
+export default async function Dashboard() {
+  const [auByPortfolio, usByPortfolio, executiveDashboard] = await Promise.all([
     fetchLatestByPortfolio("au"),
     fetchLatestByPortfolio("us-mx-la-lng"),
     getExecutiveDashboardData()
   ]);
-
-  const allBriefs = [...auBriefs, ...usBriefs]
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, 15);
 
   const briefsByRegion: Record<RegionSlug, BriefPost[]> = {
     au: auByPortfolio,
@@ -95,51 +92,65 @@ export default async function GlobalDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Market Indices - Animated Ticker Strip */}
-      <div className="relative rounded-xl border border-border bg-gradient-to-r from-card via-card to-card overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-primary/[0.02]" />
-        <div className="relative py-3">
-          <LiveMarketTicker showHeader={true} />
+    <div className="space-y-8">
+      {/* Market Indices Ticker */}
+      <section className="dashboard-section">
+        <div className="rounded-xl border border-border bg-gradient-to-r from-card via-card to-card overflow-hidden">
+          <div className="relative py-3">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-primary/[0.02]" />
+            <div className="relative">
+              <LiveMarketTicker showHeader={true} />
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Woodside Energy Spotlight */}
-      <HeadlinesSection
-        title="Woodside Energy Spotlight"
-        subtitle="Operator updates across Scarborough, Sangomar, Browse and new energy"
-        articles={executiveDashboard.woodsideArticles}
-        flag="🛢️"
-        showArticles={false}
-      />
-
-      {/* Industry Headlines - APAC */}
-      <HeadlinesSection
-        title="Industry Headlines APAC"
-        subtitle="Australia, Perth, Asia-Pacific oil & gas and LNG news"
-        articles={executiveDashboard.apacArticles}
-        flag="🌏"
-      />
-
-      {/* Industry Headlines - International */}
-      <HeadlinesSection
-        title="Industry Headlines International"
-        subtitle="Houston, Mexico, Senegal, Americas oil & gas and LNG news"
-        articles={executiveDashboard.internationalArticles}
-        flag="🌎"
-      />
-
-      {/* Coverage Matrix */}
-      <CoverageMatrix briefsByRegion={briefsByRegion} />
-
-      {/* Latest Briefs */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Latest Intelligence Briefs</h2>
-          <span className="text-xs text-muted-foreground">{allBriefs.length} briefs</span>
+      {/* Woodside Energy News */}
+      <section className="dashboard-section">
+        <SectionHeader 
+          icon="🛢️" 
+          title="Woodside Energy" 
+          subtitle="Latest news from Woodside.com and industry sources"
+        />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {executiveDashboard.woodsideArticles.slice(0, 6).map((article, idx) => (
+            <WoodsideHeadline key={`woodside-${idx}`} article={article} />
+          ))}
         </div>
-        <BriefsTable briefs={allBriefs} showRegion={true} />
-      </div>
+      </section>
+
+      {/* APAC Region News */}
+      <section className="dashboard-section">
+        <SectionHeader 
+          icon="🌏" 
+          title="APAC Region" 
+          subtitle="Australia, Perth, Asia-Pacific energy news"
+        />
+        <div className="news-grid">
+          {executiveDashboard.apacArticles.slice(0, 6).map((article, idx) => (
+            <ArticleCard key={`apac-${idx}`} article={article} />
+          ))}
+        </div>
+      </section>
+
+      {/* International Region News */}
+      <section className="dashboard-section">
+        <SectionHeader 
+          icon="🌎" 
+          title="International" 
+          subtitle="Houston, Mexico, Senegal, Americas energy news"
+        />
+        <div className="news-grid">
+          {executiveDashboard.internationalArticles.slice(0, 6).map((article, idx) => (
+            <ArticleCard key={`intl-${idx}`} article={article} />
+          ))}
+        </div>
+      </section>
+
+      {/* Portfolio Coverage Overview */}
+      <section className="dashboard-section">
+        <CoverageMatrix briefsByRegion={briefsByRegion} />
+      </section>
     </div>
   );
 }
