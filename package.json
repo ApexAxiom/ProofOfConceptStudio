@@ -7,7 +7,10 @@
     "dev": "pnpm -r --parallel dev --filter web --filter api --filter runner",
     "lint": "pnpm -r lint",
     "build": "pnpm -r build",
-    "run:apac": "pnpm --filter runner run cron:apac",
-    "run:international": "pnpm --filter runner run cron:international"
+    "briefs:apac": "pnpm --filter @proof/runner run run:apac",
+    "briefs:international": "pnpm --filter @proof/runner run run:international",
+    "briefs:au": "pnpm --filter @proof/runner run run:au",
+    "briefs:us": "pnpm --filter @proof/runner run run:us",
+    "agents:list": "pnpm --filter @proof/runner run agents:list"
   }
 }

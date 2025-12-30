@@ -10,8 +10,12 @@
     "start": "node dist/server.js",
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
     "render:smoke": "tsx src/llm/render.smoke.ts",
-    "cron:apac": "tsx src/cli.ts apac",
-    "cron:international": "tsx src/cli.ts international",
+    "cli": "tsx src/cli.ts",
+    "run:apac": "tsx src/cli.ts run apac",
+    "run:international": "tsx src/cli.ts run international",
+    "run:au": "tsx src/cli.ts run apac --region au",
+    "run:us": "tsx src/cli.ts run international --region us-mx-la-lng",
+    "agents:list": "tsx src/cli.ts list",
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {

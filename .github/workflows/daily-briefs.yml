@@ -13,14 +13,6 @@ on:
   # Allow manual trigger
   workflow_dispatch:
     inputs:
-      run_window:
-        description: 'Run window (am or pm)'
-        required: true
-        default: 'am'
-        type: choice
-        options:
-          - am
-          - pm
       region:
         description: 'Region to run (leave empty for all)'
         required: false
@@ -30,69 +22,136 @@ on:
           - au
           - us-mx-la-lng
 
+env:
+  PNPM_VERSION: 9.12.0
+  NODE_VERSION: '20'
+
 jobs:
-  generate-briefs:
+  generate-briefs-au:
+    name: Generate AU Briefs
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        region: [au, us-mx-la-lng]
+    if: github.event.inputs.region == '' || github.event.inputs.region == 'au'
     
     steps:
-      - name: Determine run window
-        id: window
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "window=${{ github.event.inputs.run_window }}" >> $GITHUB_OUTPUT
-          else
-            # Determine based on current UTC hour
-            HOUR=$(date -u +%H)
-            if [ "$HOUR" -lt 15 ]; then
-              echo "window=am" >> $GITHUB_OUTPUT
-            else
-              echo "window=pm" >> $GITHUB_OUTPUT
-            fi
-          fi
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Skip if specific region requested
-        if: github.event.inputs.region != '' && github.event.inputs.region != matrix.region
-        run: |
-          echo "Skipping ${{ matrix.region }} - only running ${{ github.event.inputs.region }}"
-          exit 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
-      - name: Trigger ${{ matrix.region }} brief generation
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @proof/shared build
+
+      - name: Run AU agents
+        working-directory: apps/runner
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL || 'gpt-4o-mini' }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DDB_TABLE_NAME: ${{ secrets.DDB_TABLE_NAME || 'CMHub' }}
         run: |
-          echo "🚀 Triggering ${{ steps.window.outputs.window }} briefs for ${{ matrix.region }}"
-          
-          # For manual triggers (workflow_dispatch), set force=true to bypass time window check
-          IS_MANUAL=${{ github.event_name == 'workflow_dispatch' }}
-          
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ secrets.RUNNER_BASE_URL }}/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"runWindow\": \"${{ steps.window.outputs.window }}\",
-              \"regions\": [\"${{ matrix.region }}\"],
-              \"scheduled\": true,
-              \"force\": $IS_MANUAL
-            }")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Response: $BODY"
-          echo "HTTP Status: $HTTP_CODE"
-          
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "✅ Successfully triggered brief generation for ${{ matrix.region }}"
-          else
-            echo "❌ Failed to trigger brief generation"
-            exit 1
-          fi
+          echo "🚀 Starting AU region brief generation..."
+          npx tsx src/cli.ts run apac --region au
+          echo "✅ AU briefs complete"
 
       - name: Log completion
         run: |
-          echo "📝 Completed ${{ steps.window.outputs.window }} run for ${{ matrix.region }}"
+          echo "📝 Completed AU brief generation"
           echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
+  generate-briefs-international:
+    name: Generate International Briefs
+    runs-on: ubuntu-latest
+    if: github.event.inputs.region == '' || github.event.inputs.region == 'us-mx-la-lng'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @proof/shared build
+
+      - name: Run International agents
+        working-directory: apps/runner
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL || 'gpt-4o-mini' }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DDB_TABLE_NAME: ${{ secrets.DDB_TABLE_NAME || 'CMHub' }}
+        run: |
+          echo "🚀 Starting International region brief generation..."
+          npx tsx src/cli.ts run international --region us-mx-la-lng
+          echo "✅ International briefs complete"
+
+      - name: Log completion
+        run: |
+          echo "📝 Completed International brief generation"
+          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+  summary:
+    name: Brief Generation Summary
+    runs-on: ubuntu-latest
+    needs: [generate-briefs-au, generate-briefs-international]
+    if: always()
+    
+    steps:
+      - name: Check results
+        run: |
+          echo "📊 Brief Generation Summary"
+          echo "=========================="
+          
+          AU_RESULT="${{ needs.generate-briefs-au.result }}"
+          INTL_RESULT="${{ needs.generate-briefs-international.result }}"
+          
+          echo "AU Region: $AU_RESULT"
+          echo "International Region: $INTL_RESULT"
+          
+          if [ "$AU_RESULT" = "success" ] || [ "$AU_RESULT" = "skipped" ]; then
+            echo "✅ AU: OK"
+          else
+            echo "❌ AU: Failed"
+          fi
+          
+          if [ "$INTL_RESULT" = "success" ] || [ "$INTL_RESULT" = "skipped" ]; then
+            echo "✅ International: OK"
+          else
+            echo "❌ International: Failed"
+          fi
+          
+          if [ "$AU_RESULT" = "failure" ] || [ "$INTL_RESULT" = "failure" ]; then
+            echo ""
+            echo "⚠️  Some regions failed. Check job logs for details."
+            exit 1
+          fi
+          
+          echo ""
+          echo "✨ All regions completed successfully!"

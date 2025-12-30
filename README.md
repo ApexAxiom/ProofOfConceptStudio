@@ -16,17 +16,72 @@ Internal procurement intelligence hub with regional agents generating citation-l
 
 ## Scripts
 - `pnpm dev` – run web, api, runner
-- `pnpm run:am` – trigger AM run locally
-- `pnpm run:pm` – trigger PM run locally
+- `pnpm briefs:apac` – generate all APAC region briefs
+- `pnpm briefs:international` – generate all International region briefs
+- `pnpm briefs:au` – generate AU briefs only
+- `pnpm briefs:us` – generate US/MX/LatAm briefs only
+- `pnpm agents:list` – list all configured AI agents
 - `pnpm exec tsx scripts/smoke.ts` – quick end-to-end smoke (runner + api)
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
+
+## AI Agents
+
+The system includes 14 category-specific AI agents, each generating market intelligence briefs for their domain:
+
+| Category | Agent ID | Description |
+|----------|----------|-------------|
+| Energy - Drilling | `rigs-integrated-drilling` | Rigs, drilling equipment, contractor intel |
+| Energy - Services | `drilling-services` | Mud logging, drilling support services |
+| Energy - Materials | `wells-materials-octg` | Casing, tubing, OCTG supply chain |
+| Energy - Completions | `completions-intervention` | Completions, stimulation, intervention |
+| Energy - Decom | `pa-decommissioning` | Plug & abandonment, decommissioning |
+| Energy - Offshore | `subsea-surf-offshore` | Subsea, SURF, offshore construction |
+| Energy - Projects | `projects-epc-epcm-construction` | EPC/EPCM, major projects |
+| Energy - Equipment | `major-equipment-oem-ltsa` | OEM equipment, turbines, compressors |
+| Operations | `ops-maintenance-services` | Inspection, reliability, maintenance |
+| Materials | `mro-site-consumables` | MRO, valves, site consumables |
+| Logistics | `logistics-marine-aviation` | Marine, aviation, freight logistics |
+| Facilities | `site-services-facilities` | Facilities management, waste, safety |
+| IT & Cyber | `it-telecom-cyber` | Cybersecurity, telecom, IT sourcing |
+| Professional | `professional-services-hr` | HR, consulting, professional services |
+
+Each agent generates 2 briefs per run (one for Australia, one for US/MX/LatAm).
 
 ## Env Vars
 See `.env.example`. Secrets must be provided at runtime. Optional:
 - `DDB_ENDPOINT` for local DynamoDB testing
 - `CORS_ORIGINS` comma-separated allowed origins for API CORS
 - `BING_IMAGE_KEY`/`BING_IMAGE_ENDPOINT` for optional Bing image fallback when scraping article images
+
+## GitHub Actions (Automated Brief Generation)
+
+The daily briefs are generated automatically via GitHub Actions. Configure these **repository secrets** in GitHub:
+
+### Required Secrets
+| Secret | Description |
+|--------|-------------|
+| `OPENAI_API_KEY` | OpenAI API key for GPT-4 brief generation |
+| `AWS_ACCESS_KEY_ID` | AWS access key with DynamoDB permissions |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret access key |
+
+### Optional Secrets
+| Secret | Default | Description |
+|--------|---------|-------------|
+| `AWS_REGION` | `us-east-1` | AWS region for DynamoDB |
+| `DDB_TABLE_NAME` | `CMHub` | DynamoDB table name |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model to use |
+
+### Schedule
+The workflow runs automatically twice daily:
+- **6:00 AM CST** (12:00 UTC) - Morning briefs
+- **2:45 PM CST** (20:45 UTC) - Afternoon briefs
+
+### Manual Trigger
+You can manually trigger brief generation from the GitHub Actions tab:
+1. Go to **Actions** → **Generate Daily Intelligence Briefs**
+2. Click **Run workflow**
+3. Optionally select a specific region (AU or US-MX-LA-LNG)
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.

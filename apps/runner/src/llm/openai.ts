@@ -2,13 +2,11 @@ import crypto from "node:crypto";
 import { OpenAI } from "openai";
 import {
   buildPrompt,
-  PromptInput,
-  ArticleInput,
-  BriefOutput,
   parsePromptOutput,
   requiredArticleCount
 } from "./prompts.js";
-import { BriefPost, SelectedArticle } from "@proof/shared";
+import type { PromptInput, ArticleInput, BriefOutput } from "./prompts.js";
+import type { BriefPost, SelectedArticle } from "@proof/shared";
 import { renderBriefMarkdown } from "./render.js";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
