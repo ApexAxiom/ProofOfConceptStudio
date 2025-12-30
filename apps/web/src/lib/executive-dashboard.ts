@@ -462,7 +462,7 @@ async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; internationa
           targetArray.push({
             title,
             url: link,
-            source: feed.source,
+            source: feed.region === "woodside" ? "News" : feed.source,
             publishedAt: new Date(pubDate).toISOString(),
             category: feed.category,
             region: feed.region,
