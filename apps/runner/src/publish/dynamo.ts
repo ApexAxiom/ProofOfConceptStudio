@@ -11,6 +11,7 @@ export async function publishBrief(
   ingestResult: IngestResult,
   runId: string
 ) {
+  const ttlSeconds = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180; // ~6 months retention
   const item = {
     // Primary key
     PK: `POST#${brief.postId}`,
@@ -47,7 +48,10 @@ export async function publishBrief(
     },
     
     // Run tracking
-    runId
+    runId,
+
+    // Data retention
+    ttl: ttlSeconds
   };
   
   await client.send(new PutCommand({ TableName: tableName, Item: item }));

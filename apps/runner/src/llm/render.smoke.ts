@@ -13,7 +13,7 @@ const markdown = renderBriefMarkdown({
   summary: "Executive overview",
   regionLabel: "Region",
   portfolioLabel: "Portfolio",
-  runWindow: "am",
+    runWindow: "apac",
   publishedAtISO: new Date().toISOString(),
   selectedArticles,
   marketIndicators: [

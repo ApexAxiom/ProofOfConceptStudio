@@ -1,14 +1,18 @@
 import Fastify from "fastify";
-import { REGIONS, RegionSlug, type RunWindow } from "@proof/shared";
+import { REGIONS, RegionSlug, runWindowForRegion, type RunWindow } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { requiredArticleCount } from "./llm/prompts.js";
 
-function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: string, toleranceMinutes = 10): boolean {
+function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
+  const windowConfig = runWindow === "apac"
+    ? { timeZone: REGIONS.au.timeZone, h: 6, m: 0 }
+    : { timeZone: REGIONS["us-mx-la-lng"].timeZone, h: 6, m: 0 };
+
   const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: windowConfig.timeZone,
     hour: "numeric",
     minute: "numeric",
     hour12: false
@@ -16,20 +20,8 @@ function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: stri
   const parts = formatter.formatToParts(now);
   const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
   const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-  const target = runWindow === "am" ? { h: 6, m: 0 } : { h: 14, m: 45 };
-  const diff = Math.abs((hour * 60 + minute) - (target.h * 60 + target.m));
+  const diff = Math.abs((hour * 60 + minute) - (windowConfig.h * 60 + windowConfig.m));
   return diff <= toleranceMinutes;
-}
-
-function runWindowForTimeZone(now: Date, timeZone: string): RunWindow {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    hour12: false
-  });
-  const parts = formatter.formatToParts(now);
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  return hour < 12 ? "am" : "pm";
 }
 
 async function main() {
@@ -78,17 +70,13 @@ async function main() {
       ?.map((r: string) => r as RegionSlug)
       .filter((r: RegionSlug) => Boolean(REGIONS[r]));
 
-    const regionRuns = (requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[])).map(
-      (region) => {
-        const localizedRunWindow: RunWindow = body.runWindow ?? runWindowForTimeZone(now, REGIONS[region].timeZone);
-        const inWindow =
-          body.scheduled === true && !body.force
-            ? isWithinScheduledWindow(localizedRunWindow, now, REGIONS[region].timeZone)
-            : true;
+    const regionRuns = (requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[])).map((region) => {
+      const localizedRunWindow: RunWindow = body.runWindow ?? runWindowForRegion(region);
+      const inWindow =
+        body.scheduled === true && !body.force ? isWithinScheduledWindow(localizedRunWindow, now) : true;
 
-        return { region, runWindow: localizedRunWindow, inWindow };
-      }
-    );
+      return { region, runWindow: localizedRunWindow, inWindow };
+    });
 
     const readyRegions = body.scheduled === true && !body.force
       ? regionRuns.filter((r) => r.inWindow)
@@ -128,7 +116,7 @@ async function main() {
     const body = (request.body as any) || {};
     reply.code(202).send({ ok: true, accepted: true });
     setImmediate(() => {
-      const runWindow: RunWindow = body.runWindow ?? runWindowForTimeZone(new Date(), "America/Chicago");
+      const runWindow: RunWindow = body.runWindow ?? runWindowForRegion(body.region ?? "us-mx-la-lng");
       runAgent(agentId, body.region, runWindow).catch((err) => fastify.log.error(err));
     });
   });

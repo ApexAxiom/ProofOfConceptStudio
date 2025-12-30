@@ -7,7 +7,7 @@ async function main() {
   await initializeSecrets();
 
   const [, , runWindowArg] = process.argv;
-  const runWindow = (runWindowArg as RunWindow) || "am";
+  const runWindow = (runWindowArg as RunWindow) || "apac";
   try {
     await handleCron(runWindow);
   } catch (err) {
