@@ -27,6 +27,14 @@ export interface PromptInput {
   indices: MarketIndex[];
   repairIssues?: string[];
   previousJson?: string;
+  previousBrief?: {
+    publishedAt: string;
+    title: string;
+    highlights?: string[];
+    procurementActions?: string[];
+    watchlist?: string[];
+    selectedArticles?: Array<{ title: string; url: string; keyMetrics?: string[] }>;
+  };
 }
 
 /**
@@ -70,7 +78,16 @@ function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
  * - Action-oriented for procurement decisions
  * - Concise and data-driven
  */
-export function buildPrompt({ agent, region, runWindow, articles, indices, repairIssues, previousJson }: PromptInput): string {
+export function buildPrompt({
+  agent,
+  region,
+  runWindow,
+  articles,
+  indices,
+  repairIssues,
+  previousJson,
+  previousBrief
+}: PromptInput): string {
   const regionLabel = region === "au" ? "Australia (Perth)" : "Americas (Houston)";
   const requiredCount = Math.min(requiredArticleCount(agent), Math.max(1, articles.length));
 
@@ -94,6 +111,23 @@ ${a.content?.slice(0, 1500) ?? "[No content available]"}
   const indexList = indices
     .map((idx) => `- ${idx.id}: ${idx.label} — ${idx.url}${idx.notes ? ` (${idx.notes})` : ""}`)
     .join("\n");
+
+  const previousBriefSection = previousBrief
+    ? `
+## PREVIOUS BRIEF CONTEXT (for deltaSinceLastRun)
+
+- Title: ${previousBrief.title}
+- Published: ${new Date(previousBrief.publishedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+${previousBrief.highlights?.length ? `- Top Highlights:\n${previousBrief.highlights.map((h) => `  - ${h}`).join("\n")}` : ""}
+${previousBrief.procurementActions?.length ? `- Procurement Actions:\n${previousBrief.procurementActions.map((a) => `  - ${a}`).join("\n")}` : ""}
+${previousBrief.watchlist?.length ? `- Watchlist:\n${previousBrief.watchlist.map((w) => `  - ${w}`).join("\n")}` : ""}
+${previousBrief.selectedArticles?.length ? `- Key Articles:\n${previousBrief.selectedArticles.map((a) => `  - ${a.title} (${a.url})`).join("\n")}` : ""}
+`
+    : `
+## PREVIOUS BRIEF CONTEXT (for deltaSinceLastRun)
+
+No previous brief exists for this portfolio/region. Set deltaSinceLastRun to an empty array [].
+`;
 
   // Repair instructions if this is a retry
   const repairSection = repairIssues
@@ -178,11 +212,14 @@ Return ONLY valid JSON with this exact structure:
 7. **CATEGORY IMPORTANCE REQUIRED**: Each article MUST include a categoryImportance field explaining why this matters for category managers
 8. **KEY METRICS**: Extract 2-4 key numbers, percentages, dates, or values from each article
 9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
+10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
 
 ## MARKET INDICES
 
 For the Market Indicators section, reference these (select by indexId only):
 ${indexList}
+
+${previousBriefSection}
 
 ## ARTICLES TO ANALYZE
 

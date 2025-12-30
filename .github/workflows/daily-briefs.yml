@@ -1,28 +1,27 @@
 name: Generate Daily Intelligence Briefs
 
 on:
-  # Run twice daily (CST/CDT - America/Chicago)
-  # 6:00 AM CST = 12:00 UTC (winter) / 11:00 UTC (summer)
-  # 2:45 PM CST = 20:45 UTC (winter) / 19:45 UTC (summer)
+  # Regional daily schedules (UTC)
   schedule:
-    # AM run - 6:00 AM CST (12:00 UTC)
+    # APAC at 06:00 Australia/Perth (22:00 UTC prior day)
+    - cron: '0 22 * * *'
+    # International at 06:00 America/Chicago
+    - cron: '0 11 * * *'
     - cron: '0 12 * * *'
-    # PM run - 2:45 PM CST (20:45 UTC)
-    - cron: '45 20 * * *'
-  
+
   # Allow manual trigger
   workflow_dispatch:
     inputs:
       run_window:
-        description: 'Run window (am or pm)'
+        description: 'Run window (apac or international)'
         required: true
-        default: 'am'
+        default: 'apac'
         type: choice
         options:
-          - am
-          - pm
+          - apac
+          - international
       region:
-        description: 'Region to run (leave empty for all)'
+        description: 'Region override (defaults to window''s region)'
         required: false
         type: choice
         options:
@@ -35,64 +34,81 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        region: [au, us-mx-la-lng]
-    
+        include:
+          - name: apac
+            cron: "0 22 * * *"
+            runWindow: "apac"
+            regions: '["au"]'
+          - name: international-early
+            cron: "0 11 * * *"
+            runWindow: "international"
+            regions: '["us-mx-la-lng"]'
+          - name: international-late
+            cron: "0 12 * * *"
+            runWindow: "international"
+            regions: '["us-mx-la-lng"]'
+
     steps:
-      - name: Determine run window
-        id: window
+      - name: Honor schedule alignment
+        id: schedule
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "window=${{ github.event.inputs.run_window }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "${{ matrix.cron }}" ]; then
+            echo "run=false" >> $GITHUB_OUTPUT
           else
-            # Determine based on current UTC hour
-            HOUR=$(date -u +%H)
-            if [ "$HOUR" -lt 15 ]; then
-              echo "window=am" >> $GITHUB_OUTPUT
-            else
-              echo "window=pm" >> $GITHUB_OUTPUT
-            fi
+            echo "run=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Skip if specific region requested
-        if: github.event.inputs.region != '' && github.event.inputs.region != matrix.region
+      - name: Configure run target
+        id: target
+        if: steps.schedule.outputs.run == 'true'
         run: |
-          echo "Skipping ${{ matrix.region }} - only running ${{ github.event.inputs.region }}"
-          exit 0
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            WINDOW="${{ github.event.inputs.run_window }}"
+            if [ -n "${{ github.event.inputs.region }}" ]; then
+              REGIONS_JSON="[\"${{ github.event.inputs.region }}\"]"
+            else
+              if [ "$WINDOW" = "apac" ]; then
+                REGIONS_JSON='["au"]'
+              else
+                REGIONS_JSON='["us-mx-la-lng"]'
+              fi
+            fi
+          else
+            WINDOW="${{ matrix.runWindow }}"
+            REGIONS_JSON='${{ matrix.regions }}'
+          fi
 
-      - name: Trigger ${{ matrix.region }} brief generation
+          echo "window=$WINDOW" >> $GITHUB_OUTPUT
+          echo "regions=$REGIONS_JSON" >> $GITHUB_OUTPUT
+
+      - name: Trigger brief generation
+        if: steps.schedule.outputs.run == 'true'
         run: |
-          echo "🚀 Triggering ${{ steps.window.outputs.window }} briefs for ${{ matrix.region }}"
-          
-          # For manual triggers (workflow_dispatch), set force=true to bypass time window check
+          echo "🚀 Triggering ${{ steps.target.outputs.window }} briefs for ${{ steps.target.outputs.regions }}"
+
           IS_MANUAL=${{ github.event_name == 'workflow_dispatch' }}
-          
+
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "${{ secrets.RUNNER_BASE_URL }}/cron" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"runWindow\": \"${{ steps.window.outputs.window }}\",
-              \"regions\": [\"${{ matrix.region }}\"],
-              \"scheduled\": true,
-              \"force\": $IS_MANUAL
-            }")
-          
+            -d "{\"runWindow\":\"${{ steps.target.outputs.window }}\",\"regions\":${{ steps.target.outputs.regions }},\"scheduled\":true,\"force\":$IS_MANUAL}")
+
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-          
+
           echo "Response: $BODY"
           echo "HTTP Status: $HTTP_CODE"
-          
+
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "✅ Successfully triggered brief generation for ${{ matrix.region }}"
+            echo "✅ Successfully triggered brief generation"
           else
             echo "❌ Failed to trigger brief generation"
             exit 1
           fi
 
       - name: Log completion
+        if: steps.schedule.outputs.run == 'true'
         run: |
-          echo "📝 Completed ${{ steps.window.outputs.window }} run for ${{ matrix.region }}"
+          echo "📝 Completed ${{ steps.target.outputs.window }} run"
           echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-
-
