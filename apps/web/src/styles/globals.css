@@ -93,6 +93,7 @@ html {
 
 body {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
   @apply bg-background text-foreground antialiased;
 }
 
@@ -512,6 +513,8 @@ tr:hover td {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Sidebar Styles */
@@ -581,6 +584,7 @@ tr:hover td {
 /* Main Content Wrapper */
 .main-wrapper {
   @apply flex-1 flex flex-col;
+  @apply min-w-0;
   @apply md:ml-64;
 }
 
@@ -596,7 +600,7 @@ tr:hover td {
 /* Main Content Area */
 .main-content {
   @apply flex-1 px-4 py-6 sm:px-6 lg:px-8;
-  @apply max-w-[1400px] mx-auto w-full;
+  @apply max-w-[1400px] mx-auto w-full min-w-0;
 }
 
 /* Mobile Menu Button */
