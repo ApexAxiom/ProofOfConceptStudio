@@ -22,7 +22,12 @@ interface VpActionEntry {
   actions: Array<{ action: string; ownerRole: string; dueInDays: number }>;
 }
 
-function byPortfolioOrder(a: ActionEntry, b: ActionEntry) {
+interface PortfolioEntry {
+  portfolio: string;
+  title: string;
+}
+
+function byPortfolioOrder(a: PortfolioEntry, b: PortfolioEntry) {
   const order = PORTFOLIOS.findIndex((p) => p.slug === a.portfolio) - PORTFOLIOS.findIndex((p) => p.slug === b.portfolio);
   return order === 0 ? a.title.localeCompare(b.title) : order;
 }
