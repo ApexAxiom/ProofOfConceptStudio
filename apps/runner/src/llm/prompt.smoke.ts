@@ -20,7 +20,14 @@ const prompt = buildPrompt({
     { title: "Article One", url: "https://example.com/1", content: "content" },
     { title: "Article Two", url: "https://example.com/2", content: "content" }
   ],
-  indices: [{ id: "idx-1", label: "Index One", url: "https://idx.com" }],
+  indices: [
+    {
+      id: "idx-1",
+      label: "Index One",
+      url: "https://idx.com",
+      regionScope: ["au"]
+    }
+  ],
   previousBrief: {
     title: "Yesterday Brief",
     publishedAt: new Date().toISOString(),

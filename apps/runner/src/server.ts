@@ -70,16 +70,20 @@ async function main() {
       ?.map((r: string) => r as RegionSlug)
       .filter((r: RegionSlug) => Boolean(REGIONS[r]));
 
-    const regionRuns = (requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[])).map((region) => {
-      const localizedRunWindow: RunWindow = body.runWindow ?? runWindowForRegion(region);
-      const inWindow =
-        body.scheduled === true && !body.force ? isWithinScheduledWindow(localizedRunWindow, now) : true;
+    type RegionRun = { region: RegionSlug; runWindow: RunWindow; inWindow: boolean };
 
-      return { region, runWindow: localizedRunWindow, inWindow };
-    });
+    const regionRuns = (requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[])).map(
+      (region: RegionSlug): RegionRun => {
+        const localizedRunWindow: RunWindow = body.runWindow ?? runWindowForRegion(region);
+        const inWindow =
+          body.scheduled === true && !body.force ? isWithinScheduledWindow(localizedRunWindow, now) : true;
+
+        return { region, runWindow: localizedRunWindow, inWindow };
+      }
+    );
 
     const readyRegions = body.scheduled === true && !body.force
-      ? regionRuns.filter((r) => r.inWindow)
+      ? regionRuns.filter((r: RegionRun) => r.inWindow)
       : regionRuns;
 
     if (body.scheduled === true && readyRegions.length === 0) {
@@ -91,12 +95,12 @@ async function main() {
       ok: true,
       accepted: true,
       runId,
-      regions: readyRegions.map((r) => ({ region: r.region, runWindow: r.runWindow }))
+      regions: readyRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow }))
     });
 
     setImmediate(() => {
       Promise.all(
-        readyRegions.map((target) =>
+        readyRegions.map((target: RegionRun) =>
           handleCron(target.runWindow, {
             runId,
             scheduled: body.scheduled === true,

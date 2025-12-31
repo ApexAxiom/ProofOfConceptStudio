@@ -25,11 +25,14 @@ export default async function ActionCenter({
   searchParams
 }: {
   params: Promise<{ region: string }>;
-  searchParams?: { q?: string | string[] };
+  searchParams?: Promise<{ q?: string | string[] }>;
 }) {
   const { region } = await params;
   const selectedRegion = REGION_LIST.find((r) => r.slug === region);
-  const queryValue = Array.isArray(searchParams?.q) ? searchParams?.q[0] : searchParams?.q;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const queryValue = Array.isArray(resolvedSearchParams?.q)
+    ? resolvedSearchParams.q[0]
+    : resolvedSearchParams?.q;
   const query = (queryValue ?? "").toLowerCase().trim();
 
   if (!selectedRegion) {
@@ -112,7 +115,7 @@ export default async function ActionCenter({
           type="search"
           name="q"
           placeholder="Search actions or watchlist"
-          defaultValue={searchParams?.q ?? ""}
+          defaultValue={resolvedSearchParams?.q ?? ""}
           className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
         />
         <button type="submit" className="btn-primary text-sm">
