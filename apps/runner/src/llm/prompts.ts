@@ -132,59 +132,101 @@ function sanitizeVpSnapshot(raw: any, selectedIndices: Set<number>): VpSnapshot 
     "Digital/IT"
   ]);
 
+  type SanitizedSignal = {
+    title: string;
+    type: VpSignalType;
+    horizon: VpHorizon;
+    confidence: VpConfidence;
+    impact: string;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedAction = {
+    action: string;
+    ownerRole: string;
+    dueInDays: number;
+    expectedImpact: string;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedRisk = {
+    risk: string;
+    probability: VpConfidence;
+    impact: VpConfidence;
+    mitigation: string;
+    trigger: string;
+    horizon: VpHorizon;
+    evidenceArticleIndex: number | undefined;
+  };
+
+  const sanitizeTopSignal = (item: unknown): SanitizedSignal | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+    return {
+      title: typeof typedItem.title === "string" ? typedItem.title : "",
+      type: sanitizeSignalType(typedItem.type) ?? "commercial",
+      horizon: sanitizeHorizon(typedItem.horizon) ?? "30-180d",
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      impact: typeof typedItem.impact === "string" ? typedItem.impact : "",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeRecommendedAction = (item: unknown): SanitizedAction | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+    const due = clamp(Number(typedItem.dueInDays) || 0, 1, 60);
+    const ownerRole = typeof typedItem.ownerRole === "string" && allowedOwnerRoles.has(typedItem.ownerRole as string)
+      ? (typedItem.ownerRole as string)
+      : "Category Manager";
+
+    return {
+      action: typeof typedItem.action === "string" ? typedItem.action : "",
+      ownerRole,
+      dueInDays: Math.round(due),
+      expectedImpact: typeof typedItem.expectedImpact === "string" ? typedItem.expectedImpact : "",
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeRisk = (item: unknown): SanitizedRisk | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+
+    return {
+      risk: typeof typedItem.risk === "string" ? typedItem.risk : "",
+      probability: sanitizeConfidence(typedItem.probability) ?? "medium",
+      impact: sanitizeConfidence(typedItem.impact) ?? "medium",
+      mitigation: typeof typedItem.mitigation === "string" ? typedItem.mitigation : "",
+      trigger: typeof typedItem.trigger === "string" ? typedItem.trigger : "",
+      horizon: sanitizeHorizon(typedItem.horizon) ?? "30-180d",
+      evidenceArticleIndex
+    };
+  };
+
   const topSignals = Array.isArray(raw.topSignals)
-    ? raw.topSignals
-        .map((item: any) => {
-          const evidenceArticleIndex = validEvidenceIndex(item?.evidenceArticleIndex);
-          if (evidenceArticleIndex === undefined) return null;
-          return {
-            title: typeof item?.title === "string" ? item.title : "",
-            type: sanitizeSignalType(item?.type) ?? "commercial",
-            horizon: sanitizeHorizon(item?.horizon) ?? "30-180d",
-            confidence: sanitizeConfidence(item?.confidence) ?? "medium",
-            impact: typeof item?.impact === "string" ? item.impact : "",
-            evidenceArticleIndex
-          };
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    ? (raw.topSignals as unknown[])
+        .map(sanitizeTopSignal)
+        .filter((item): item is SanitizedSignal => Boolean(item))
     : [];
 
   const recommendedActions = Array.isArray(raw.recommendedActions)
-    ? raw.recommendedActions
-        .map((item: any) => {
-          const evidenceArticleIndex = validEvidenceIndex(item?.evidenceArticleIndex);
-          if (evidenceArticleIndex === undefined) return null;
-          const due = clamp(Number(item?.dueInDays) || 0, 1, 60);
-          const ownerRole = typeof item?.ownerRole === "string" && allowedOwnerRoles.has(item.ownerRole)
-            ? item.ownerRole
-            : "Category Manager";
-          return {
-            action: typeof item?.action === "string" ? item.action : "",
-            ownerRole,
-            dueInDays: Math.round(due),
-            expectedImpact: typeof item?.expectedImpact === "string" ? item.expectedImpact : "",
-            confidence: sanitizeConfidence(item?.confidence) ?? "medium",
-            evidenceArticleIndex
-          };
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    ? (raw.recommendedActions as unknown[])
+        .map(sanitizeRecommendedAction)
+        .filter((item): item is SanitizedAction => Boolean(item))
     : [];
 
   const riskRegister = Array.isArray(raw.riskRegister)
-    ? raw.riskRegister
-        .map((item: any) => {
-          const evidenceArticleIndex = validEvidenceIndex(item?.evidenceArticleIndex);
-          return {
-            risk: typeof item?.risk === "string" ? item.risk : "",
-            probability: sanitizeConfidence(item?.probability) ?? "medium",
-            impact: sanitizeConfidence(item?.impact) ?? "medium",
-            mitigation: typeof item?.mitigation === "string" ? item.mitigation : "",
-            trigger: typeof item?.trigger === "string" ? item.trigger : "",
-            horizon: sanitizeHorizon(item?.horizon) ?? "30-180d",
-            evidenceArticleIndex
-          };
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    ? (raw.riskRegister as unknown[])
+        .map(sanitizeRisk)
+        .filter((item): item is SanitizedRisk => Boolean(item))
     : [];
 
   return {
