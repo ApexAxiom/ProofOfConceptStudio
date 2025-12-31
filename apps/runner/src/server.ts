@@ -86,21 +86,22 @@ async function main() {
       ? regionRuns.filter((r: RegionRun) => r.inWindow)
       : regionRuns;
 
+    const targetRegions = readyRegions.length > 0 ? readyRegions : regionRuns;
+
     if (body.scheduled === true && readyRegions.length === 0) {
-      reply.code(202).send({ ok: true, accepted: true, skipped: true, runId });
-      return;
+      fastify.log.warn({ runId, regions: regionRuns.map((r) => r.region) }, "outside window; forcing catch-up run");
     }
 
     reply.code(202).send({
       ok: true,
       accepted: true,
       runId,
-      regions: readyRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow }))
+      regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow }))
     });
 
     setImmediate(() => {
       Promise.all(
-        readyRegions.map((target: RegionRun) =>
+        targetRegions.map((target: RegionRun) =>
           handleCron(target.runWindow, {
             runId,
             scheduled: body.scheduled === true,

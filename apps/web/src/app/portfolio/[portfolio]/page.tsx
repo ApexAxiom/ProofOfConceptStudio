@@ -12,7 +12,6 @@ import {
   RegionSlug
 } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
-import { VpRegionPanel } from "../../../components/vp/VpRegionPanel";
 
 interface PortfolioDashboardProps {
   params: Promise<{ portfolio: string }>;
@@ -94,7 +93,7 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
     fetchPosts({ region: "au", portfolio, limit: 10 }).catch(() => [] as BriefPost[]),
     fetchPosts({ region: "us-mx-la-lng", portfolio, limit: 10 }).catch(() => [] as BriefPost[])
   ]);
-  
+
   // Get latest briefs for each region
   const latestApacBrief = auBriefs[0];
   const latestIntlBrief = usBriefs[0];
@@ -131,20 +130,6 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
             </svg>
             Ask AI
           </Link>
-        </div>
-      </div>
-
-      {/* VP At-a-Glance */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m0-4l-4.553-2.276A1 1 0 009 8.618v6.764a1 1 0 001.447.894L15 14m0-4v8m-5-8v8" />
-          </svg>
-          <h2 className="text-lg font-semibold text-foreground">VP At-a-Glance</h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <VpRegionPanel label="APAC" brief={latestApacBrief} />
-          <VpRegionPanel label="International" brief={latestIntlBrief} />
         </div>
       </div>
 
