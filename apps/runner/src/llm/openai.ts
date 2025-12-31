@@ -64,7 +64,8 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
       imageUrl: inputArticle.ogImageUrl,
       imageAlt: article.imageAlt || inputArticle.title,
       sourceName: inputArticle.sourceName,
-      publishedAt: inputArticle.publishedAt
+      publishedAt: inputArticle.publishedAt,
+      sourceIndex: article.articleIndex
     };
   });
 
@@ -117,7 +118,8 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     selectedArticles,
     heroImageUrl: heroArticle?.imageUrl,
     heroImageSourceUrl: heroArticle?.url,
-    heroImageAlt: heroArticle?.title || parsed.title
+    heroImageAlt: heroArticle?.title || parsed.title,
+    vpSnapshot: parsed.vpSnapshot
   };
 }
 

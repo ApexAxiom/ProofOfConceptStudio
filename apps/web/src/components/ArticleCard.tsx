@@ -13,9 +13,12 @@ interface ArticleCardProps {
 export function ArticleCard({ article, index }: ArticleCardProps) {
   const sourceUrl = extractValidUrl(article.url);
   const imageUrl = extractValidUrl(article.imageUrl);
-  
+
   return (
-    <div className="group rounded-xl border border-border bg-card overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20">
+    <div
+      id={`article-${index + 1}`}
+      className="group rounded-xl border border-border bg-card overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20"
+    >
       {/* Article Header with Image */}
       <div className="flex">
         {/* Left: Number Badge + Content */}
