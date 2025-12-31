@@ -39,6 +39,9 @@ function formatPublishTime(dateStr: string): string {
   });
 }
 
+/**
+ * Displays a detailed intelligence brief with navigation and region switching controls.
+ */
 export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   const published = new Date(brief.publishedAt);
   const publishedDate = formatPublishDate(brief.publishedAt);
@@ -69,10 +72,10 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Top Navigation Bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2">
         <Link
           href={`/${brief.region}`}
-          className="group flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="group inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <svg className="h-4 w-4 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
