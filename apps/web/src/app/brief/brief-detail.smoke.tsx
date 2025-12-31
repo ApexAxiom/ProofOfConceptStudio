@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import { renderToStaticMarkup } from "react-dom/server";
-import { BriefDetailContent } from "./[postId]/page";
+import { BriefDetailContent } from "./BriefDetailContent";
 import { BriefPost } from "@proof/shared";
 
 const brief: BriefPost = {
