@@ -53,6 +53,32 @@ const parsed = parsePromptOutput(
     selectedArticles: [{ articleIndex: 1, briefContent: "", categoryImportance: "" }],
     heroSelection: { articleIndex: 1 },
     marketIndicators: [{ indexId: "idx-1", note: "note" }],
+    cmSnapshot: {
+      todayPriorities: [
+        { title: "Close supplier", why: "expiring deal", dueInDays: 5, confidence: "high", evidenceArticleIndex: 1 }
+      ],
+      supplierRadar: [
+        {
+          supplier: "Acme",
+          signal: "New capacity",
+          implication: "More leverage",
+          nextStep: "Engage SRM",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      negotiationLevers: [
+        {
+          lever: "Volume commit",
+          whenToUse: "Renewals",
+          expectedOutcome: "Rate relief",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      intelGaps: ["Need supplier cost view"],
+      talkingPoints: ["Executive-ready summary"]
+    },
     vpSnapshot: {
       health: {
         overall: 90,
@@ -101,4 +127,5 @@ const parsed = parsePromptOutput(
 assert.deepStrictEqual(parsed.deltaSinceLastRun, ["d1", "d2"]);
 assert.strictEqual(parsed.selectedArticles.length, 1);
 assert.strictEqual(parsed.vpSnapshot?.topSignals.length, 1);
+assert.strictEqual(parsed.cmSnapshot?.todayPriorities.length, 1);
 console.log("prompt.smoke passed");
