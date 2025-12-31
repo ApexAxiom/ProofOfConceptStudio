@@ -6,6 +6,39 @@ export type VpConfidence = "low" | "medium" | "high";
 export type VpHorizon = "0-30d" | "30-180d" | "180d+";
 export type VpSignalType = "cost" | "supply" | "schedule" | "regulatory" | "supplier" | "commercial";
 
+export interface CmPriority {
+  title: string;
+  why: string;
+  dueInDays: number;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface CmSupplierSignal {
+  supplier: string;
+  signal: string;
+  implication: string;
+  nextStep: string;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface CmNegotiationLever {
+  lever: string;
+  whenToUse: string;
+  expectedOutcome: string;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface CmSnapshot {
+  todayPriorities: CmPriority[];
+  supplierRadar: CmSupplierSignal[];
+  negotiationLevers: CmNegotiationLever[];
+  intelGaps?: string[];
+  talkingPoints?: string[];
+}
+
 export interface VpHealthScore {
   overall: number;
   costPressure: number;
@@ -146,6 +179,7 @@ export interface BriefPost {
     decision: "publish" | "retry" | "block";
   };
   vpSnapshot?: VpSnapshot;
+  cmSnapshot?: CmSnapshot;
 }
 
 export interface RunLog {

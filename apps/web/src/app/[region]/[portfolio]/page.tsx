@@ -6,14 +6,25 @@ import { RegionSlug, portfolioLabel, REGIONS, findPortfolio } from "@proof/share
 import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 import { VpRegionPanel } from "../../../components/vp/VpRegionPanel";
+import { CmTodayPanel } from "../../../components/cm/CmTodayPanel";
+import { CmSupplierRadar } from "../../../components/cm/CmSupplierRadar";
+import { CmNegotiationLevers } from "../../../components/cm/CmNegotiationLevers";
+import { CmDeltaCard } from "../../../components/cm/CmDeltaCard";
+import { CmMarketNotesCard } from "../../../components/cm/CmMarketNotesCard";
+import { CmQuickLinks } from "../../../components/cm/CmQuickLinks";
 
 export default async function PortfolioPage({ params }: { params: Promise<{ region: RegionSlug; portfolio: string }> }) {
   const { region, portfolio } = await params;
-  const briefs = await fetchPosts({ region, portfolio, limit: 20 });
+  const [briefs, otherRegionBriefs] = await Promise.all([
+    fetchPosts({ region, portfolio, limit: 20 }),
+    fetchPosts({ region: region === "au" ? "us-mx-la-lng" : "au", portfolio, limit: 1 }).catch(() => [])
+  ]);
   const portfolioData = findPortfolio(portfolio);
   const category = categoryForPortfolio(portfolio);
   const meta = CATEGORY_META[category];
   const latestBrief = briefs[0];
+  const otherRegion = region === "au" ? "us-mx-la-lng" : "au";
+  const otherLatestBrief = otherRegionBriefs[0];
 
   return (
     <div className="space-y-6">
@@ -39,19 +50,43 @@ export default async function PortfolioPage({ params }: { params: Promise<{ regi
           <span className="text-muted-foreground">
             <span className="font-semibold text-foreground">{briefs.length}</span> briefs
           </span>
-          <Link href="/chat" className="btn-secondary text-sm">Ask AI</Link>
+          <Link href={`/chat?region=${region}&portfolio=${portfolio}`} className="btn-secondary text-sm">Ask AI</Link>
         </div>
       </div>
 
-      {/* VP view */}
+      {/* Category Manager Workbench */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m2-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h2 className="text-sm font-semibold text-foreground">VP At-a-Glance</h2>
+          <h2 className="text-sm font-semibold text-foreground">Category Manager Workbench</h2>
         </div>
-        <VpRegionPanel label={REGIONS[region].city} brief={latestBrief} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <CmTodayPanel brief={latestBrief} />
+            <CmSupplierRadar brief={latestBrief} />
+            <CmNegotiationLevers brief={latestBrief} />
+            <CmMarketNotesCard brief={latestBrief} />
+            <CmDeltaCard brief={latestBrief} />
+          </div>
+          <div className="space-y-4 lg:col-span-1">
+            <CmQuickLinks brief={latestBrief} region={region} portfolio={portfolio} />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m2-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-sm font-semibold text-foreground">Leadership lens</h3>
+              </div>
+              <VpRegionPanel label={REGIONS[region].city} brief={latestBrief} />
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Other region pulse</h4>
+                <VpRegionPanel label={REGIONS[otherRegion].city} brief={otherLatestBrief} />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Market Indices */}

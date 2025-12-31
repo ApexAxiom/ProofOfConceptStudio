@@ -1,5 +1,6 @@
 import {
   AgentConfig,
+  CmSnapshot,
   MarketIndex,
   RegionSlug,
   RunWindow,
@@ -66,6 +67,7 @@ export interface BriefOutput {
   heroSelection: { articleIndex: number };
   marketIndicators: Array<{ indexId: string; note: string }>;
   vpSnapshot?: VpSnapshot;
+  cmSnapshot?: CmSnapshot;
 }
 
 function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
@@ -98,6 +100,148 @@ function sanitizeSignalType(value: unknown): VpSignalType | undefined {
   const allowed: VpSignalType[] = ["cost", "supply", "schedule", "regulatory", "supplier", "commercial"];
   if (typeof value === "string" && allowed.includes(value as VpSignalType)) return value as VpSignalType;
   return undefined;
+}
+
+function sanitizeCmSnapshot(raw: any, selectedIndices: Set<number>): CmSnapshot | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+
+  const toStr = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const validEvidenceIndex = (value: unknown): number | undefined => {
+    const num = Number(value);
+    if (!Number.isInteger(num)) return undefined;
+    if (!selectedIndices.has(num)) return undefined;
+    return num;
+  };
+
+  type SanitizedPriority = {
+    title: string;
+    why: string;
+    dueInDays: number;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedSupplierSignal = {
+    supplier: string;
+    signal: string;
+    implication: string;
+    nextStep: string;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedLever = {
+    lever: string;
+    whenToUse: string;
+    expectedOutcome: string;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  const sanitizePriority = (item: unknown): SanitizedPriority | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+
+    const title = toStr(typedItem.title);
+    const why = toStr(typedItem.why);
+    if (!title && !why) return null;
+
+    const due = clamp(Number(typedItem.dueInDays) || 0, 1, 30);
+
+    return {
+      title,
+      why,
+      dueInDays: Math.round(due),
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeSupplierSignal = (item: unknown): SanitizedSupplierSignal | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+
+    const supplier = toStr(typedItem.supplier);
+    const signal = toStr(typedItem.signal);
+    const implication = toStr(typedItem.implication);
+    const nextStep = toStr(typedItem.nextStep);
+    if (!supplier && !signal && !nextStep && !implication) return null;
+
+    return {
+      supplier,
+      signal,
+      implication,
+      nextStep,
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeLever = (item: unknown): SanitizedLever | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+
+    const lever = toStr(typedItem.lever);
+    const whenToUse = toStr(typedItem.whenToUse);
+    const expectedOutcome = toStr(typedItem.expectedOutcome);
+    if (!lever && !whenToUse && !expectedOutcome) return null;
+
+    return {
+      lever,
+      whenToUse,
+      expectedOutcome,
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const todayPriorities = Array.isArray(raw.todayPriorities)
+    ? (raw.todayPriorities as unknown[])
+        .map(sanitizePriority)
+        .filter((item): item is SanitizedPriority => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  const supplierRadar = Array.isArray(raw.supplierRadar)
+    ? (raw.supplierRadar as unknown[])
+        .map(sanitizeSupplierSignal)
+        .filter((item): item is SanitizedSupplierSignal => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  const negotiationLevers = Array.isArray(raw.negotiationLevers)
+    ? (raw.negotiationLevers as unknown[])
+        .map(sanitizeLever)
+        .filter((item): item is SanitizedLever => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  const intelGaps = sanitizeStringArray(raw.intelGaps, 5);
+  const talkingPoints = sanitizeStringArray(raw.talkingPoints, 6);
+
+  if (
+    todayPriorities.length === 0 &&
+    supplierRadar.length === 0 &&
+    negotiationLevers.length === 0 &&
+    intelGaps.length === 0 &&
+    talkingPoints.length === 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    todayPriorities,
+    supplierRadar,
+    negotiationLevers,
+    intelGaps: intelGaps.length ? intelGaps : undefined,
+    talkingPoints: talkingPoints.length ? talkingPoints : undefined
+  };
 }
 
 function sanitizeVpSnapshot(raw: any, selectedIndices: Set<number>): VpSnapshot | undefined {
@@ -369,6 +513,38 @@ Return ONLY valid JSON with this exact structure:
     { "indexId": "cme-wti", "note": "1 sentence procurement context (e.g., 'WTI at $72 supports drilling activity, positive for rig demand')" },
     { "indexId": "ice-brent", "note": "1 sentence procurement context" }
   ],
+  "cmSnapshot": {
+    "todayPriorities": [
+      {
+        "title": "Priority to move this week",
+        "why": "Why this matters now",
+        "dueInDays": 7,
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "supplierRadar": [
+      {
+        "supplier": "Supplier name",
+        "signal": "Observed signal",
+        "implication": "What it means for the category",
+        "nextStep": "Concrete next step for the CM",
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "negotiationLevers": [
+      {
+        "lever": "Negotiation tactic",
+        "whenToUse": "Context to deploy",
+        "expectedOutcome": "Expected buyer benefit",
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "intelGaps": ["Gap to close (optional)", "..."],
+    "talkingPoints": ["Stakeholder one-liner (optional)"]
+  },
   "vpSnapshot": {
     "health": {
       "overall": 85,
@@ -413,6 +589,13 @@ Return ONLY valid JSON with this exact structure:
 }
 \`\`\`
 
+Rules for cmSnapshot output:
+- todayPriorities, supplierRadar, and negotiationLevers should each include 3-6 items when available.
+- dueInDays must be between 1 and 30.
+- evidenceArticleIndex must reference one of the selectedArticles.articleIndex values.
+- confidence must be "low", "medium", or "high".
+- Do NOT include any URLs; evidenceArticleIndex links back to the selectedArticles list.
+
 ## CRITICAL REQUIREMENTS
 
 1. **CATEGORY MANAGER FOCUS**: Every insight must connect to sourcing implications for ${agent.label}
@@ -426,6 +609,7 @@ Return ONLY valid JSON with this exact structure:
 9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
 10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
 11. **VP SNAPSHOT DATA ONLY**: vpSnapshot.health.* must be integers 0..100. topSignals/recommendedActions/riskRegister should have 3-5 items each when possible (never empty unless no signal). evidenceArticleIndex must match one of the selectedArticles.articleIndex values. ownerRole must be one of: Category Manager, SRM, Contracts, Legal, Engineering, Logistics, Finance, HSE, Digital/IT. dueInDays must be 1..60. Do NOT include any URLs anywhere in vpSnapshot.
+12. **CM SNAPSHOT ACTIONABILITY**: cmSnapshot.todayPriorities, supplierRadar, and negotiationLevers should each target 3-6 items when possible. dueInDays must be 1..30. confidence must be low|medium|high. evidenceArticleIndex MUST match a selectedArticles.articleIndex value. No URLs in cmSnapshot. Every item must include a concrete next step that a category manager can execute without internal systems; prefer naming key suppliers from the agent context where relevant.
 
 ## MARKET INDICES
 
@@ -501,6 +685,7 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   }
 
   const vpSnapshot = sanitizeVpSnapshot(parsed.vpSnapshot, indices);
+  const cmSnapshot = sanitizeCmSnapshot(parsed.cmSnapshot, indices);
 
   if (issues.length > 0) {
     throw new Error(JSON.stringify(issues));
@@ -522,6 +707,7 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     })),
     heroSelection: { articleIndex: Number(heroIndex) },
     marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: (m.note || "").toString() })),
-    vpSnapshot
+    vpSnapshot,
+    cmSnapshot
   };
 }

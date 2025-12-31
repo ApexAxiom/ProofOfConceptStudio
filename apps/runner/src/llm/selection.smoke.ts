@@ -22,6 +22,11 @@ const raw = JSON.stringify({
   ],
   heroSelection: { articleIndex: 2 },
   marketIndicators: [],
+  cmSnapshot: {
+    todayPriorities: [
+      { title: "Bad link", why: "", dueInDays: 0, confidence: "low", evidenceArticleIndex: 99 }
+    ]
+  },
   vpSnapshot: {
     health: {
       overall: 50,
@@ -58,5 +63,6 @@ assert.deepStrictEqual(parsed.procurementActions, ["Do this"]);
 assert.deepStrictEqual(parsed.watchlist, ["Monitor X"]);
 assert.deepStrictEqual(parsed.deltaSinceLastRun, ["Changed"]);
 assert.strictEqual(parsed.vpSnapshot?.topSignals.length, 0);
+assert.strictEqual(parsed.cmSnapshot?.todayPriorities.length ?? 0, 0);
 
 console.log("selection.smoke passed");

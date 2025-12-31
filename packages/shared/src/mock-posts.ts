@@ -28,6 +28,64 @@ export const MOCK_POSTS: BriefPost[] = [
         sourceIndex: 1
       }
     ],
+    cmSnapshot: {
+      todayPriorities: [
+        {
+          title: "Secure renewal options before Q1 2025",
+          why: "Dayrates climbing on early tenders",
+          dueInDays: 14,
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        },
+        {
+          title: "Align drilling services with new wells",
+          why: "Mud logging crews tightening",
+          dueInDays: 10,
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      supplierRadar: [
+        {
+          supplier: "Woodside",
+          signal: "Pulling forward rig tenders",
+          implication: "Reduced spot availability",
+          nextStep: "Engage SRM to confirm standby options",
+          confidence: "high",
+          evidenceArticleIndex: 1
+        },
+        {
+          supplier: "Santos",
+          signal: "Awarded additional wells",
+          implication: "Adds pressure on semi availability",
+          nextStep: "Request rate caps in renewal drafts",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      negotiationLevers: [
+        {
+          lever: "Extension options with soft floors",
+          whenToUse: "For rigs rolling in next 90 days",
+          expectedOutcome: "Locks access while limiting upside risk",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        },
+        {
+          lever: "Standby retainer with call-off",
+          whenToUse: "If utilization keeps tightening",
+          expectedOutcome: "Keeps backup capacity without full commitment",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      intelGaps: ["Rate caps accepted by peers", "Rig substitution clauses used locally"],
+      talkingPoints: [
+        "Rig demand pulling into Q1 2025, pressuring options",
+        "Suppliers seeking rate protection; we need caps",
+        "Backlog tightening but leverage via standby retainers"
+      ]
+    },
     vpSnapshot: {
       health: {
         overall: 72,

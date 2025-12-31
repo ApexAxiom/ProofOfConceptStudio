@@ -119,7 +119,8 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     heroImageUrl: heroArticle?.imageUrl,
     heroImageSourceUrl: heroArticle?.url,
     heroImageAlt: heroArticle?.title || parsed.title,
-    vpSnapshot: parsed.vpSnapshot
+    vpSnapshot: parsed.vpSnapshot,
+    cmSnapshot: parsed.cmSnapshot
   };
 }
 
