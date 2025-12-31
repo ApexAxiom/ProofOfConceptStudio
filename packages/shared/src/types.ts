@@ -2,6 +2,54 @@ import { RegionSlug } from "./regions.js";
 
 export type RunWindow = "apac" | "international";
 
+export type VpConfidence = "low" | "medium" | "high";
+export type VpHorizon = "0-30d" | "30-180d" | "180d+";
+export type VpSignalType = "cost" | "supply" | "schedule" | "regulatory" | "supplier" | "commercial";
+
+export interface VpHealthScore {
+  overall: number;
+  costPressure: number;
+  supplyRisk: number;
+  scheduleRisk: number;
+  complianceRisk: number;
+  narrative: string;
+}
+
+export interface VpSignal {
+  title: string;
+  type: VpSignalType;
+  horizon: VpHorizon;
+  confidence: VpConfidence;
+  impact: string;
+  evidenceArticleIndex: number;
+}
+
+export interface VpAction {
+  action: string;
+  ownerRole: string;
+  dueInDays: number;
+  expectedImpact: string;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface VpRisk {
+  risk: string;
+  probability: VpConfidence;
+  impact: VpConfidence;
+  mitigation: string;
+  trigger: string;
+  horizon: VpHorizon;
+  evidenceArticleIndex?: number;
+}
+
+export interface VpSnapshot {
+  health: VpHealthScore;
+  topSignals: VpSignal[];
+  recommendedActions: VpAction[];
+  riskRegister: VpRisk[];
+}
+
 export interface MarketIndex {
   id: string;
   label: string;
@@ -39,6 +87,8 @@ export interface SelectedArticle {
   publishedAt?: string;
   /** Source/publication name */
   sourceName?: string;
+  /** Original input article index for traceability */
+  sourceIndex?: number;
 }
 
 export interface BriefMarketIndicator {
@@ -95,6 +145,7 @@ export interface BriefPost {
     issues: string[];
     decision: "publish" | "retry" | "block";
   };
+  vpSnapshot?: VpSnapshot;
 }
 
 export interface RunLog {

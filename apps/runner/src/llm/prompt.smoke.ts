@@ -52,11 +52,53 @@ const parsed = parsePromptOutput(
     deltaSinceLastRun: ["d1", "d2"],
     selectedArticles: [{ articleIndex: 1, briefContent: "", categoryImportance: "" }],
     heroSelection: { articleIndex: 1 },
-    marketIndicators: [{ indexId: "idx-1", note: "note" }]
+    marketIndicators: [{ indexId: "idx-1", note: "note" }],
+    vpSnapshot: {
+      health: {
+        overall: 90,
+        costPressure: 40,
+        supplyRisk: 30,
+        scheduleRisk: 20,
+        complianceRisk: 10,
+        narrative: "Stable"
+      },
+      topSignals: [
+        {
+          title: "Signal",
+          type: "cost",
+          horizon: "0-30d",
+          confidence: "high",
+          impact: "Impact",
+          evidenceArticleIndex: 1
+        }
+      ],
+      recommendedActions: [
+        {
+          action: "Do it",
+          ownerRole: "Category Manager",
+          dueInDays: 14,
+          expectedImpact: "Better",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      riskRegister: [
+        {
+          risk: "Risk",
+          probability: "medium",
+          impact: "medium",
+          mitigation: "Mitigate",
+          trigger: "Trigger",
+          horizon: "30-180d",
+          evidenceArticleIndex: 1
+        }
+      ]
+    }
   }),
   1
 );
 
 assert.deepStrictEqual(parsed.deltaSinceLastRun, ["d1", "d2"]);
 assert.strictEqual(parsed.selectedArticles.length, 1);
+assert.strictEqual(parsed.vpSnapshot?.topSignals.length, 1);
 console.log("prompt.smoke passed");

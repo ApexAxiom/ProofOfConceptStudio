@@ -1,4 +1,13 @@
-import { AgentConfig, MarketIndex, RegionSlug, RunWindow } from "@proof/shared";
+import {
+  AgentConfig,
+  MarketIndex,
+  RegionSlug,
+  RunWindow,
+  VpSnapshot,
+  VpConfidence,
+  VpHorizon,
+  VpSignalType
+} from "@proof/shared";
 import { getWritingInstructions, getCitationInstructions, getImageInstructions, WRITING_GUIDE } from "./writing-guide.js";
 import { getCategoryManagerPersona, getCategorySelectionGuidance, getCategoryBriefStructure } from "./category-manager-prompt.js";
 
@@ -56,6 +65,7 @@ export interface BriefOutput {
   }>;
   heroSelection: { articleIndex: number };
   marketIndicators: Array<{ indexId: string; note: string }>;
+  vpSnapshot?: VpSnapshot;
 }
 
 function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
@@ -64,6 +74,125 @@ function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
     .map((item) => (typeof item === "string" ? item.trim() : ""))
     .filter((item) => item.length > 0)
     .slice(0, maxItems);
+}
+
+function clampScore(value: unknown): number | undefined {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return undefined;
+  return Math.round(clamp(num, 0, 100));
+}
+
+function sanitizeConfidence(value: unknown): VpConfidence | undefined {
+  const allowed: VpConfidence[] = ["low", "medium", "high"];
+  if (typeof value === "string" && allowed.includes(value as VpConfidence)) return value as VpConfidence;
+  return undefined;
+}
+
+function sanitizeHorizon(value: unknown): VpHorizon | undefined {
+  const allowed: VpHorizon[] = ["0-30d", "30-180d", "180d+"];
+  if (typeof value === "string" && allowed.includes(value as VpHorizon)) return value as VpHorizon;
+  return undefined;
+}
+
+function sanitizeSignalType(value: unknown): VpSignalType | undefined {
+  const allowed: VpSignalType[] = ["cost", "supply", "schedule", "regulatory", "supplier", "commercial"];
+  if (typeof value === "string" && allowed.includes(value as VpSignalType)) return value as VpSignalType;
+  return undefined;
+}
+
+function sanitizeVpSnapshot(raw: any, selectedIndices: Set<number>): VpSnapshot | undefined {
+  if (!raw || typeof raw !== "object" || !raw.health) return undefined;
+
+  const healthRaw = raw.health ?? {};
+  const health = {
+    overall: clampScore(healthRaw.overall) ?? 0,
+    costPressure: clampScore(healthRaw.costPressure) ?? 0,
+    supplyRisk: clampScore(healthRaw.supplyRisk) ?? 0,
+    scheduleRisk: clampScore(healthRaw.scheduleRisk) ?? 0,
+    complianceRisk: clampScore(healthRaw.complianceRisk) ?? 0,
+    narrative: typeof healthRaw.narrative === "string" ? healthRaw.narrative : ""
+  };
+
+  const validEvidenceIndex = (value: unknown): number | undefined => {
+    const num = Number(value);
+    if (!Number.isInteger(num)) return undefined;
+    if (!selectedIndices.has(num)) return undefined;
+    return num;
+  };
+
+  const allowedOwnerRoles = new Set([
+    "Category Manager",
+    "SRM",
+    "Contracts",
+    "Legal",
+    "Engineering",
+    "Logistics",
+    "Finance",
+    "HSE",
+    "Digital/IT"
+  ]);
+
+  const topSignals = Array.isArray(raw.topSignals)
+    ? raw.topSignals
+        .map((item: any) => {
+          const evidenceArticleIndex = validEvidenceIndex(item?.evidenceArticleIndex);
+          if (evidenceArticleIndex === undefined) return null;
+          return {
+            title: typeof item?.title === "string" ? item.title : "",
+            type: sanitizeSignalType(item?.type) ?? "commercial",
+            horizon: sanitizeHorizon(item?.horizon) ?? "30-180d",
+            confidence: sanitizeConfidence(item?.confidence) ?? "medium",
+            impact: typeof item?.impact === "string" ? item.impact : "",
+            evidenceArticleIndex
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    : [];
+
+  const recommendedActions = Array.isArray(raw.recommendedActions)
+    ? raw.recommendedActions
+        .map((item: any) => {
+          const evidenceArticleIndex = validEvidenceIndex(item?.evidenceArticleIndex);
+          if (evidenceArticleIndex === undefined) return null;
+          const due = clamp(Number(item?.dueInDays) || 0, 1, 60);
+          const ownerRole = typeof item?.ownerRole === "string" && allowedOwnerRoles.has(item.ownerRole)
+            ? item.ownerRole
+            : "Category Manager";
+          return {
+            action: typeof item?.action === "string" ? item.action : "",
+            ownerRole,
+            dueInDays: Math.round(due),
+            expectedImpact: typeof item?.expectedImpact === "string" ? item.expectedImpact : "",
+            confidence: sanitizeConfidence(item?.confidence) ?? "medium",
+            evidenceArticleIndex
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    : [];
+
+  const riskRegister = Array.isArray(raw.riskRegister)
+    ? raw.riskRegister
+        .map((item: any) => {
+          const evidenceArticleIndex = validEvidenceIndex(item?.evidenceArticleIndex);
+          return {
+            risk: typeof item?.risk === "string" ? item.risk : "",
+            probability: sanitizeConfidence(item?.probability) ?? "medium",
+            impact: sanitizeConfidence(item?.impact) ?? "medium",
+            mitigation: typeof item?.mitigation === "string" ? item.mitigation : "",
+            trigger: typeof item?.trigger === "string" ? item.trigger : "",
+            horizon: sanitizeHorizon(item?.horizon) ?? "30-180d",
+            evidenceArticleIndex
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    : [];
+
+  return {
+    health,
+    topSignals,
+    recommendedActions,
+    riskRegister
+  };
 }
 
 /**
@@ -197,7 +326,48 @@ Return ONLY valid JSON with this exact structure:
   "marketIndicators": [
     { "indexId": "cme-wti", "note": "1 sentence procurement context (e.g., 'WTI at $72 supports drilling activity, positive for rig demand')" },
     { "indexId": "ice-brent", "note": "1 sentence procurement context" }
-  ]
+  ],
+  "vpSnapshot": {
+    "health": {
+      "overall": 85,
+      "costPressure": 40,
+      "supplyRisk": 60,
+      "scheduleRisk": 30,
+      "complianceRisk": 20,
+      "narrative": "One sentence on the top exposure and why it matters"
+    },
+    "topSignals": [
+      {
+        "title": "One-line signal",
+        "type": "cost | supply | schedule | regulatory | supplier | commercial",
+        "horizon": "0-30d | 30-180d | 180d+",
+        "confidence": "low | medium | high",
+        "impact": "1 sentence describing cost/supply/schedule/compliance impact",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "recommendedActions": [
+      {
+        "action": "Imperative action",
+        "ownerRole": "Category Manager | SRM | Contracts | Legal | Engineering | Logistics | Finance | HSE | Digital/IT",
+        "dueInDays": 14,
+        "expectedImpact": "1 sentence on what changes if we do this",
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "riskRegister": [
+      {
+        "risk": "Named risk",
+        "probability": "low | medium | high",
+        "impact": "low | medium | high",
+        "mitigation": "Mitigation action",
+        "trigger": "What to watch for",
+        "horizon": "0-30d | 30-180d | 180d+",
+        "evidenceArticleIndex": 1
+      }
+    ]
+  }
 }
 \`\`\`
 
@@ -213,6 +383,7 @@ Return ONLY valid JSON with this exact structure:
 8. **KEY METRICS**: Extract 2-4 key numbers, percentages, dates, or values from each article
 9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
 10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
+11. **VP SNAPSHOT DATA ONLY**: vpSnapshot.health.* must be integers 0..100. topSignals/recommendedActions/riskRegister should have 3-5 items each when possible (never empty unless no signal). evidenceArticleIndex must match one of the selectedArticles.articleIndex values. ownerRole must be one of: Category Manager, SRM, Contracts, Legal, Engineering, Logistics, Finance, HSE, Digital/IT. dueInDays must be 1..60. Do NOT include any URLs anywhere in vpSnapshot.
 
 ## MARKET INDICES
 
@@ -287,6 +458,8 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     issues.push("heroSelection.articleIndex must reference a selected article");
   }
 
+  const vpSnapshot = sanitizeVpSnapshot(parsed.vpSnapshot, indices);
+
   if (issues.length > 0) {
     throw new Error(JSON.stringify(issues));
   }
@@ -306,6 +479,7 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
       imageAlt: article.imageAlt
     })),
     heroSelection: { articleIndex: Number(heroIndex) },
-    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: (m.note || "").toString() }))
+    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: (m.note || "").toString() })),
+    vpSnapshot
   };
 }

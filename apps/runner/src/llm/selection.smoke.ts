@@ -21,7 +21,27 @@ const raw = JSON.stringify({
     { articleIndex: 3, briefContent: "Brief 3" }
   ],
   heroSelection: { articleIndex: 2 },
-  marketIndicators: []
+  marketIndicators: [],
+  vpSnapshot: {
+    health: {
+      overall: 50,
+      costPressure: 60,
+      supplyRisk: 40,
+      scheduleRisk: 30,
+      complianceRisk: 20,
+      narrative: "Test"
+    },
+    topSignals: [
+      {
+        title: "Invalid evidence",
+        type: "cost",
+        horizon: "0-30d",
+        confidence: "medium",
+        impact: "Impact",
+        evidenceArticleIndex: 99
+      }
+    ]
+  }
 });
 
 const parsed = parsePromptOutput(raw, 3);
@@ -37,5 +57,6 @@ assert.deepStrictEqual(parsed.highlights, ["One"]);
 assert.deepStrictEqual(parsed.procurementActions, ["Do this"]);
 assert.deepStrictEqual(parsed.watchlist, ["Monitor X"]);
 assert.deepStrictEqual(parsed.deltaSinceLastRun, ["Changed"]);
+assert.strictEqual(parsed.vpSnapshot?.topSignals.length, 0);
 
 console.log("selection.smoke passed");

@@ -18,7 +18,57 @@ export const MOCK_POSTS: BriefPost[] = [
     sources: ["https://www.energytodaymag.com.au/"],
     heroImageUrl: "https://example.com/images/rigs-au.jpg",
     heroImageSourceUrl: "https://www.energytodaymag.com.au/",
-    heroImageAlt: "Offshore rig in Australian waters"
+    heroImageAlt: "Offshore rig in Australian waters",
+    selectedArticles: [
+      {
+        title: "WA drilling campaigns advance",
+        url: "https://www.energytodaymag.com.au/article",
+        briefContent: "New tenders increase jack-up demand into 2025.",
+        categoryImportance: "Tighter rigs drive higher dayrates for renewals.",
+        sourceIndex: 1
+      }
+    ],
+    vpSnapshot: {
+      health: {
+        overall: 72,
+        costPressure: 65,
+        supplyRisk: 55,
+        scheduleRisk: 35,
+        complianceRisk: 20,
+        narrative: "Rig tightness keeps upward cost pressure on renewals."
+      },
+      topSignals: [
+        {
+          title: "Jack-up awards pull forward Q1 2025 demand",
+          type: "supply",
+          horizon: "30-180d",
+          confidence: "medium",
+          impact: "Higher utilisation narrows options for spot cover.",
+          evidenceArticleIndex: 1
+        }
+      ],
+      recommendedActions: [
+        {
+          action: "Lock renewal options with rate caps",
+          ownerRole: "Contracts",
+          dueInDays: 21,
+          expectedImpact: "Protects exposure if dayrates keep rising.",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      riskRegister: [
+        {
+          risk: "Limited spot availability for Q1 wells",
+          probability: "medium",
+          impact: "high",
+          mitigation: "Pre-book standby coverage with extension clauses.",
+          trigger: "Operators announce incremental wells",
+          horizon: "0-30d",
+          evidenceArticleIndex: 1
+        }
+      ]
+    }
   },
   {
     postId: "rigs-us-001",
@@ -34,7 +84,57 @@ export const MOCK_POSTS: BriefPost[] = [
     sources: ["https://www.rigzone.com/"],
     heroImageUrl: "https://example.com/images/rigs-us.jpg",
     heroImageSourceUrl: "https://www.rigzone.com/",
-    heroImageAlt: "Rig operating in the Gulf of Mexico"
+    heroImageAlt: "Rig operating in the Gulf of Mexico",
+    selectedArticles: [
+      {
+        title: "GoM dayrates stabilize",
+        url: "https://www.rigzone.com/article",
+        briefContent: "Operators extend semis at steady rates for 2025 programs.",
+        categoryImportance: "Limited downside for renewals; negotiate term flexibility.",
+        sourceIndex: 1
+      }
+    ],
+    vpSnapshot: {
+      health: {
+        overall: 64,
+        costPressure: 45,
+        supplyRisk: 40,
+        scheduleRisk: 35,
+        complianceRisk: 25,
+        narrative: "Stable utilisation keeps costs steady but locks rigs early."
+      },
+      topSignals: [
+        {
+          title: "Operators locking 2025 terms early",
+          type: "commercial",
+          horizon: "30-180d",
+          confidence: "high",
+          impact: "Less spot flexibility later in the year.",
+          evidenceArticleIndex: 1
+        }
+      ],
+      recommendedActions: [
+        {
+          action: "Negotiate extension options with soft floors",
+          ownerRole: "Category Manager",
+          dueInDays: 30,
+          expectedImpact: "Preserves access without locking full rate escalators.",
+          confidence: "high",
+          evidenceArticleIndex: 1
+        }
+      ],
+      riskRegister: [
+        {
+          risk: "Reduced flexibility if demand lifts late 2025",
+          probability: "medium",
+          impact: "medium",
+          mitigation: "Add substitution clauses into term deals.",
+          trigger: "Operators announce additional wells",
+          horizon: "180d+",
+          evidenceArticleIndex: 1
+        }
+      ]
+    }
   },
   {
     postId: "ds-au-001",

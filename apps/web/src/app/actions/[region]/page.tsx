@@ -15,6 +15,13 @@ interface ActionEntry {
   items: string[];
 }
 
+interface VpActionEntry {
+  portfolio: string;
+  postId: string;
+  title: string;
+  actions: Array<{ action: string; ownerRole: string; dueInDays: number }>;
+}
+
 function byPortfolioOrder(a: ActionEntry, b: ActionEntry) {
   const order = PORTFOLIOS.findIndex((p) => p.slug === a.portfolio) - PORTFOLIOS.findIndex((p) => p.slug === b.portfolio);
   return order === 0 ? a.title.localeCompare(b.title) : order;
@@ -77,6 +84,28 @@ export default async function ActionCenter({
     .filter((entry): entry is ActionEntry => Boolean(entry))
     .sort(byPortfolioOrder);
 
+  const vpActions = briefs
+    .map<VpActionEntry | null>((brief) =>
+      brief.vpSnapshot?.recommendedActions?.length
+        ? {
+            portfolio: brief.portfolio,
+            postId: brief.postId,
+            title: brief.title,
+            actions: brief.vpSnapshot.recommendedActions.map((action) => ({
+              action: action.action,
+              ownerRole: action.ownerRole,
+              dueInDays: action.dueInDays
+            }))
+          }
+        : null
+    )
+    .filter((entry): entry is VpActionEntry => Boolean(entry))
+    .sort((a, b) => {
+      const base = byPortfolioOrder(a, b);
+      if (base !== 0) return base;
+      return a.title.localeCompare(b.title);
+    });
+
   const filterEntries = (entries: ActionEntry[]) =>
     query
       ? entries.filter((entry) => {
@@ -87,6 +116,14 @@ export default async function ActionCenter({
 
   const filteredProcurement = filterEntries(procurement);
   const filteredWatchlist = filterEntries(watchlist);
+  const filteredVpActions = query
+    ? vpActions.filter((entry) => {
+        const hay = `${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.actions
+          .map((a) => `${a.action} ${a.ownerRole} due ${a.dueInDays}`)
+          .join(" ")}`.toLowerCase();
+        return hay.includes(query);
+      })
+    : vpActions;
 
   return (
     <div className="space-y-6">
@@ -190,6 +227,43 @@ export default async function ActionCenter({
           </div>
         </section>
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Recommended Actions (VP)</p>
+            <h2 className="text-lg font-semibold text-foreground">Cross-portfolio leadership focus</h2>
+          </div>
+          <span className="text-xs text-muted-foreground">{filteredVpActions.length} portfolios</span>
+        </div>
+        <div className="space-y-3">
+          {filteredVpActions.length === 0 && <p className="text-sm text-muted-foreground">No VP actions available.</p>}
+          {filteredVpActions.map((entry) => (
+            <div key={`${entry.portfolio}-${entry.postId}-vp`} className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{portfolioLabel(entry.portfolio)}</p>
+                  <h3 className="text-sm font-semibold text-foreground line-clamp-2">{entry.title}</h3>
+                </div>
+                <Link href={`/brief/${entry.postId}`} className="text-xs font-medium text-primary hover:underline">
+                  View brief
+                </Link>
+              </div>
+              <ul className="mt-3 space-y-2 text-sm text-foreground">
+                {entry.actions.map((item, idx) => (
+                  <li key={`${entry.postId}-action-${idx}`} className="flex flex-col gap-1 rounded-md border border-border/70 bg-muted/30 p-2">
+                    <span className="font-semibold">{item.action}</span>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span className="rounded-md bg-muted px-2 py-1 font-medium text-foreground">{item.ownerRole}</span>
+                      <span className="rounded-md bg-muted px-2 py-1 font-medium text-foreground">Due in {item.dueInDays} days</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
