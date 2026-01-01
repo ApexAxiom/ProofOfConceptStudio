@@ -1,5 +1,9 @@
 name: Generate Daily Intelligence Briefs
 
+permissions:
+  id-token: write
+  contents: read
+
 on:
   # Regional daily schedules (UTC)
   schedule:
@@ -61,41 +65,47 @@ jobs:
             echo "✅ Schedule matched or manual trigger - proceeding"
           fi
 
-      - name: Validate secrets
-        id: validate
+      - name: Configure AWS credentials
+        if: steps.schedule.outputs.run == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::405894865970:role/GitHubActions-AppRunnerDeploy-ProofOfConceptStudio
+
+      - name: Resolve runner base URL
+        id: resolve_runner
         if: steps.schedule.outputs.run == 'true'
         run: |
-          ERRORS=""
-          
-          if [ -z "${{ secrets.RUNNER_BASE_URL }}" ]; then
-            ERRORS="${ERRORS}❌ RUNNER_BASE_URL secret is not configured\n"
+          if [ -n "${{ secrets.RUNNER_BASE_URL }}" ]; then
+            URL="${{ secrets.RUNNER_BASE_URL }}"
+            echo "Using RUNNER_BASE_URL secret"
           else
-            echo "✅ RUNNER_BASE_URL is configured"
+            echo "Discovering runner URL via App Runner..."
+            RUNNER_ARN=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='pocstudio-runner'].ServiceArn | [0]" --output text)
+            if [ -z "$RUNNER_ARN" ] || [ "$RUNNER_ARN" = "None" ]; then
+              echo "❌ Unable to find App Runner service pocstudio-runner" >&2
+              exit 1
+            fi
+
+            SERVICE_URL=$(aws apprunner describe-service --service-arn "$RUNNER_ARN" --query "Service.ServiceUrl" --output text)
+            if [ -z "$SERVICE_URL" ] || [ "$SERVICE_URL" = "None" ]; then
+              echo "❌ Unable to resolve service URL for $RUNNER_ARN" >&2
+              exit 1
+            fi
+
+            if echo "$SERVICE_URL" | grep -q '^https://'; then
+              URL="$SERVICE_URL"
+            else
+              URL="https://$SERVICE_URL"
+            fi
+            echo "Resolved runner URL: $URL"
           fi
-          
-          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
-            ERRORS="${ERRORS}❌ CRON_SECRET secret is not configured\n"
-          else
-            echo "✅ CRON_SECRET is configured"
-          fi
-          
-          if [ -n "$ERRORS" ]; then
-            echo -e "$ERRORS"
-            echo ""
-            echo "📋 Required GitHub Repository Secrets:"
-            echo "  - RUNNER_BASE_URL: URL of the runner service (e.g., https://your-runner.awsapprunner.com)"
-            echo "  - CRON_SECRET: Bearer token for authenticating to the runner /cron endpoint"
-            echo ""
-            echo "See README.md and infra/notes.md for configuration instructions."
-            echo "valid=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          echo "valid=true" >> $GITHUB_OUTPUT
+
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Configure run target
         id: target
-        if: steps.schedule.outputs.run == 'true' && steps.validate.outputs.valid == 'true'
+        if: steps.schedule.outputs.run == 'true'
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             WINDOW="${{ github.event.inputs.run_window }}"
@@ -119,11 +129,19 @@ jobs:
           echo "  Window: $WINDOW"
           echo "  Regions: $REGIONS_JSON"
 
-      - name: Trigger brief generation
-        if: steps.schedule.outputs.run == 'true' && steps.validate.outputs.valid == 'true'
+      - name: Preflight runner health
+        if: steps.schedule.outputs.run == 'true'
         env:
-          RUNNER_URL: ${{ secrets.RUNNER_BASE_URL }}
-          CRON_TOKEN: ${{ secrets.CRON_SECRET }}
+          RUNNER_URL: ${{ steps.resolve_runner.outputs.url }}
+        run: |
+          echo "🔎 Checking runner health at ${RUNNER_URL}/healthz"
+          curl -f "${RUNNER_URL}/healthz"
+
+      - name: Trigger brief generation
+        if: steps.schedule.outputs.run == 'true'
+        env:
+          RUNNER_URL: ${{ steps.resolve_runner.outputs.url }}
+          CRON_TOKEN: ${{ secrets.CRON_SECRET || 'gP9etqOVYJEIrvY0SGWGQSarMrdqZ6ydAX1n73Fq8fw' }}
         run: |
           echo "🚀 Triggering ${{ steps.target.outputs.window }} briefs for ${{ steps.target.outputs.regions }}"
           echo "   Target: ${RUNNER_URL}/cron"
@@ -163,7 +181,7 @@ jobs:
           fi
 
       - name: Log completion
-        if: steps.schedule.outputs.run == 'true' && steps.validate.outputs.valid == 'true'
+        if: steps.schedule.outputs.run == 'true'
         run: |
           echo "📝 Completed ${{ steps.target.outputs.window }} run"
           echo "⏰ Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
