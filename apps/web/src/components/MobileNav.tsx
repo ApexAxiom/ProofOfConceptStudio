@@ -33,14 +33,14 @@ function SettingsIcon() {
 function ActionIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 4.5h10.5m-10.5 5.25h10.5M6.75 15h3.75m-3.75 4.5h3.75M13.5 19.5l3-3-3-3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
     </svg>
   );
 }
 
 function CloseIcon() {
   return (
-    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
@@ -82,12 +82,18 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       <div className="mobile-nav-drawer">
         <div className="mobile-nav-header">
           <Link href="/" className="flex items-center gap-3" onClick={onClose}>
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-bold text-sm">W</span>
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
+              <span className="font-display text-base font-bold text-primary">◈</span>
             </div>
-            <span className="font-semibold text-foreground">Intelligence Hub</span>
+            <div className="flex flex-col">
+              <span className="font-display text-sm font-semibold text-foreground">Intelligence</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-primary">Market Hub</span>
+            </div>
           </Link>
-          <button onClick={onClose} className="p-2 -mr-2 rounded-lg text-muted-foreground hover:bg-muted">
+          <button 
+            onClick={onClose} 
+            className="p-2 -mr-2 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          >
             <CloseIcon />
           </button>
         </div>
@@ -99,7 +105,7 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             className={`mobile-nav-link ${pathname === "/" ? "active" : ""}`}
           >
             <DashboardIcon />
-            <span>Dashboard</span>
+            <span>Executive View</span>
           </Link>
           <Link
             href={`/actions/${defaultActionCenter}`}
@@ -111,7 +117,10 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           </Link>
 
           <div className="mobile-nav-section">
-            <span className="mobile-nav-section-title">Categories</span>
+            <span className="mobile-nav-section-title flex items-center gap-2">
+              <span className="text-primary/60">◈</span>
+              Categories
+            </span>
             {PORTFOLIOS.map((portfolio) => {
               const category = categoryForPortfolio(portfolio.slug);
               const meta = CATEGORY_META[category];
@@ -125,8 +134,11 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                   className={`mobile-nav-category ${isActive ? "active" : ""}`}
                 >
                   <span 
-                    className="h-2 w-2 rounded-full flex-shrink-0" 
-                    style={{ backgroundColor: meta.color }}
+                    className="h-2 w-2 rounded-full flex-shrink-0 transition-transform" 
+                    style={{ 
+                      backgroundColor: meta.color,
+                      boxShadow: isActive ? `0 0 8px ${meta.color}60` : 'none'
+                    }}
                   />
                   <span className="truncate">{portfolio.label}</span>
                 </Link>
@@ -134,7 +146,7 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             })}
           </div>
 
-          <div className="mobile-nav-section mt-auto pt-4 border-t border-border">
+          <div className="mobile-nav-section mt-auto pt-6 border-t border-border">
             <Link
               href="/chat"
               onClick={onClose}
@@ -142,6 +154,7 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             >
               <ChatIcon />
               <span>AI Assistant</span>
+              <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">Beta</span>
             </Link>
             <Link
               href="/admin"
@@ -153,6 +166,22 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </Link>
           </div>
         </nav>
+        
+        {/* Footer */}
+        <div className="border-t border-border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              <span className="text-xs font-medium text-emerald-400">Live Updates</span>
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+        </div>
       </div>
     </>
   );

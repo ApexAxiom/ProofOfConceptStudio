@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import { getProxiedImageUrl } from "../lib/image-proxy";
 
 interface ProxiedImageProps {
@@ -9,6 +9,7 @@ interface ProxiedImageProps {
   className?: string;
   fallbackSrc?: string;
   loading?: "lazy" | "eager";
+  style?: CSSProperties;
 }
 
 // Re-export for convenience
@@ -24,6 +25,7 @@ export function ProxiedImage({
   className = "",
   fallbackSrc = "/placeholder.svg",
   loading = "lazy",
+  style,
 }: ProxiedImageProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +38,7 @@ export function ProxiedImage({
       alt={alt}
       className={`${className} ${isLoading ? "animate-pulse bg-muted" : ""}`}
       loading={loading}
+      style={style}
       onError={() => {
         if (!hasError) {
           setHasError(true);

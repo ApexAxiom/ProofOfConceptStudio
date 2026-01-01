@@ -32,7 +32,7 @@ function SettingsIcon() {
 function ActionIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 4.5h10.5m-10.5 5.25h10.5M6.75 15h3.75m-3.75 4.5h3.75M13.5 19.5l3-3-3-3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
     </svg>
   );
 }
@@ -43,32 +43,36 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-content">
-        {/* Logo / Brand */}
+        {/* Logo / Brand - Premium styling */}
         <div className="sidebar-header">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-bold text-sm">W</span>
+          <Link href="/" className="group flex items-center gap-4">
+            {/* Premium logo mark */}
+            <div className="relative h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center overflow-hidden">
+              <span className="font-display text-lg font-bold text-primary">◈</span>
+              {/* Subtle shine effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-foreground text-sm">Intelligence Hub</span>
-              <span className="text-[10px] text-muted-foreground">Market Intelligence</span>
+              <span className="font-display text-base font-semibold text-foreground tracking-tight">Intelligence</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">Market Hub</span>
             </div>
           </Link>
         </div>
 
         {/* Main Navigation */}
         <nav className="sidebar-nav">
+          {/* Primary nav items */}
           <div className="space-y-1">
             <Link
               href="/"
-              className={`sidebar-link ${pathname === "/" ? "active" : ""}`}
+              className={`sidebar-link relative ${pathname === "/" ? "active" : ""}`}
             >
               <DashboardIcon />
-              <span>Dashboard</span>
+              <span>Executive View</span>
             </Link>
             <Link
               href={`/actions/${REGION_LIST[0].slug}`}
-              className={`sidebar-link ${pathname?.startsWith("/actions") ? "active" : ""}`}
+              className={`sidebar-link relative ${pathname?.startsWith("/actions") ? "active" : ""}`}
             >
               <ActionIcon />
               <span>Action Center</span>
@@ -78,7 +82,8 @@ export function Sidebar() {
           {/* Categories Section - All 15 Portfolios */}
           <div className="sidebar-section">
             <div className="sidebar-section-header">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categories</span>
+              <span className="text-primary/60">◈</span>
+              <span>Categories</span>
             </div>
             <div className="sidebar-section-items">
               {PORTFOLIOS.map((portfolio) => {
@@ -95,9 +100,17 @@ export function Sidebar() {
                   >
                     <span 
                       className="sidebar-category-dot" 
-                      style={{ backgroundColor: meta.color }}
+                      style={{ 
+                        backgroundColor: meta.color,
+                        boxShadow: isActive ? `0 0 8px ${meta.color}60` : 'none'
+                      }}
                     />
                     <span className="truncate">{portfolio.label}</span>
+                    {isActive && (
+                      <svg className="h-3 w-3 ml-auto text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    )}
                   </Link>
                 );
               })}
@@ -105,17 +118,18 @@ export function Sidebar() {
           </div>
 
           {/* Utility Links */}
-          <div className="sidebar-section mt-auto pt-4 border-t border-border">
+          <div className="sidebar-section mt-auto pt-6 border-t border-border">
             <Link
               href="/chat"
-              className={`sidebar-link ${pathname === "/chat" ? "active" : ""}`}
+              className={`sidebar-link relative ${pathname === "/chat" ? "active" : ""}`}
             >
               <ChatIcon />
               <span>AI Assistant</span>
+              <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">Beta</span>
             </Link>
             <Link
               href="/admin"
-              className={`sidebar-link ${pathname === "/admin" ? "active" : ""}`}
+              className={`sidebar-link relative ${pathname === "/admin" ? "active" : ""}`}
             >
               <SettingsIcon />
               <span>Admin</span>
@@ -123,14 +137,19 @@ export function Sidebar() {
           </div>
         </nav>
 
-        {/* Live Status Footer */}
+        {/* Live Status Footer - Premium styling */}
         <div className="sidebar-footer">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+              </span>
+              <span className="text-xs font-medium text-emerald-400">Live Updates</span>
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </span>
-            <span className="text-muted-foreground">Live Updates</span>
           </div>
         </div>
       </div>
