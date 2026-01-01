@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { REGIONS, RegionSlug, runWindowForRegion, type RunWindow } from "@proof/shared";
+import { getCronSecret, REGIONS, RegionSlug, runWindowForRegion, type RunWindow, usingBootstrapCron } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
@@ -28,8 +28,12 @@ async function main() {
   // Load secrets from AWS Secrets Manager before starting the server
   await initializeSecrets();
 
+  if (usingBootstrapCron()) {
+    console.warn("WARN: Using BOOTSTRAP_CRON_SECRET because CRON_SECRET env var is not set. Set CRON_SECRET to override.");
+  }
+
   const PORT = Number(process.env.PORT ?? 8080);
-  const CRON_SECRET = process.env.CRON_SECRET ?? "";
+  const CRON_SECRET = getCronSecret();
 
   const fastify = Fastify({ logger: true });
 
@@ -54,6 +58,11 @@ async function main() {
   fastify.post("/cron", async (request, reply) => {
     if (!CRON_SECRET || request.headers.authorization !== `Bearer ${CRON_SECRET}`) {
       reply.code(401).send({ error: "unauthorized" });
+      return;
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      reply.code(500).send({ error: "OPENAI_API_KEY is not configured" });
       return;
     }
     const body = (request.body as any) || {};

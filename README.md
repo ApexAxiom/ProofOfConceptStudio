@@ -94,16 +94,16 @@ Use EventBridge Scheduler with region-specific times. POST to runner `/cron` wit
 
 ### GitHub Actions Daily Briefs Workflow
 
-The repository includes a GitHub Actions workflow (`.github/workflows/daily-briefs.yml`) that can trigger brief generation as a fallback or supplement to EventBridge. This workflow runs on a schedule and can also be triggered manually.
+The repository includes a GitHub Actions workflow (`.github/workflows/daily-briefs.yml`) that can trigger brief generation as a fallback or supplement to EventBridge. This workflow runs on a schedule and can also be triggered manually. If repository secrets are not configured, the workflow discovers the runner URL via AWS OIDC (using the same role as `apprunner-redeploy.yml`) and authenticates with an embedded `BOOTSTRAP_CRON_SECRET`. Configuring GitHub secrets overrides the bootstrap values, and setting `CRON_SECRET` / `ADMIN_TOKEN` environment variables in App Runner overrides the bootstraps for the services themselves.
 
-**Required GitHub Repository Secrets:**
+**GitHub Repository Secrets (recommended):**
 
 | Secret | Description | Example |
 |--------|-------------|---------|
-| `RUNNER_BASE_URL` | Full URL of the deployed runner service | `https://your-runner.awsapprunner.com` |
-| `CRON_SECRET` | Bearer token matching the runner's `CRON_SECRET` env var | `your-secure-random-token` |
+| `RUNNER_BASE_URL` | Full URL of the deployed runner service (overrides auto-discovery) | `https://your-runner.awsapprunner.com` |
+| `CRON_SECRET` | Bearer token matching the runner's `CRON_SECRET` env var (overrides bootstrap) | `your-secure-random-token` |
 
-**To configure these secrets:**
+**To configure these secrets (optional but preferred):**
 1. Go to your GitHub repository → Settings → Secrets and variables → Actions
 2. Click "New repository secret"
 3. Add `RUNNER_BASE_URL` with the URL of your deployed runner service

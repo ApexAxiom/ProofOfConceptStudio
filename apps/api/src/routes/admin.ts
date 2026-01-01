@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
-import { runWindowForRegion, RegionSlug } from "@proof/shared";
+import { getAdminToken, getCronSecret, runWindowForRegion, RegionSlug } from "@proof/shared";
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "";
+const ADMIN_TOKEN = getAdminToken();
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
 
 const adminRoutes: FastifyPluginAsync = async (fastify) => {
@@ -24,7 +24,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.CRON_SECRET}`,
+        Authorization: `Bearer ${getCronSecret()}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ runWindow, region })
