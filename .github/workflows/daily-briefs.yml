@@ -5,7 +5,7 @@ on:
   schedule:
     # APAC at 06:00 Australia/Perth (22:00 UTC prior day)
     - cron: '0 22 * * *'
-    # International at 06:00 America/Chicago
+    # International at 06:00 America/Chicago (covers both standard and DST)
     - cron: '0 11 * * *'
     - cron: '0 12 * * *'
 
@@ -33,6 +33,7 @@ jobs:
   generate-briefs:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: apac
@@ -54,13 +55,47 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "${{ matrix.cron }}" ]; then
             echo "run=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping job - schedule (${{ github.event.schedule }}) does not match matrix (${{ matrix.cron }})"
           else
             echo "run=true" >> $GITHUB_OUTPUT
+            echo "✅ Schedule matched or manual trigger - proceeding"
           fi
+
+      - name: Validate secrets
+        id: validate
+        if: steps.schedule.outputs.run == 'true'
+        run: |
+          ERRORS=""
+          
+          if [ -z "${{ secrets.RUNNER_BASE_URL }}" ]; then
+            ERRORS="${ERRORS}❌ RUNNER_BASE_URL secret is not configured\n"
+          else
+            echo "✅ RUNNER_BASE_URL is configured"
+          fi
+          
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            ERRORS="${ERRORS}❌ CRON_SECRET secret is not configured\n"
+          else
+            echo "✅ CRON_SECRET is configured"
+          fi
+          
+          if [ -n "$ERRORS" ]; then
+            echo -e "$ERRORS"
+            echo ""
+            echo "📋 Required GitHub Repository Secrets:"
+            echo "  - RUNNER_BASE_URL: URL of the runner service (e.g., https://your-runner.awsapprunner.com)"
+            echo "  - CRON_SECRET: Bearer token for authenticating to the runner /cron endpoint"
+            echo ""
+            echo "See README.md and infra/notes.md for configuration instructions."
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "valid=true" >> $GITHUB_OUTPUT
 
       - name: Configure run target
         id: target
-        if: steps.schedule.outputs.run == 'true'
+        if: steps.schedule.outputs.run == 'true' && steps.validate.outputs.valid == 'true'
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             WINDOW="${{ github.event.inputs.run_window }}"
@@ -80,35 +115,56 @@ jobs:
 
           echo "window=$WINDOW" >> $GITHUB_OUTPUT
           echo "regions=$REGIONS_JSON" >> $GITHUB_OUTPUT
+          echo "📊 Run Configuration:"
+          echo "  Window: $WINDOW"
+          echo "  Regions: $REGIONS_JSON"
 
       - name: Trigger brief generation
-        if: steps.schedule.outputs.run == 'true'
+        if: steps.schedule.outputs.run == 'true' && steps.validate.outputs.valid == 'true'
+        env:
+          RUNNER_URL: ${{ secrets.RUNNER_BASE_URL }}
+          CRON_TOKEN: ${{ secrets.CRON_SECRET }}
         run: |
           echo "🚀 Triggering ${{ steps.target.outputs.window }} briefs for ${{ steps.target.outputs.regions }}"
+          echo "   Target: ${RUNNER_URL}/cron"
 
           IS_MANUAL=${{ github.event_name == 'workflow_dispatch' }}
 
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ secrets.RUNNER_BASE_URL }}/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${RUNNER_URL}/cron" \
+            -H "Authorization: Bearer ${CRON_TOKEN}" \
             -H "Content-Type: application/json" \
+            --connect-timeout 30 \
+            --max-time 60 \
             -d "{\"runWindow\":\"${{ steps.target.outputs.window }}\",\"regions\":${{ steps.target.outputs.regions }},\"scheduled\":true,\"force\":$IS_MANUAL}")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
 
-          echo "Response: $BODY"
-          echo "HTTP Status: $HTTP_CODE"
+          echo "📡 Response: $BODY"
+          echo "📊 HTTP Status: $HTTP_CODE"
 
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo "✅ Successfully triggered brief generation"
           else
             echo "❌ Failed to trigger brief generation"
+            echo ""
+            echo "🔍 Troubleshooting:"
+            if [ "$HTTP_CODE" = "000" ]; then
+              echo "  - Connection failed. Check if RUNNER_BASE_URL is correct and the service is running."
+            elif [ "$HTTP_CODE" = "401" ]; then
+              echo "  - Authentication failed. Check if CRON_SECRET matches the runner's configuration."
+            elif [ "$HTTP_CODE" = "404" ]; then
+              echo "  - Endpoint not found. Ensure the runner service is deployed with /cron endpoint."
+            elif [ "$HTTP_CODE" -ge 500 ]; then
+              echo "  - Server error. Check runner service logs for details."
+            fi
             exit 1
           fi
 
       - name: Log completion
-        if: steps.schedule.outputs.run == 'true'
+        if: steps.schedule.outputs.run == 'true' && steps.validate.outputs.valid == 'true'
         run: |
           echo "📝 Completed ${{ steps.target.outputs.window }} run"
-          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "⏰ Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🏃 Run ID: ${{ github.run_id }}"

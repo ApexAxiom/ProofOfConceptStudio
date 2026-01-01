@@ -89,7 +89,7 @@ async function main() {
     const targetRegions = readyRegions.length > 0 ? readyRegions : regionRuns;
 
     if (body.scheduled === true && readyRegions.length === 0) {
-      fastify.log.warn({ runId, regions: regionRuns.map((r) => r.region) }, "outside window; forcing catch-up run");
+      fastify.log.warn({ runId, regions: regionRuns.map((r: RegionRun) => r.region) }, "outside window; forcing catch-up run");
     }
 
     reply.code(202).send({
