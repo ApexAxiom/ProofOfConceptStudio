@@ -59,20 +59,27 @@ function TickerItem({ commodity }: { commodity: CommodityPrice }) {
       href={getSourceUrl(commodity.symbol)}
       target="_blank"
       rel="noopener noreferrer"
-      className="ticker-item group flex items-center gap-3 px-4 py-2 whitespace-nowrap"
+      className="ticker-item group flex items-center gap-4 whitespace-nowrap"
     >
-      <span className="font-semibold text-foreground tracking-tight">{commodity.symbol}</span>
-      <span className="text-foreground/90 font-mono text-sm">
+      {/* Symbol */}
+      <span className="font-mono text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors tracking-wider">
+        {commodity.symbol}
+      </span>
+      
+      {/* Price */}
+      <span className="font-mono text-sm font-semibold text-foreground">
         ${formatPrice(commodity.price)}
       </span>
-      <span className={`ticker-change font-mono text-xs font-semibold px-1.5 py-0.5 rounded ${
+      
+      {/* Change */}
+      <span className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md transition-transform group-hover:scale-105 ${
         isPositive 
-          ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" 
-          : "text-red-600 dark:text-red-400 bg-red-500/10"
+          ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" 
+          : "text-red-400 bg-red-500/10 border border-red-500/20"
       }`}>
-        {isPositive ? "▲" : "▼"} {changeText}
+        <span className="mr-1">{isPositive ? "▲" : "▼"}</span>
+        {changeText}
       </span>
-      <span className="ticker-separator text-border/50">│</span>
     </a>
   );
 }
@@ -109,10 +116,14 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
 
   if (loading) {
     return (
-      <div className="ticker-container">
-        <div className="flex items-center gap-6 px-4">
+      <div className="ticker-container py-4">
+        <div className="flex items-center gap-8 px-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="h-6 w-28 animate-pulse rounded bg-muted/50" />
+            <div key={i} className="flex items-center gap-3">
+              <div className="h-4 w-16 animate-pulse rounded bg-muted/50" />
+              <div className="h-4 w-20 animate-pulse rounded bg-muted/50" />
+              <div className="h-5 w-16 animate-pulse rounded-md bg-muted/50" />
+            </div>
           ))}
         </div>
       </div>
@@ -120,39 +131,40 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {showHeader && (
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            {/* Premium header styling */}
+            <div className="flex items-center gap-2">
               <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
-              <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
+              <h3 className="font-display text-sm font-semibold text-foreground">Market Indices</h3>
             </div>
+            
             {(source === "live" || source === "yahoo") && (
-              <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+              <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-full">
                 <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                LIVE
+                Live
               </span>
             )}
           </div>
+          
           {lastUpdated && (
-            <span className="text-xs text-muted-foreground font-mono">
-              {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            <span className="text-[10px] font-mono text-muted-foreground">
+              Updated {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
         </div>
       )}
       
-      {/* Scrolling Ticker */}
+      {/* Scrolling Ticker - Premium styling */}
       <div 
         className="ticker-container"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        <div className="ticker-fade-left" />
-        <div className="ticker-fade-right" />
         <div 
           ref={tickerRef}
           className={`ticker-track ${isPaused ? 'paused' : ''}`}

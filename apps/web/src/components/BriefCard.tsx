@@ -38,7 +38,7 @@ function TimeAgo({ date }: { date: string }) {
   }
   
   return (
-    <span className="text-xs text-muted-foreground">
+    <span className="text-xs font-mono text-muted-foreground">
       {timeStr}
     </span>
   );
@@ -61,31 +61,40 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
   const keyMetrics = brief.selectedArticles?.[0]?.keyMetrics?.slice(0, 2);
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/30">
-      {/* Hero Image with Overlay */}
-      <div className="relative h-36 w-full overflow-hidden bg-muted">
+    <article 
+      className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:border-primary/40"
+      style={{
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)"
+      }}
+    >
+      {/* Hero Image with Premium Overlay */}
+      <div className="relative h-40 w-full overflow-hidden bg-secondary">
         <ProxiedImage
           src={heroImageUrl}
           alt={heroImageAlt}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
           loading="lazy"
+          style={{ filter: "brightness(0.9)" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         
-        {/* Edition Badge */}
-        <div className="absolute right-2 top-2">
-          <span className="rounded-md bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+        {/* Multi-layer gradient for depth */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/20" />
+        
+        {/* Edition Badge - Top right */}
+        <div className="absolute right-3 top-3">
+          <span className="rounded-md bg-black/60 backdrop-blur-sm px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-white border border-white/10">
             {brief.runWindow.toUpperCase()}
           </span>
         </div>
         
-        {/* Category Badge on Image */}
-        <div className="absolute bottom-2 left-2">
+        {/* Category Badge - Bottom left on image */}
+        <div className="absolute bottom-3 left-3">
           <span 
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm"
-            style={{ backgroundColor: `${categoryMeta.color}dd` }}
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm border border-white/10"
+            style={{ backgroundColor: `${categoryMeta.color}cc` }}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+            <span className="h-1.5 w-1.5 rounded-full bg-white/90 shadow-[0_0_4px_rgba(255,255,255,0.6)]" />
             {portfolioLabel(brief.portfolio)}
           </span>
         </div>
@@ -97,14 +106,14 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <TimeAgo date={brief.publishedAt} />
-            <span className="text-muted-foreground/50">•</span>
+            <span className="text-border">•</span>
             <span className="text-muted-foreground">{regionLabel(brief.region)}</span>
           </div>
-          <span className="text-muted-foreground">{sourceCount} sources</span>
+          <span className="font-mono text-muted-foreground">{sourceCount} src</span>
         </div>
         
-        {/* Title */}
-        <h3 className="text-sm font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+        {/* Title - Editorial serif */}
+        <h3 className="font-display text-base font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-primary transition-colors">
           {brief.title}
         </h3>
         
@@ -114,7 +123,7 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
             {keyMetrics.map((metric, idx) => (
               <span 
                 key={idx} 
-                className="inline-flex items-center rounded bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary"
               >
                 {metric}
               </span>
@@ -124,9 +133,9 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
         
         {/* Signals */}
         {signals.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {signals.slice(0, 2).map((signal) => (
-              <span key={signal.type} className={`${signal.className} text-[10px] px-2 py-0.5`}>
+              <span key={signal.type} className={`signal-chip text-[10px]`}>
                 {signal.label}
               </span>
             ))}
@@ -138,11 +147,11 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
           {summary}
         </p>
         
-        {/* Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-border mt-auto">
+        {/* Actions - Premium styling */}
+        <div className="flex items-center gap-2 pt-3 border-t border-border mt-auto">
           <Link
             href={`/brief/${brief.postId}`}
-            className="btn-primary flex-1 justify-center py-1.5 text-xs"
+            className="btn-primary flex-1 justify-center py-2 text-xs"
           >
             Read Brief
           </Link>
@@ -151,16 +160,24 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
               href={primaryArticleUrl}
               target="_blank"
               rel="noreferrer"
-              className="btn-secondary px-2.5 py-1.5"
+              className="btn-secondary px-3 py-2 group/icon"
               title="View primary source"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-4 w-4 transition-transform group-hover/icon:translate-x-0.5 group-hover/icon:-translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
               </svg>
             </a>
           )}
         </div>
       </div>
+      
+      {/* Hover glow effect */}
+      <div 
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+        style={{
+          background: `radial-gradient(600px circle at 50% 0%, ${categoryMeta.color}08, transparent 40%)`
+        }}
+      />
     </article>
   );
 }

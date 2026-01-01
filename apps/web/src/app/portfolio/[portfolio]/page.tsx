@@ -17,31 +17,41 @@ interface PortfolioDashboardProps {
   params: Promise<{ portfolio: string }>;
 }
 
-// Featured brief card - shows the latest brief prominently
+// Featured brief card - Premium styling
 function FeaturedBrief({ brief, region }: { brief: BriefPost; region: string }) {
   return (
     <Link 
       href={`/brief/${brief.postId}`}
-      className="block rounded-lg border border-border bg-card p-4 hover:border-primary/40 hover:shadow-sm transition-all"
+      className="group block rounded-xl border border-border bg-card p-5 hover:border-primary/40 transition-all duration-300"
+      style={{
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)"
+      }}
     >
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+        <span className="px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary font-semibold">
           {region === "au" ? "🇦🇺 APAC" : "🇺🇸 INTL"}
         </span>
-        <span>{new Date(brief.publishedAt).toLocaleDateString("en-US", { 
+        <span className="font-mono">{new Date(brief.publishedAt).toLocaleDateString("en-US", { 
           weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" 
         })}</span>
       </div>
-      <h3 className="text-lg font-semibold text-foreground leading-snug mb-2">{brief.title}</h3>
+      <h3 className="font-display text-lg font-bold text-foreground leading-snug mb-3 group-hover:text-primary transition-colors">
+        {brief.title}
+      </h3>
       {brief.summary && (
-        <p className="text-sm text-muted-foreground line-clamp-3">{brief.summary}</p>
+        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">{brief.summary}</p>
       )}
-      <div className="mt-3 text-sm text-primary font-medium">Read full brief →</div>
+      <div className="mt-4 flex items-center gap-2 text-sm text-primary font-semibold">
+        Read full brief
+        <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+        </svg>
+      </div>
     </Link>
   );
 }
 
-// Source card component
+// Source card component - Premium styling
 function SourceCard({ source }: { source: PortfolioSource }) {
   const regionLabel = source.region === "apac" ? "🌏 APAC" : source.region === "intl" ? "🌎 INTL" : "🌐 Global";
   
@@ -50,13 +60,13 @@ function SourceCard({ source }: { source: PortfolioSource }) {
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-sm group"
+      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-border bg-card hover:bg-secondary/50 hover:border-primary/30 transition-all duration-200 text-sm"
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground">{regionLabel}</span>
-        <span className="font-medium text-foreground truncate">{source.name}</span>
+        <span className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{source.name}</span>
       </div>
-      <svg className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <svg className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
       </svg>
     </a>
@@ -72,8 +82,11 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-2">Portfolio Not Found</h2>
-          <p className="text-muted-foreground mb-4">The portfolio "{portfolio}" does not exist.</p>
+          <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+            <span className="text-2xl">🔍</span>
+          </div>
+          <h2 className="font-display text-xl font-bold text-foreground mb-2">Portfolio Not Found</h2>
+          <p className="text-muted-foreground mb-6">The portfolio &ldquo;{portfolio}&rdquo; does not exist.</p>
           <Link href="/" className="btn-primary">Back to Dashboard</Link>
         </div>
       </div>
@@ -104,25 +117,38 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
     .slice(0, 20);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-10">
+      {/* Header - Premium editorial styling */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-            <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
-            <span>/</span>
-            <span className="text-foreground">{categoryMeta.label}</span>
-            <span>/</span>
-            <span className="text-foreground">{portfolioLabel(portfolio)}</span>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <Link href="/" className="hover:text-primary transition-colors">Dashboard</Link>
+            <span className="text-border">/</span>
+            <span>{categoryMeta.label}</span>
+            <span className="text-border">/</span>
+            <span className="text-foreground font-medium">{portfolioLabel(portfolio)}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: categoryMeta.color }} />
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">{portfolioLabel(portfolio)}</h1>
+          
+          {/* Title with category indicator */}
+          <div className="flex items-center gap-3">
+            <span 
+              className="h-3 w-3 rounded-full" 
+              style={{ 
+                backgroundColor: categoryMeta.color,
+                boxShadow: `0 0 12px ${categoryMeta.color}50`
+              }} 
+            />
+            <h1 className="font-display text-2xl font-bold text-foreground tracking-tight sm:text-3xl">
+              {portfolioLabel(portfolio)}
+            </h1>
           </div>
+          
           {portfolioDef.description && (
-            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{portfolioDef.description}</p>
+            <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">{portfolioDef.description}</p>
           )}
         </div>
+        
         <div className="flex items-center gap-2">
           <Link href="/chat" className="btn-secondary text-sm">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -133,22 +159,20 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
         </div>
       </div>
 
-      {/* TODAY'S INTELLIGENCE BRIEFS - Featured at top */}
-      <div className="space-y-4">
+      {/* TODAY'S INTELLIGENCE BRIEFS - Featured section */}
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h2 className="text-lg font-semibold text-foreground">Today's Intelligence Briefs</h2>
+          <div className="flex items-center gap-3">
+            <div className="accent-line" />
+            <h2 className="font-display text-lg font-bold text-foreground">Today&apos;s Intelligence Briefs</h2>
           </div>
-          <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary font-medium">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
             Updated {latestApacBrief || latestIntlBrief ? "today" : "awaiting first run"}
           </span>
         </div>
 
         {(latestApacBrief || latestIntlBrief) ? (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             {latestApacBrief && (
               <FeaturedBrief brief={latestApacBrief} region="au" />
             )}
@@ -157,84 +181,89 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
             )}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
-            <svg className="h-12 w-12 text-muted-foreground mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h4 className="text-base font-semibold text-foreground mb-1">Intelligence briefs coming soon</h4>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Your dedicated Category Management AI Agent is analyzing sources and will publish the first daily brief shortly.
+          <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-10 text-center">
+            <div className="w-14 h-14 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+              <svg className="h-7 w-7 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h4 className="font-display text-base font-semibold text-foreground mb-2">Intelligence briefs coming soon</h4>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Your dedicated Category Management AI Agent is analyzing sources and will publish the first daily brief shortly
               Briefs are generated daily at 06:00 local time for each region.
             </p>
           </div>
         )}
       </div>
 
-      {/* Market Indices */}
-      <div className="rounded-lg border border-border bg-card p-4">
+      {/* Market Indices - Premium card */}
+      <div className="rounded-xl border border-border bg-card p-5">
         <PortfolioMarketTicker portfolio={portfolio} />
       </div>
 
       {/* Brief History */}
       {allBriefs.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Brief History</h2>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="accent-line" />
+            <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">Brief History</h2>
+          </div>
           <BriefsTable briefs={allBriefs} showRegion={true} />
         </div>
       )}
 
-      {/* Sources Grid */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-foreground">Intelligence Sources</h2>
-        
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* APAC Sources */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🌏</span>
-              <h3 className="text-sm font-medium text-foreground">APAC Sources</h3>
-              <span className="text-xs text-muted-foreground">({apacSources.length + globalSources.length})</span>
-            </div>
-            <div className="space-y-1.5">
-              {[...globalSources, ...apacSources].map((source) => (
-                <SourceCard key={source.url} source={source} />
-              ))}
-              {apacSources.length === 0 && globalSources.length === 0 && (
-                <p className="text-sm text-muted-foreground py-2">No APAC sources configured</p>
-              )}
-            </div>
-          </div>
+      {/* Sources Grid - Editorial divider */}
+      <div className="section-divider">
+        <h2>Intelligence Sources</h2>
+      </div>
 
-          {/* International Sources */}
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* APAC Sources */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🌏</span>
+            <h3 className="font-display text-sm font-semibold text-foreground">APAC Sources</h3>
+            <span className="text-xs font-mono text-muted-foreground">({apacSources.length + globalSources.length})</span>
+          </div>
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🌎</span>
-              <h3 className="text-sm font-medium text-foreground">International Sources</h3>
-              <span className="text-xs text-muted-foreground">({intlSources.length + globalSources.length})</span>
-            </div>
-            <div className="space-y-1.5">
-              {[...globalSources, ...intlSources].map((source) => (
-                <SourceCard key={`intl-${source.url}`} source={source} />
-              ))}
-              {intlSources.length === 0 && globalSources.length === 0 && (
-                <p className="text-sm text-muted-foreground py-2">No international sources configured</p>
-              )}
-            </div>
+            {[...globalSources, ...apacSources].map((source) => (
+              <SourceCard key={source.url} source={source} />
+            ))}
+            {apacSources.length === 0 && globalSources.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">No APAC sources configured</p>
+            )}
+          </div>
+        </div>
+
+        {/* International Sources */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🌎</span>
+            <h3 className="font-display text-sm font-semibold text-foreground">International Sources</h3>
+            <span className="text-xs font-mono text-muted-foreground">({intlSources.length + globalSources.length})</span>
+          </div>
+          <div className="space-y-2">
+            {[...globalSources, ...intlSources].map((source) => (
+              <SourceCard key={`intl-${source.url}`} source={source} />
+            ))}
+            {intlSources.length === 0 && globalSources.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">No international sources configured</p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Category Navigation */}
-      <div className="pt-4 border-t border-border">
-        <div className="flex items-center justify-between">
+      {/* Category Navigation - Premium footer */}
+      <div className="pt-6 border-t border-border">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <span className="text-sm text-muted-foreground">
-            Part of {categoryMeta.label} category
+            Part of <span className="font-medium text-foreground">{categoryMeta.label}</span> category
           </span>
           <div className="flex gap-2">
-            <Link href={`/au/${portfolio}`} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted/50 transition-colors">
+            <Link href={`/au/${portfolio}`} className="btn-ghost text-xs py-1.5">
               🇦🇺 AU Region
             </Link>
-            <Link href={`/us-mx-la-lng/${portfolio}`} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted/50 transition-colors">
+            <Link href={`/us-mx-la-lng/${portfolio}`} className="btn-ghost text-xs py-1.5">
               🇺🇸 US Region
             </Link>
           </div>
