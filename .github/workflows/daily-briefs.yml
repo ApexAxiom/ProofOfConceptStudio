@@ -61,8 +61,9 @@ jobs:
       - name: Honor schedule alignment
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        if: ${{ !secrets.RUNNER_BASE_URL }}
+      - name: Configure AWS credentials (fallback)
+        id: aws-creds
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: us-east-1
@@ -74,16 +75,16 @@ jobs:
         run: |
           if [ -n "${{ secrets.RUNNER_BASE_URL }}" ]; then
             echo "url=${{ secrets.RUNNER_BASE_URL }}" >> $GITHUB_OUTPUT
-            echo "Using RUNNER_BASE_URL from secrets"
+            echo "✅ Using RUNNER_BASE_URL from secrets"
           else
             echo "Discovering runner URL via AWS..."
             RUNNER_ARN=$(aws apprunner list-services \
               --region us-east-1 \
               --query "ServiceSummaryList[?ServiceName=='pocstudio-runner'].ServiceArn | [0]" \
-              --output text)
+              --output text 2>/dev/null || echo "")
             
             if [ -z "$RUNNER_ARN" ] || [ "$RUNNER_ARN" == "None" ]; then
-              echo "Error: Could not find pocstudio-runner service"
+              echo "❌ Error: Could not find pocstudio-runner service"
               exit 1
             fi
             
@@ -91,15 +92,15 @@ jobs:
               --region us-east-1 \
               --service-arn "$RUNNER_ARN" \
               --query "Service.ServiceUrl" \
-              --output text)
+              --output text 2>/dev/null || echo "")
             
             if [ -z "$RUNNER_URL" ] || [ "$RUNNER_URL" == "None" ]; then
-              echo "Error: Could not get service URL for runner"
+              echo "❌ Error: Could not get service URL for runner"
               exit 1
             fi
             
             echo "url=https://$RUNNER_URL" >> $GITHUB_OUTPUT
-            echo "Discovered runner URL: https://$RUNNER_URL"
+            echo "✅ Discovered runner URL: https://$RUNNER_URL"
           fi
 
       - name: Configure run target
