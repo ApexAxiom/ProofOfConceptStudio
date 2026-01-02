@@ -23,170 +23,61 @@ on:
           - us-mx-la-lng
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
-  generate-briefs:
+  apac:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 22 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: Set up job
-        id: setup
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            # Manual trigger - use inputs
-            RUN_WINDOW="${{ github.event.inputs.run_window }}"
-            REGION="${{ github.event.inputs.region }}"
-            echo "runWindow=$RUN_WINDOW" >> $GITHUB_OUTPUT
-            # Output regions as properly escaped JSON array
-            echo "regions=[\"$REGION\"]" >> $GITHUB_OUTPUT
-            echo "label=$RUN_WINDOW-$REGION" >> $GITHUB_OUTPUT
-          else
-            # Scheduled trigger - use schedule
-            echo "schedule=${{ github.event.schedule }}" >> $GITHUB_OUTPUT
-            if [ "${{ github.event.schedule }}" == "0 22 * * *" ]; then
-              echo "runWindow=apac" >> $GITHUB_OUTPUT
-              echo "regions=[\"au\"]" >> $GITHUB_OUTPUT
-              echo "label=apac" >> $GITHUB_OUTPUT
-            else
-              echo "runWindow=international" >> $GITHUB_OUTPUT
-              echo "regions=[\"us-mx-la-lng\"]" >> $GITHUB_OUTPUT
-              if [ "${{ github.event.schedule }}" == "0 11 * * *" ]; then
-                echo "label=international-early" >> $GITHUB_OUTPUT
-              else
-                echo "label=international-late" >> $GITHUB_OUTPUT
-              fi
-            fi
-          fi
-
-      - name: Honor schedule alignment
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (fallback)
-        id: aws-creds
-        continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: us-east-1
-          role-to-assume: arn:aws:iam::405894865970:role/GitHubActions-AppRunnerDeploy-ProofOfConceptStudio
-
-      - name: Resolve runner base URL
-        id: runner-url
+      - name: Trigger APAC brief generation
         shell: bash
         run: |
-          if [ -n "${{ secrets.RUNNER_BASE_URL }}" ]; then
-            echo "url=${{ secrets.RUNNER_BASE_URL }}" >> $GITHUB_OUTPUT
-            echo "✅ Using RUNNER_BASE_URL from secrets"
-          else
-            echo "Discovering runner URL via AWS..."
-            RUNNER_ARN=$(aws apprunner list-services \
-              --region us-east-1 \
-              --query "ServiceSummaryList[?ServiceName=='pocstudio-runner'].ServiceArn | [0]" \
-              --output text 2>/dev/null || echo "")
-            
-            if [ -z "$RUNNER_ARN" ] || [ "$RUNNER_ARN" == "None" ]; then
-              echo "❌ Error: Could not find pocstudio-runner service"
-              exit 1
-            fi
-            
-            RUNNER_URL=$(aws apprunner describe-service \
-              --region us-east-1 \
-              --service-arn "$RUNNER_ARN" \
-              --query "Service.ServiceUrl" \
-              --output text 2>/dev/null || echo "")
-            
-            if [ -z "$RUNNER_URL" ] || [ "$RUNNER_URL" == "None" ]; then
-              echo "❌ Error: Could not get service URL for runner"
-              exit 1
-            fi
-            
-            echo "url=https://$RUNNER_URL" >> $GITHUB_OUTPUT
-            echo "✅ Discovered runner URL: https://$RUNNER_URL"
-          fi
-
-      - name: Configure run target
-        id: run-target
-        shell: bash
-        run: |
-          CRON_SECRET="${{ secrets.CRON_SECRET }}"
-          if [ -n "$CRON_SECRET" ]; then
-            echo "Using CRON_SECRET from GitHub secrets"
-          else
-            echo "Attempting to fetch CRON_SECRET from AWS Secrets Manager..."
-            SECRET_ARN="arn:aws:secretsmanager:us-east-1:405894865970:secret:daily-briefs/app-secrets-hFtQFU"
-            SECRET_VALUE=$(aws secretsmanager get-secret-value \
-              --region us-east-1 \
-              --secret-id "$SECRET_ARN" \
-              --query "SecretString" \
-              --output text 2>/dev/null || echo "")
-            
-            if [ -n "$SECRET_VALUE" ] && [ "$SECRET_VALUE" != "None" ]; then
-              CRON_SECRET=$(echo "$SECRET_VALUE" | jq -r '.CRON_SECRET // empty' 2>/dev/null || echo "")
-              if [ -n "$CRON_SECRET" ]; then
-                echo "✅ Fetched CRON_SECRET from AWS Secrets Manager"
-              else
-                echo "⚠️  Could not extract CRON_SECRET from Secrets Manager, using bootstrap"
-                CRON_SECRET="gP9etqOVYJEIrvY0SGWGQSarMrdqZ6ydAX1n73Fq8fw"
-              fi
-            else
-              echo "⚠️  Could not access Secrets Manager, using bootstrap CRON_SECRET"
-              CRON_SECRET="gP9etqOVYJEIrvY0SGWGQSarMrdqZ6ydAX1n73Fq8fw"
-            fi
-          fi
-          echo "secret=$CRON_SECRET" >> $GITHUB_OUTPUT
-
-      - name: Preflight runner health
-        run: |
-          RUNNER_URL="${{ steps.runner-url.outputs.url }}"
-          echo "Checking runner health at $RUNNER_URL/health"
-          curl -f "$RUNNER_URL/health" || (echo "Health check failed" && exit 1)
-
-      - name: Trigger brief generation
-        run: |
-          RUNNER_URL="${{ steps.runner-url.outputs.url }}"
-          CRON_SECRET="${{ steps.run-target.outputs.secret }}"
-          RUN_WINDOW="${{ steps.setup.outputs.runWindow }}"
-          REGIONS_JSON="${{ steps.setup.outputs.regions }}"
-          
-          echo "Triggering ${{ steps.setup.outputs.label }} run..."
-          echo "URL: $RUNNER_URL/cron"
-          echo "Run Window: $RUN_WINDOW"
-          echo "Regions: $REGIONS_JSON"
-          
-          # Build JSON payload - REGIONS_JSON is like ["au"] but quotes may be stripped
-          # Ensure regions is properly quoted by using jq or manual construction
-          # REGIONS_JSON should be ["au"] or ["us-mx-la-lng"]
-          if [[ "$REGIONS_JSON" =~ ^\[.*\]$ ]]; then
-            # Already looks like JSON array, use as-is but ensure quotes are preserved
-            PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":$REGIONS_JSON,\"scheduled\":true}"
-          else
-            # Fallback: wrap in array
-            PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":[\"$REGIONS_JSON\"],\"scheduled\":true}"
-          fi
-          
-          echo "Payload: $PAYLOAD"
-          
-          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "$RUNNER_URL/cron" \
-            -H "Authorization: Bearer $CRON_SECRET" \
+          set -euo pipefail
+          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-          BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-          
-          echo "Response HTTP Code: $HTTP_CODE"
-          echo "Response Body: $BODY"
-          
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "✅ Successfully triggered brief generation"
-            echo "$BODY" | jq '.' || echo "$BODY"
-          else
-            echo "❌ Failed to trigger brief generation"
-            echo "$BODY"
-            exit 1
-          fi
+            -d '{"runWindow":"apac","regions":["au"],"scheduled":true}'
 
-      - name: Log completion
-        if: success()
+  international-11utc:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 11 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger International brief generation (11:00 UTC)
+        shell: bash
         run: |
-          echo "✅ Daily brief run completed successfully for ${{ steps.setup.outputs.label }}"
+          set -euo pipefail
+          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+
+  international-12utc:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 12 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger International brief generation (12:00 UTC)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+
+  manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger brief generation (manual)
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_WINDOW="${{ inputs.run_window }}"
+          REGION="${{ inputs.region }}"
+          PAYLOAD="$(jq -nc --arg runWindow "$RUN_WINDOW" --arg region "$REGION" '{runWindow: $runWindow, regions: [$region], scheduled: true}')"
+
+          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
