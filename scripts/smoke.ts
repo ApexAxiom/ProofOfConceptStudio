@@ -1,6 +1,8 @@
+import { getCronSecret } from "@proof/shared";
+
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
-const CRON_SECRET = process.env.CRON_SECRET ?? "";
+const CRON_SECRET = getCronSecret();
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

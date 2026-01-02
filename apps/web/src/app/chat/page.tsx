@@ -38,9 +38,22 @@ type AgentSummary = {
   feedsByRegion: Record<string, AgentFeed[]>;
 };
 
-export default function ChatPage() {
-  const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
-  const [portfolio, setPortfolio] = useState<string>(PORTFOLIOS[0].slug);
+export default function ChatPage({
+  searchParams
+}: {
+  searchParams?: { region?: string; portfolio?: string };
+}) {
+  const initialRegion =
+    searchParams?.region && REGION_LIST.some((r) => r.slug === searchParams.region)
+      ? searchParams.region
+      : REGION_LIST[0].slug;
+  const initialPortfolio =
+    searchParams?.portfolio && PORTFOLIOS.some((p) => p.slug === searchParams.portfolio)
+      ? searchParams.portfolio
+      : PORTFOLIOS[0].slug;
+
+  const [region, setRegion] = useState<string>(initialRegion);
+  const [portfolio, setPortfolio] = useState<string>(initialPortfolio);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);

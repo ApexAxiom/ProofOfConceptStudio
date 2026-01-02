@@ -4,18 +4,20 @@ import { IngestResult } from "../ingest/fetch.js";
 import { documentClient as client, tableName } from "../db/client.js";
 
 /**
- * Publishes a brief to DynamoDB with all article data preserved
+ * Builds the DynamoDB item for a brief while preserving article metadata.
  */
-export async function publishBrief(
+export function buildDynamoItem(
   brief: BriefPost,
   ingestResult: IngestResult,
   runId: string
 ) {
-  const item = {
+  const ttlSeconds = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180; // ~6 months retention
+
+  return {
     // Primary key
     PK: `POST#${brief.postId}`,
     SK: `DATE#${brief.publishedAt}`,
-    
+
     // GSI keys for querying
     GSI1PK: `PORTFOLIO#${brief.portfolio}`,
     GSI1SK: `DATE#${brief.publishedAt}`,
@@ -23,21 +25,23 @@ export async function publishBrief(
     GSI2SK: `DATE#${brief.publishedAt}`,
     GSI3PK: `STATUS#${brief.status}`,
     GSI3SK: `DATE#${brief.publishedAt}`,
-    
+
     // Brief data
     ...brief,
-    
+
     // Ensure selectedArticles is properly stored
     selectedArticles: brief.selectedArticles?.map((article) => ({
       title: article.title,
       url: article.url,
       briefContent: article.briefContent,
+      categoryImportance: article.categoryImportance,
+      keyMetrics: article.keyMetrics,
       imageUrl: article.imageUrl,
       imageAlt: article.imageAlt,
       sourceName: article.sourceName,
       publishedAt: article.publishedAt
     })),
-    
+
     // Ingestion metadata
     scannedSources: ingestResult.scannedSources,
     metrics: {
@@ -45,11 +49,24 @@ export async function publishBrief(
       extractedCount: ingestResult.metrics?.extractedCount ?? 0,
       dedupedCount: ingestResult.metrics?.dedupedCount ?? 0
     },
-    
+
     // Run tracking
-    runId
+    runId,
+
+    // Data retention
+    ttl: ttlSeconds
   };
-  
+}
+
+/**
+ * Publishes a brief to DynamoDB with all article data preserved
+ */
+export async function publishBrief(
+  brief: BriefPost,
+  ingestResult: IngestResult,
+  runId: string
+) {
+  const item = buildDynamoItem(brief, ingestResult, runId);
   await client.send(new PutCommand({ TableName: tableName, Item: item }));
 }
 

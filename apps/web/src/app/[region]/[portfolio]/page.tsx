@@ -5,6 +5,12 @@ import { LiveMarketTicker } from "../../../components/LiveMarketTicker";
 import { RegionSlug, portfolioLabel, REGIONS, findPortfolio } from "@proof/shared";
 import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
+import { CmTodayPanel } from "../../../components/cm/CmTodayPanel";
+import { CmSupplierRadar } from "../../../components/cm/CmSupplierRadar";
+import { CmNegotiationLevers } from "../../../components/cm/CmNegotiationLevers";
+import { CmDeltaCard } from "../../../components/cm/CmDeltaCard";
+import { CmMarketNotesCard } from "../../../components/cm/CmMarketNotesCard";
+import { CmQuickLinks } from "../../../components/cm/CmQuickLinks";
 
 export default async function PortfolioPage({ params }: { params: Promise<{ region: RegionSlug; portfolio: string }> }) {
   const { region, portfolio } = await params;
@@ -12,6 +18,7 @@ export default async function PortfolioPage({ params }: { params: Promise<{ regi
   const portfolioData = findPortfolio(portfolio);
   const category = categoryForPortfolio(portfolio);
   const meta = CATEGORY_META[category];
+  const latestBrief = briefs[0];
 
   return (
     <div className="space-y-6">
@@ -37,7 +44,29 @@ export default async function PortfolioPage({ params }: { params: Promise<{ regi
           <span className="text-muted-foreground">
             <span className="font-semibold text-foreground">{briefs.length}</span> briefs
           </span>
-          <Link href="/chat" className="btn-secondary text-sm">Ask AI</Link>
+          <Link href={`/chat?region=${region}&portfolio=${portfolio}`} className="btn-secondary text-sm">Ask AI</Link>
+        </div>
+      </div>
+
+      {/* Category Manager Workbench */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m2-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 className="text-sm font-semibold text-foreground">Category Manager Workbench</h2>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <CmTodayPanel brief={latestBrief} />
+            <CmSupplierRadar brief={latestBrief} />
+            <CmNegotiationLevers brief={latestBrief} />
+            <CmMarketNotesCard brief={latestBrief} />
+            <CmDeltaCard brief={latestBrief} />
+          </div>
+          <div className="space-y-4 lg:col-span-1">
+            <CmQuickLinks brief={latestBrief} region={region} portfolio={portfolio} />
+          </div>
         </div>
       </div>
 

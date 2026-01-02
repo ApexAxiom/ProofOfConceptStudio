@@ -1,4 +1,4 @@
-import { AgentConfig, RegionSlug, keywordsForPortfolio } from "@proof/shared";
+import { AgentConfig, AgentFeed, RegionSlug, keywordsForPortfolio, categoryForPortfolio } from "@proof/shared";
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
@@ -18,33 +18,104 @@ export interface ArticleDetail extends ArticleCandidate {
   ogImageUrl?: string;
 }
 
+function computeKeywordScore(text: string, categoryKeywords: string[], generalKeywords: string[]): number {
+  if (!text) return 0;
+  const haystack = text.toLowerCase();
+  const categoryScore = categoryKeywords.reduce((acc, kw) => (haystack.includes(kw) ? acc + 2 : acc), 0);
+  const generalScore = generalKeywords.reduce((acc, kw) => (haystack.includes(kw) ? acc + 1 : acc), 0);
+  return categoryScore + generalScore;
+}
+
+const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
+  "us-mx-la-lng": [
+    { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
+    { name: "World Oil", url: "https://www.worldoil.com/rss/news", type: "rss" },
+    { name: "Oil & Gas Journal", url: "https://www.ogj.com/rss", type: "rss" },
+    { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
+    { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
+    { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
+  ],
+  "au": [
+    { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
+    { name: "Australian Mining", url: "https://www.australianmining.com.au/feed/", type: "rss" },
+    { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
+    { name: "Process Online", url: "https://www.processonline.com.au/feed/", type: "rss" },
+    { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" },
+    { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
+  ]
+};
+
+const FREIGHT_FALLBACK: AgentFeed[] = [
+  { name: "FreightWaves", url: "https://www.freightwaves.com/news/feed", type: "rss" },
+  { name: "Supply Chain Dive", url: "https://www.supplychaindive.com/feeds/news/", type: "rss" },
+  { name: "The Loadstar", url: "https://theloadstar.com/feed/", type: "rss" }
+];
+
+const CYBER_FALLBACK: AgentFeed[] = [
+  { name: "KrebsOnSecurity", url: "https://krebsonsecurity.com/feed/", type: "rss" },
+  { name: "Dark Reading", url: "https://www.darkreading.com/rss.xml", type: "rss" },
+  { name: "Ars Technica Security", url: "https://feeds.arstechnica.com/arstechnica/security", type: "rss" }
+];
+
+const STEEL_FALLBACK: AgentFeed[] = [
+  { name: "Mining Weekly", url: "https://www.miningweekly.com/page/rss", type: "rss" },
+  { name: "MetalMiner", url: "https://agmetalminer.com/metal-prices/feed/", type: "rss" },
+  { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" }
+];
+
+const SERVICES_FALLBACK: AgentFeed[] = [
+  { name: "Consultancy.org", url: "https://www.consultancy.org/news/rss", type: "rss" },
+  { name: "Harvard Business Review", url: "https://hbr.org/feed", type: "rss" }
+];
+
+const FACILITY_FALLBACK: AgentFeed[] = [
+  { name: "FacilitiesNet", url: "https://www.facilitiesnet.com/rss/maintenancenews.aspx", type: "rss" },
+  { name: "Buildings.com", url: "https://www.buildings.com/rss.xml", type: "rss" }
+];
+
+function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
+  const category = categoryForPortfolio(portfolioSlug);
+  if (category === "energy") {
+    return ENERGY_FALLBACK[region] ?? [];
+  }
+  if (category === "freight") return FREIGHT_FALLBACK;
+  if (category === "cyber") return CYBER_FALLBACK;
+  if (category === "steel") return STEEL_FALLBACK;
+  if (category === "services") return SERVICES_FALLBACK;
+  if (category === "facility") return FACILITY_FALLBACK;
+  return [];
+}
+
 /**
- * Ingests articles from all feeds for an agent in a specific region.
- * Returns enriched article details with preserved exact URLs.
+ * Fetches articles from a list of feeds
  */
-export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
-  const feeds = agent.feedsByRegion[region] ?? [];
+async function fetchFromFeeds(
+  feeds: AgentFeed[],
+  maxArticles: number,
+  attemptedFeeds: Set<string>
+): Promise<ArticleCandidate[]> {
   const collected: ArticleCandidate[] = [];
-  
+
   for (const feed of feeds) {
+    attemptedFeeds.add(feed.url);
     try {
       if (feed.type === "rss") {
         const items = await fetchRss(feed);
         collected.push(
-          ...items.slice(0, agent.maxArticlesToConsider).map((i: any) => ({
+          ...items.slice(0, maxArticles).map((i: any) => ({
             title: i.title,
             url: i.link,
             published: i.pubDate,
-            sourceName: feed.name // Preserve the source name from feed config
+            sourceName: feed.name
           }))
         );
       } else {
-        const links = await shallowScrape(feed.url, agent.maxArticlesToConsider);
+        const links = await shallowScrape(feed.url, maxArticles);
         collected.push(
           ...links.map((l) => ({
             title: l.title,
             url: l.url,
-            sourceName: feed.name // Preserve the source name from feed config
+            sourceName: feed.name
           }))
         );
       }
@@ -53,17 +124,57 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
     }
   }
   
+  return collected;
+}
+
+/**
+ * Ingests articles from all feeds for an agent in a specific region.
+ * Returns enriched article details with preserved exact URLs.
+ * Includes fallback feeds when primary feeds don't provide enough articles.
+ */
+export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
+  const feeds = agent.feedsByRegion[region] ?? [];
+  const minArticlesNeeded = Math.max(agent.articlesPerRun ?? 3, 3) * 2; // Need at least 2x required articles
+  
+  // Step 1: Fetch from primary feeds
+  const attemptedFeeds = new Set<string>();
+  let collected = await fetchFromFeeds(feeds, agent.maxArticlesToConsider, attemptedFeeds);
+  console.log(`[${agent.id}/${region}] Primary feeds returned ${collected.length} articles`);
+  
+  // Step 2: If not enough articles, use fallback feeds
+  if (collected.length < minArticlesNeeded) {
+    console.log(`[${agent.id}/${region}] Not enough articles (${collected.length}), trying fallback feeds...`);
+    const fallbackFeeds = getFallbackFeeds(region, agent.portfolio);
+    
+    // Filter out feeds we already tried
+    const primaryUrls = new Set(feeds.map((f) => f.url));
+    const newFallbacks = fallbackFeeds.filter((f) => !primaryUrls.has(f.url));
+    
+    if (newFallbacks.length > 0) {
+      const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider, attemptedFeeds);
+      collected = [...collected, ...fallbackArticles];
+      console.log(`[${agent.id}/${region}] After fallback feeds: ${collected.length} articles`);
+    }
+  }
+  
   // Deduplicate articles by URL
   const deduped = dedupeArticles(collected);
 
   // Remove articles used in recent runs to keep briefs fresh
   const lookbackDays = agent.lookbackDays ?? 7;
-  const usedUrls = await getRecentlyUsedUrls({
-    portfolio: agent.portfolio,
-    region,
-    lookbackDays,
-    limit: 200
-  });
+  let usedUrls: Set<string>;
+  
+  try {
+    usedUrls = await getRecentlyUsedUrls({
+      portfolio: agent.portfolio,
+      region,
+      lookbackDays,
+      limit: 200
+    });
+  } catch (err) {
+    console.warn(`[${agent.id}/${region}] Failed to fetch used URLs, continuing without filter:`, err);
+    usedUrls = new Set();
+  }
 
   const filteredByHistory: ArticleCandidate[] = [];
   const seenNormalized = new Set<string>();
@@ -78,7 +189,12 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
 
   const minNeeded = Math.max(agent.articlesPerRun ?? 3, 1) * 2;
   let dedupeSafeList = filteredByHistory;
+  
+  // If not enough fresh articles, progressively relax the history filter
   if (dedupeSafeList.length < minNeeded) {
+    console.log(`[${agent.id}/${region}] Only ${dedupeSafeList.length} fresh articles, allowing some reuse...`);
+    
+    // First pass: add back articles from the oldest half of the lookback period
     for (const candidate of deduped) {
       const normalized = normalizeForDedupe(candidate.url);
       if (normalized && seenNormalized.has(normalized)) continue;
@@ -86,22 +202,30 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
       if (normalized) seenNormalized.add(normalized);
       if (dedupeSafeList.length >= minNeeded) break;
     }
+    
+    console.log(`[${agent.id}/${region}] After relaxing filter: ${dedupeSafeList.length} articles`);
   }
   
+  // General O&G keywords that apply to all categories - used as fallback
+  const generalKeywords = [
+    "oil", "gas", "lng", "drilling", "offshore", "energy", "petroleum",
+    "pipeline", "refinery", "production", "exploration", "well", "rig",
+    "subsea", "upstream", "downstream", "midstream", "supplier", "contract"
+  ];
+  
   // Score articles by keyword relevance
-  const keywords = keywordsForPortfolio(agent.portfolio).map((k) => k.toLowerCase());
+  const categoryKeywords = keywordsForPortfolio(agent.portfolio).map((k) => k.toLowerCase());
+
   const scored = dedupeSafeList
-    .map((item) => ({
-      ...item,
-      score: keywords.reduce((acc, kw) => {
-        const hay = `${item.title} ${item.url}`.toLowerCase();
-        return hay.includes(kw) ? acc + 1 : acc;
-      }, 0)
-    }))
+    .map((item) => {
+      const hay = `${item.title} ${item.url}`;
+      const score = computeKeywordScore(hay, categoryKeywords, generalKeywords);
+      return { ...item, score };
+    })
     .sort((a, b) => b.score - a.score);
   
-  // Take top 10 candidates for detailed extraction
-  const top = scored.slice(0, 10);
+  // Take top 12 candidates for detailed extraction (increased from 10 for more options)
+  const top = scored.slice(0, 12);
 
   // Fetch details in parallel batches while preserving order
   const orderedResults: (ArticleDetail | undefined)[] = Array(top.length);
@@ -141,9 +265,18 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   // Filter out undefined results while preserving valid articles
   const articles = orderedResults.filter((r): r is ArticleDetail => Boolean(r));
 
+  const rankedByContent = articles
+    .map((article, idx) => {
+      const contentScore = computeKeywordScore(article.content ?? "", categoryKeywords, generalKeywords);
+      const baseScore = top[idx]?.score ?? 0;
+      return { article, combinedScore: baseScore + contentScore };
+    })
+    .sort((a, b) => b.combinedScore - a.combinedScore)
+    .map((entry) => entry.article);
+
   return {
-    articles,
-    scannedSources: feeds.map((f) => f.url),
+    articles: rankedByContent,
+    scannedSources: Array.from(attemptedFeeds),
     metrics: {
       collectedCount: collected.length,
       dedupedCount: deduped.length,

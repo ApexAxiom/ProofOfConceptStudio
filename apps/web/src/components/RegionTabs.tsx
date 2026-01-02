@@ -30,9 +30,12 @@ interface RegionTabsProps {
   showGlobalTab?: boolean;
 }
 
+/**
+ * Renders region selection tabs with the active region highlighted.
+ */
 export function RegionTabs({ activeRegion, showGlobalTab = false }: RegionTabsProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <GlobeIcon />

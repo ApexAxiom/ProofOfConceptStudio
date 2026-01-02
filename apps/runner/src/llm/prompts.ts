@@ -1,4 +1,14 @@
-import { AgentConfig, MarketIndex, RegionSlug, RunWindow } from "@proof/shared";
+import {
+  AgentConfig,
+  CmSnapshot,
+  MarketIndex,
+  RegionSlug,
+  RunWindow,
+  VpSnapshot,
+  VpConfidence,
+  VpHorizon,
+  VpSignalType
+} from "@proof/shared";
 import { getWritingInstructions, getCitationInstructions, getImageInstructions, WRITING_GUIDE } from "./writing-guide.js";
 import { getCategoryManagerPersona, getCategorySelectionGuidance, getCategoryBriefStructure } from "./category-manager-prompt.js";
 
@@ -27,6 +37,14 @@ export interface PromptInput {
   indices: MarketIndex[];
   repairIssues?: string[];
   previousJson?: string;
+  previousBrief?: {
+    publishedAt: string;
+    title: string;
+    highlights?: string[];
+    procurementActions?: string[];
+    watchlist?: string[];
+    selectedArticles?: Array<{ title: string; url: string; keyMetrics?: string[] }>;
+  };
 }
 
 /**
@@ -35,6 +53,10 @@ export interface PromptInput {
 export interface BriefOutput {
   title: string;
   summary: string;
+  highlights?: string[];
+  procurementActions?: string[];
+  watchlist?: string[];
+  deltaSinceLastRun?: string[];
   selectedArticles: Array<{
     articleIndex: number;
     briefContent: string;
@@ -44,6 +66,319 @@ export interface BriefOutput {
   }>;
   heroSelection: { articleIndex: number };
   marketIndicators: Array<{ indexId: string; note: string }>;
+  vpSnapshot?: VpSnapshot;
+  cmSnapshot?: CmSnapshot;
+}
+
+function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0)
+    .slice(0, maxItems);
+}
+
+function clampScore(value: unknown): number | undefined {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return undefined;
+  return Math.round(clamp(num, 0, 100));
+}
+
+function sanitizeConfidence(value: unknown): VpConfidence | undefined {
+  const allowed: VpConfidence[] = ["low", "medium", "high"];
+  if (typeof value === "string" && allowed.includes(value as VpConfidence)) return value as VpConfidence;
+  return undefined;
+}
+
+function sanitizeHorizon(value: unknown): VpHorizon | undefined {
+  const allowed: VpHorizon[] = ["0-30d", "30-180d", "180d+"];
+  if (typeof value === "string" && allowed.includes(value as VpHorizon)) return value as VpHorizon;
+  return undefined;
+}
+
+function sanitizeSignalType(value: unknown): VpSignalType | undefined {
+  const allowed: VpSignalType[] = ["cost", "supply", "schedule", "regulatory", "supplier", "commercial"];
+  if (typeof value === "string" && allowed.includes(value as VpSignalType)) return value as VpSignalType;
+  return undefined;
+}
+
+function sanitizeCmSnapshot(raw: any, selectedIndices: Set<number>): CmSnapshot | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+
+  const toStr = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const validEvidenceIndex = (value: unknown): number | undefined => {
+    const num = Number(value);
+    if (!Number.isInteger(num)) return undefined;
+    if (!selectedIndices.has(num)) return undefined;
+    return num;
+  };
+
+  type SanitizedPriority = {
+    title: string;
+    why: string;
+    dueInDays: number;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedSupplierSignal = {
+    supplier: string;
+    signal: string;
+    implication: string;
+    nextStep: string;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedLever = {
+    lever: string;
+    whenToUse: string;
+    expectedOutcome: string;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  const sanitizePriority = (item: unknown): SanitizedPriority | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+
+    const title = toStr(typedItem.title);
+    const why = toStr(typedItem.why);
+    if (!title && !why) return null;
+
+    const due = clamp(Number(typedItem.dueInDays) || 0, 1, 30);
+
+    return {
+      title,
+      why,
+      dueInDays: Math.round(due),
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeSupplierSignal = (item: unknown): SanitizedSupplierSignal | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+
+    const supplier = toStr(typedItem.supplier);
+    const signal = toStr(typedItem.signal);
+    const implication = toStr(typedItem.implication);
+    const nextStep = toStr(typedItem.nextStep);
+    if (!supplier && !signal && !nextStep && !implication) return null;
+
+    return {
+      supplier,
+      signal,
+      implication,
+      nextStep,
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeLever = (item: unknown): SanitizedLever | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+
+    const lever = toStr(typedItem.lever);
+    const whenToUse = toStr(typedItem.whenToUse);
+    const expectedOutcome = toStr(typedItem.expectedOutcome);
+    if (!lever && !whenToUse && !expectedOutcome) return null;
+
+    return {
+      lever,
+      whenToUse,
+      expectedOutcome,
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const todayPriorities = Array.isArray(raw.todayPriorities)
+    ? (raw.todayPriorities as unknown[])
+        .map(sanitizePriority)
+        .filter((item): item is SanitizedPriority => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  const supplierRadar = Array.isArray(raw.supplierRadar)
+    ? (raw.supplierRadar as unknown[])
+        .map(sanitizeSupplierSignal)
+        .filter((item): item is SanitizedSupplierSignal => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  const negotiationLevers = Array.isArray(raw.negotiationLevers)
+    ? (raw.negotiationLevers as unknown[])
+        .map(sanitizeLever)
+        .filter((item): item is SanitizedLever => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  const intelGaps = sanitizeStringArray(raw.intelGaps, 5);
+  const talkingPoints = sanitizeStringArray(raw.talkingPoints, 6);
+
+  if (
+    todayPriorities.length === 0 &&
+    supplierRadar.length === 0 &&
+    negotiationLevers.length === 0 &&
+    intelGaps.length === 0 &&
+    talkingPoints.length === 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    todayPriorities,
+    supplierRadar,
+    negotiationLevers,
+    intelGaps: intelGaps.length ? intelGaps : undefined,
+    talkingPoints: talkingPoints.length ? talkingPoints : undefined
+  };
+}
+
+function sanitizeVpSnapshot(raw: any, selectedIndices: Set<number>): VpSnapshot | undefined {
+  if (!raw || typeof raw !== "object" || !raw.health) return undefined;
+
+  const healthRaw = raw.health ?? {};
+  const health = {
+    overall: clampScore(healthRaw.overall) ?? 0,
+    costPressure: clampScore(healthRaw.costPressure) ?? 0,
+    supplyRisk: clampScore(healthRaw.supplyRisk) ?? 0,
+    scheduleRisk: clampScore(healthRaw.scheduleRisk) ?? 0,
+    complianceRisk: clampScore(healthRaw.complianceRisk) ?? 0,
+    narrative: typeof healthRaw.narrative === "string" ? healthRaw.narrative : ""
+  };
+
+  const validEvidenceIndex = (value: unknown): number | undefined => {
+    const num = Number(value);
+    if (!Number.isInteger(num)) return undefined;
+    if (!selectedIndices.has(num)) return undefined;
+    return num;
+  };
+
+  const allowedOwnerRoles = new Set([
+    "Category Manager",
+    "SRM",
+    "Contracts",
+    "Legal",
+    "Engineering",
+    "Logistics",
+    "Finance",
+    "HSE",
+    "Digital/IT"
+  ]);
+
+  type SanitizedSignal = {
+    title: string;
+    type: VpSignalType;
+    horizon: VpHorizon;
+    confidence: VpConfidence;
+    impact: string;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedAction = {
+    action: string;
+    ownerRole: string;
+    dueInDays: number;
+    expectedImpact: string;
+    confidence: VpConfidence;
+    evidenceArticleIndex: number;
+  };
+
+  type SanitizedRisk = {
+    risk: string;
+    probability: VpConfidence;
+    impact: VpConfidence;
+    mitigation: string;
+    trigger: string;
+    horizon: VpHorizon;
+    evidenceArticleIndex: number | undefined;
+  };
+
+  const sanitizeTopSignal = (item: unknown): SanitizedSignal | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+    return {
+      title: typeof typedItem.title === "string" ? typedItem.title : "",
+      type: sanitizeSignalType(typedItem.type) ?? "commercial",
+      horizon: sanitizeHorizon(typedItem.horizon) ?? "30-180d",
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      impact: typeof typedItem.impact === "string" ? typedItem.impact : "",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeRecommendedAction = (item: unknown): SanitizedAction | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+    if (evidenceArticleIndex === undefined) return null;
+    const due = clamp(Number(typedItem.dueInDays) || 0, 1, 60);
+    const ownerRole = typeof typedItem.ownerRole === "string" && allowedOwnerRoles.has(typedItem.ownerRole as string)
+      ? (typedItem.ownerRole as string)
+      : "Category Manager";
+
+    return {
+      action: typeof typedItem.action === "string" ? typedItem.action : "",
+      ownerRole,
+      dueInDays: Math.round(due),
+      expectedImpact: typeof typedItem.expectedImpact === "string" ? typedItem.expectedImpact : "",
+      confidence: sanitizeConfidence(typedItem.confidence) ?? "medium",
+      evidenceArticleIndex
+    };
+  };
+
+  const sanitizeRisk = (item: unknown): SanitizedRisk | null => {
+    if (!item || typeof item !== "object") return null;
+    const typedItem = item as { [key: string]: unknown };
+    const evidenceArticleIndex = validEvidenceIndex(typedItem.evidenceArticleIndex);
+
+    return {
+      risk: typeof typedItem.risk === "string" ? typedItem.risk : "",
+      probability: sanitizeConfidence(typedItem.probability) ?? "medium",
+      impact: sanitizeConfidence(typedItem.impact) ?? "medium",
+      mitigation: typeof typedItem.mitigation === "string" ? typedItem.mitigation : "",
+      trigger: typeof typedItem.trigger === "string" ? typedItem.trigger : "",
+      horizon: sanitizeHorizon(typedItem.horizon) ?? "30-180d",
+      evidenceArticleIndex
+    };
+  };
+
+  const topSignals = Array.isArray(raw.topSignals)
+    ? (raw.topSignals as unknown[])
+        .map(sanitizeTopSignal)
+        .filter((item): item is SanitizedSignal => Boolean(item))
+    : [];
+
+  const recommendedActions = Array.isArray(raw.recommendedActions)
+    ? (raw.recommendedActions as unknown[])
+        .map(sanitizeRecommendedAction)
+        .filter((item): item is SanitizedAction => Boolean(item))
+    : [];
+
+  const riskRegister = Array.isArray(raw.riskRegister)
+    ? (raw.riskRegister as unknown[])
+        .map(sanitizeRisk)
+        .filter((item): item is SanitizedRisk => Boolean(item))
+    : [];
+
+  return {
+    health,
+    topSignals,
+    recommendedActions,
+    riskRegister
+  };
 }
 
 /**
@@ -58,7 +393,16 @@ export interface BriefOutput {
  * - Action-oriented for procurement decisions
  * - Concise and data-driven
  */
-export function buildPrompt({ agent, region, runWindow, articles, indices, repairIssues, previousJson }: PromptInput): string {
+export function buildPrompt({
+  agent,
+  region,
+  runWindow,
+  articles,
+  indices,
+  repairIssues,
+  previousJson,
+  previousBrief
+}: PromptInput): string {
   const regionLabel = region === "au" ? "Australia (Perth)" : "Americas (Houston)";
   const requiredCount = Math.min(requiredArticleCount(agent), Math.max(1, articles.length));
 
@@ -82,6 +426,23 @@ ${a.content?.slice(0, 1500) ?? "[No content available]"}
   const indexList = indices
     .map((idx) => `- ${idx.id}: ${idx.label} — ${idx.url}${idx.notes ? ` (${idx.notes})` : ""}`)
     .join("\n");
+
+  const previousBriefSection = previousBrief
+    ? `
+## PREVIOUS BRIEF CONTEXT (for deltaSinceLastRun)
+
+- Title: ${previousBrief.title}
+- Published: ${new Date(previousBrief.publishedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+${previousBrief.highlights?.length ? `- Top Highlights:\n${previousBrief.highlights.map((h) => `  - ${h}`).join("\n")}` : ""}
+${previousBrief.procurementActions?.length ? `- Procurement Actions:\n${previousBrief.procurementActions.map((a) => `  - ${a}`).join("\n")}` : ""}
+${previousBrief.watchlist?.length ? `- Watchlist:\n${previousBrief.watchlist.map((w) => `  - ${w}`).join("\n")}` : ""}
+${previousBrief.selectedArticles?.length ? `- Key Articles:\n${previousBrief.selectedArticles.map((a) => `  - ${a.title} (${a.url})`).join("\n")}` : ""}
+`
+    : `
+## PREVIOUS BRIEF CONTEXT (for deltaSinceLastRun)
+
+No previous brief exists for this portfolio/region. Set deltaSinceLastRun to an empty array [].
+`;
 
   // Repair instructions if this is a retry
   const repairSection = repairIssues
@@ -134,6 +495,10 @@ Return ONLY valid JSON with this exact structure:
 {
   "title": "Attention-grabbing headline for Category Managers (max ${WRITING_GUIDE.wordLimits.headline} words)",
   "summary": "Executive summary with key insight and procurement implications (max ${WRITING_GUIDE.wordLimits.summary} words)",
+  "highlights": ["Top 3 market shifts (1 sentence each)", "..."],
+  "procurementActions": ["Actionable step for category managers", "..."],
+  "watchlist": ["Supplier/market item to monitor", "..."],
+  "deltaSinceLastRun": ["What's changed vs. last run"],
   "selectedArticles": [
     {
       "articleIndex": 1,
@@ -147,9 +512,89 @@ Return ONLY valid JSON with this exact structure:
   "marketIndicators": [
     { "indexId": "cme-wti", "note": "1 sentence procurement context (e.g., 'WTI at $72 supports drilling activity, positive for rig demand')" },
     { "indexId": "ice-brent", "note": "1 sentence procurement context" }
-  ]
+  ],
+  "cmSnapshot": {
+    "todayPriorities": [
+      {
+        "title": "Priority to move this week",
+        "why": "Why this matters now",
+        "dueInDays": 7,
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "supplierRadar": [
+      {
+        "supplier": "Supplier name",
+        "signal": "Observed signal",
+        "implication": "What it means for the category",
+        "nextStep": "Concrete next step for the CM",
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "negotiationLevers": [
+      {
+        "lever": "Negotiation tactic",
+        "whenToUse": "Context to deploy",
+        "expectedOutcome": "Expected buyer benefit",
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "intelGaps": ["Gap to close (optional)", "..."],
+    "talkingPoints": ["Stakeholder one-liner (optional)"]
+  },
+  "vpSnapshot": {
+    "health": {
+      "overall": 85,
+      "costPressure": 40,
+      "supplyRisk": 60,
+      "scheduleRisk": 30,
+      "complianceRisk": 20,
+      "narrative": "One sentence on the top exposure and why it matters"
+    },
+    "topSignals": [
+      {
+        "title": "One-line signal",
+        "type": "cost | supply | schedule | regulatory | supplier | commercial",
+        "horizon": "0-30d | 30-180d | 180d+",
+        "confidence": "low | medium | high",
+        "impact": "1 sentence describing cost/supply/schedule/compliance impact",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "recommendedActions": [
+      {
+        "action": "Imperative action",
+        "ownerRole": "Category Manager | SRM | Contracts | Legal | Engineering | Logistics | Finance | HSE | Digital/IT",
+        "dueInDays": 14,
+        "expectedImpact": "1 sentence on what changes if we do this",
+        "confidence": "low | medium | high",
+        "evidenceArticleIndex": 1
+      }
+    ],
+    "riskRegister": [
+      {
+        "risk": "Named risk",
+        "probability": "low | medium | high",
+        "impact": "low | medium | high",
+        "mitigation": "Mitigation action",
+        "trigger": "What to watch for",
+        "horizon": "0-30d | 30-180d | 180d+",
+        "evidenceArticleIndex": 1
+      }
+    ]
+  }
 }
 \`\`\`
+
+Rules for cmSnapshot output:
+- todayPriorities, supplierRadar, and negotiationLevers should each include 3-6 items when available.
+- dueInDays must be between 1 and 30.
+- evidenceArticleIndex must reference one of the selectedArticles.articleIndex values.
+- confidence must be "low", "medium", or "high".
+- Do NOT include any URLs; evidenceArticleIndex links back to the selectedArticles list.
 
 ## CRITICAL REQUIREMENTS
 
@@ -161,11 +606,17 @@ Return ONLY valid JSON with this exact structure:
 6. **ANALYST TONE**: Write like a procurement analyst, not a journalist. Facts and implications, no filler.
 7. **CATEGORY IMPORTANCE REQUIRED**: Each article MUST include a categoryImportance field explaining why this matters for category managers
 8. **KEY METRICS**: Extract 2-4 key numbers, percentages, dates, or values from each article
+9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
+10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
+11. **VP SNAPSHOT DATA ONLY**: vpSnapshot.health.* must be integers 0..100. topSignals/recommendedActions/riskRegister should have 3-5 items each when possible (never empty unless no signal). evidenceArticleIndex must match one of the selectedArticles.articleIndex values. ownerRole must be one of: Category Manager, SRM, Contracts, Legal, Engineering, Logistics, Finance, HSE, Digital/IT. dueInDays must be 1..60. Do NOT include any URLs anywhere in vpSnapshot.
+12. **CM SNAPSHOT ACTIONABILITY**: cmSnapshot.todayPriorities, supplierRadar, and negotiationLevers should each target 3-6 items when possible. dueInDays must be 1..30. confidence must be low|medium|high. evidenceArticleIndex MUST match a selectedArticles.articleIndex value. No URLs in cmSnapshot. Every item must include a concrete next step that a category manager can execute without internal systems; prefer naming key suppliers from the agent context where relevant.
 
 ## MARKET INDICES
 
 For the Market Indicators section, reference these (select by indexId only):
 ${indexList}
+
+${previousBriefSection}
 
 ## ARTICLES TO ANALYZE
 
@@ -204,6 +655,10 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   const selected = Array.isArray(parsed.selectedArticles) ? parsed.selectedArticles : [];
   const heroIndex = parsed?.heroSelection?.articleIndex;
   const marketIndicators = Array.isArray(parsed.marketIndicators) ? parsed.marketIndicators : [];
+  const highlights = sanitizeStringArray(parsed.highlights, 5);
+  const procurementActions = sanitizeStringArray(parsed.procurementActions, 5);
+  const watchlist = sanitizeStringArray(parsed.watchlist, 5);
+  const deltaSinceLastRun = sanitizeStringArray(parsed.deltaSinceLastRun, 3);
 
   const issues: string[] = [];
   const indices = new Set<number>();
@@ -229,6 +684,9 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     issues.push("heroSelection.articleIndex must reference a selected article");
   }
 
+  const vpSnapshot = sanitizeVpSnapshot(parsed.vpSnapshot, indices);
+  const cmSnapshot = sanitizeCmSnapshot(parsed.cmSnapshot, indices);
+
   if (issues.length > 0) {
     throw new Error(JSON.stringify(issues));
   }
@@ -236,6 +694,10 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   return {
     title: parsed.title || "Untitled Brief",
     summary: parsed.summary || "",
+    highlights,
+    procurementActions,
+    watchlist,
+    deltaSinceLastRun,
     selectedArticles: selected.map((article: any) => ({
       articleIndex: Number(article.articleIndex),
       briefContent: article.briefContent || "",
@@ -244,6 +706,8 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
       imageAlt: article.imageAlt
     })),
     heroSelection: { articleIndex: Number(heroIndex) },
-    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: m.note || "" }))
+    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: (m.note || "").toString() })),
+    vpSnapshot,
+    cmSnapshot
   };
 }

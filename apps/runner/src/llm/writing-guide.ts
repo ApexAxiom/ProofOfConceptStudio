@@ -144,14 +144,13 @@ export const WRITING_GUIDE = {
   citations: {
     rules: [
       "Every factual claim must cite its source",
-      "Use exact URLs from the provided article list only",
-      "Never invent, modify, or guess URLs",
-      "Format: [Source Name](exact-url)",
-      "Each article brief must end with its source link"
+      "Do NOT output URLs in JSON; reference sources by articleIndex only",
+      "Use the provided articleIndex numbers when attributing facts",
+      "Never invent, modify, or guess URLs"
     ],
     format: {
-      inline: "([Source Name](URL))",
-      articleEnd: "**Source:** [Article Title](exact-url)"
+      inline: "(source: articleIndex #)",
+      articleEnd: "Reference articleIndex numbers only"
     }
   },
 

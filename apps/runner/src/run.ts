@@ -7,6 +7,7 @@ import { publishBrief, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
 import { findImageFromPage, findBestImageFromSources } from "./images/image-scraper.js";
 import { runMarketDashboard } from "./market/dashboard.js";
+import { getLatestPublishedBrief } from "./db/previous-brief.js";
 
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; error?: string };
 
@@ -111,16 +112,33 @@ export async function runAgent(
   try {
     // Step 1: Ingest articles from all feeds
     console.log(`[${agentId}/${region}] Ingesting articles...`);
-    const ingestResult = await ingestAgent(agent, region);
-    const articles = ingestResult.articles ?? [];
-    
-    if (articles.length === 0) {
-      const error = "No articles found after ingestion";
+    let ingestResult;
+    try {
+      ingestResult = await ingestAgent(agent, region);
+    } catch (ingestErr) {
+      console.error(`[${agentId}/${region}] Ingestion failed:`, ingestErr);
+      const error = `Ingestion error: ${(ingestErr as Error).message}`;
       await logRunResult(runIdentifier, agent.id, region, "failed", error);
       return { agentId: agent.id, region, ok: false, error };
     }
     
-    console.log(`[${agentId}/${region}] Found ${articles.length} articles`);
+    const articles = ingestResult.articles ?? [];
+    
+    // Minimum articles required - at least 1, but preferably the configured amount
+    const minRequired = Math.max(1, Math.min(agent.articlesPerRun ?? 3, 2));
+    
+    if (articles.length === 0) {
+      const error = `No articles found after ingestion (scanned ${ingestResult.scannedSources?.length ?? 0} sources)`;
+      console.error(`[${agentId}/${region}] ${error}`);
+      await logRunResult(runIdentifier, agent.id, region, "failed", error);
+      return { agentId: agent.id, region, ok: false, error };
+    }
+    
+    if (articles.length < minRequired) {
+      console.warn(`[${agentId}/${region}] Only ${articles.length} articles found (wanted ${minRequired}), proceeding anyway...`);
+    }
+    
+    console.log(`[${agentId}/${region}] Found ${articles.length} articles (metrics: ${JSON.stringify(ingestResult.metrics)})`);
     
     // Step 2: Get market indices for this region/portfolio
     const indices = indicesForRegion(agent.portfolio, region);
@@ -133,17 +151,40 @@ export async function runAgent(
     // Step 4: Convert articles to LLM input format
     const articleInputs: ArticleInput[] = articles.map(toArticleInput);
     
-    // Step 5: Generate brief using LLM
+    // Step 5: Look up previous brief for delta context
+    const previousBrief = await getLatestPublishedBrief({
+      portfolio: agent.portfolio,
+      region,
+      beforeIso: new Date().toISOString()
+    });
+
+    const previousBriefPrompt = previousBrief
+      ? {
+          publishedAt: previousBrief.publishedAt,
+          title: previousBrief.title,
+          highlights: previousBrief.highlights?.slice(0, 5),
+          procurementActions: previousBrief.procurementActions?.slice(0, 5),
+          watchlist: previousBrief.watchlist?.slice(0, 5),
+          selectedArticles: previousBrief.selectedArticles?.slice(0, 3).map((article) => ({
+            title: article.title,
+            url: article.url,
+            keyMetrics: article.keyMetrics?.slice(0, 3)
+          }))
+        }
+      : undefined;
+
+    // Step 6: Generate brief using LLM
     console.log(`[${agentId}/${region}] Generating brief...`);
     let brief = await generateBrief({
       agent,
       region,
       runWindow,
       articles: articleInputs,
-      indices
+      indices,
+      previousBrief: previousBriefPrompt
     });
-    
-    // Step 6: Validate the brief
+
+    // Step 7: Validate the brief
     let validated;
     try {
       validated = validateBrief(brief, allowedUrls, indexUrls);
@@ -159,7 +200,7 @@ export async function runAgent(
       
       console.log(`[${agentId}/${region}] Validation failed, retrying...`, issues);
       
-      // Step 7: Retry with repair instructions
+      // Step 8: Retry with repair instructions
       const retryBrief = await generateBrief({
         agent,
         region,
@@ -167,7 +208,8 @@ export async function runAgent(
         articles: articleInputs,
         indices,
         repairIssues: issues,
-        previousJson: JSON.stringify(brief)
+        previousJson: JSON.stringify(brief),
+        previousBrief: previousBriefPrompt
       });
       
       try {

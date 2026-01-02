@@ -19,7 +19,7 @@ function PlayIcon() {
 }
 
 export default function AdminPage() {
-  const [runWindow, setRunWindow] = useState("am");
+  const [runWindow, setRunWindow] = useState("apac");
   const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
   const [agentId, setAgentId] = useState("");
   const [adminToken, setAdminToken] = useState("");
@@ -78,8 +78,8 @@ export default function AdminPage() {
               onChange={(e) => setRunWindow(e.target.value)}
               className="w-full"
             >
-              <option value="am">AM (Morning)</option>
-              <option value="pm">PM (Evening)</option>
+              <option value="apac">APAC (06:00 AWST)</option>
+              <option value="international">International (06:00 CST)</option>
             </select>
           </div>
 

@@ -13,13 +13,17 @@ const markdown = renderBriefMarkdown({
   summary: "Executive overview",
   regionLabel: "Region",
   portfolioLabel: "Portfolio",
-  runWindow: "am",
+  runWindow: "apac",
   publishedAtISO: new Date().toISOString(),
   selectedArticles,
   marketIndicators: [
-    { label: "Index One", url: "https://index.test/one", note: "Context" },
-    { label: "Index Two", url: "https://index.test/two", note: "Context" }
-  ]
+    { id: "idx-1", label: "Index One", url: "https://index.test/one", note: "Context" },
+    { id: "idx-2", label: "Index Two", url: "https://index.test/two", note: "Context" }
+  ],
+  highlights: ["Highlight A"],
+  procurementActions: ["Action A"],
+  watchlist: ["Watch A"],
+  deltaSinceLastRun: ["Delta A"]
 });
 
 assert(markdown.includes("**Source:** [Story One](https://example.com/1)"));
@@ -27,5 +31,9 @@ assert(markdown.includes("**Source:** [Story Two](https://example.com/2)"));
 assert(markdown.includes("**Source:** [Story Three](https://example.com/3)"));
 assert(markdown.includes("https://index.test/one"));
 assert(markdown.includes("https://index.test/two"));
+assert(markdown.includes("## ⚡ Market Highlights"));
+assert(markdown.includes("## 🛠️ Procurement Actions"));
+assert(markdown.includes("## 👀 Watchlist"));
+assert(markdown.includes("## 🔄 Changes Since Last Brief"));
 
 console.log("render.smoke passed");

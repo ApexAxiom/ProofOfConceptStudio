@@ -10,8 +10,8 @@
     "start": "node dist/server.js",
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
     "render:smoke": "tsx src/llm/render.smoke.ts",
-    "cron:am": "tsx src/cli.ts am",
-    "cron:pm": "tsx src/cli.ts pm",
+    "cron:apac": "tsx src/cli.ts apac",
+    "cron:international": "tsx src/cli.ts international",
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {

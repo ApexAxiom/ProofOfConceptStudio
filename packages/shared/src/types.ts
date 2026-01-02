@@ -1,6 +1,87 @@
 import { RegionSlug } from "./regions.js";
 
-export type RunWindow = "am" | "pm";
+export type RunWindow = "apac" | "international";
+
+export type VpConfidence = "low" | "medium" | "high";
+export type VpHorizon = "0-30d" | "30-180d" | "180d+";
+export type VpSignalType = "cost" | "supply" | "schedule" | "regulatory" | "supplier" | "commercial";
+
+export interface CmPriority {
+  title: string;
+  why: string;
+  dueInDays: number;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface CmSupplierSignal {
+  supplier: string;
+  signal: string;
+  implication: string;
+  nextStep: string;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface CmNegotiationLever {
+  lever: string;
+  whenToUse: string;
+  expectedOutcome: string;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface CmSnapshot {
+  todayPriorities: CmPriority[];
+  supplierRadar: CmSupplierSignal[];
+  negotiationLevers: CmNegotiationLever[];
+  intelGaps?: string[];
+  talkingPoints?: string[];
+}
+
+export interface VpHealthScore {
+  overall: number;
+  costPressure: number;
+  supplyRisk: number;
+  scheduleRisk: number;
+  complianceRisk: number;
+  narrative: string;
+}
+
+export interface VpSignal {
+  title: string;
+  type: VpSignalType;
+  horizon: VpHorizon;
+  confidence: VpConfidence;
+  impact: string;
+  evidenceArticleIndex: number;
+}
+
+export interface VpAction {
+  action: string;
+  ownerRole: string;
+  dueInDays: number;
+  expectedImpact: string;
+  confidence: VpConfidence;
+  evidenceArticleIndex: number;
+}
+
+export interface VpRisk {
+  risk: string;
+  probability: VpConfidence;
+  impact: VpConfidence;
+  mitigation: string;
+  trigger: string;
+  horizon: VpHorizon;
+  evidenceArticleIndex?: number;
+}
+
+export interface VpSnapshot {
+  health: VpHealthScore;
+  topSignals: VpSignal[];
+  recommendedActions: VpAction[];
+  riskRegister: VpRisk[];
+}
 
 export interface MarketIndex {
   id: string;
@@ -39,6 +120,15 @@ export interface SelectedArticle {
   publishedAt?: string;
   /** Source/publication name */
   sourceName?: string;
+  /** Original input article index for traceability */
+  sourceIndex?: number;
+}
+
+export interface BriefMarketIndicator {
+  id: string;
+  label: string;
+  url: string;
+  note: string;
 }
 
 export interface BriefPost {
@@ -55,6 +145,21 @@ export interface BriefPost {
   
   /** The 3 selected articles with their briefs and exact source links */
   selectedArticles?: SelectedArticle[];
+
+  /** Curated takeaways for quick scanning */
+  highlights?: string[];
+
+  /** Explicit procurement actions to take */
+  procurementActions?: string[];
+
+  /** Items to monitor closely */
+  watchlist?: string[];
+
+  /** Change log against the previous run */
+  deltaSinceLastRun?: string[];
+
+  /** Structured market indicator notes */
+  marketIndicators?: BriefMarketIndicator[];
   
   /** Hero image from the primary article */
   heroImageUrl?: string;
@@ -73,6 +178,8 @@ export interface BriefPost {
     issues: string[];
     decision: "publish" | "retry" | "block";
   };
+  vpSnapshot?: VpSnapshot;
+  cmSnapshot?: CmSnapshot;
 }
 
 export interface RunLog {

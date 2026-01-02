@@ -1,12 +1,12 @@
 import crypto from "node:crypto";
-import { BriefPost, SelectedArticle } from "@proof/shared";
+import { BriefMarketIndicator, BriefPost, SelectedArticle } from "@proof/shared";
 import { OpenAI } from "openai";
 import { renderBriefMarkdown } from "./render.js";
 import { MarketPromptInput, MarketOutput, buildMarketPrompt, parseMarketOutput } from "./market-prompts.js";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const model = process.env.OPENAI_MODEL || "gpt-4o";
 
 export async function generateMarketBrief(input: MarketPromptInput): Promise<BriefPost> {
   if (!client) {
@@ -55,11 +55,11 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
 
   const heroArticle = selectedArticles.find((_, idx) => idx + 1 === parsed.heroCandidateIndex) || selectedArticles[0];
 
-  const marketIndicators = parsed.marketIndicators
+  const marketIndicators: BriefMarketIndicator[] = parsed.marketIndicators
     .map((m) => {
       const match = input.indices.find((idx) => idx.id === m.indexId);
       if (!match) return null;
-      return { ...match, note: m.note || "" };
+      return { id: match.id, label: match.label, url: match.url, note: m.note || "" };
     })
     .filter((m): m is NonNullable<typeof m> => Boolean(m));
 
@@ -75,7 +75,7 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     procurementActions: parsed.procurementActions,
     watchlist: parsed.watchlist,
     topStoriesTitle: "## 📚 Top Source Articles",
-    marketIndicators: marketIndicators.map((mi) => ({ label: mi.label, url: mi.url, note: mi.note }))
+    marketIndicators
   });
 
   const sources = new Set<string>([
@@ -94,6 +94,10 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     summary: parsed.summary,
     bodyMarkdown,
     sources: Array.from(sources),
+    highlights: parsed.highlights,
+    procurementActions: parsed.procurementActions,
+    watchlist: parsed.watchlist,
+    marketIndicators,
     selectedArticles,
     heroImageUrl: heroArticle?.imageUrl,
     heroImageSourceUrl: heroArticle?.url,

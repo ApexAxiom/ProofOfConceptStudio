@@ -9,7 +9,7 @@ export const MOCK_POSTS: BriefPost[] = [
     title: "AU offshore rig demand lifted by new campaign awards",
     region: "au",
     portfolio: "rigs-integrated-drilling",
-    runWindow: "am",
+    runWindow: "apac",
     status: "published",
     publishedAt: new Date().toISOString(),
     summary: "Woodside and Santos sanctioned new well work, tightening jack-up availability.",
@@ -18,14 +18,122 @@ export const MOCK_POSTS: BriefPost[] = [
     sources: ["https://www.energytodaymag.com.au/"],
     heroImageUrl: "https://example.com/images/rigs-au.jpg",
     heroImageSourceUrl: "https://www.energytodaymag.com.au/",
-    heroImageAlt: "Offshore rig in Australian waters"
+    heroImageAlt: "Offshore rig in Australian waters",
+    selectedArticles: [
+      {
+        title: "WA drilling campaigns advance",
+        url: "https://www.energytodaymag.com.au/article",
+        briefContent: "New tenders increase jack-up demand into 2025.",
+        categoryImportance: "Tighter rigs drive higher dayrates for renewals.",
+        sourceIndex: 1
+      }
+    ],
+    cmSnapshot: {
+      todayPriorities: [
+        {
+          title: "Secure renewal options before Q1 2025",
+          why: "Dayrates climbing on early tenders",
+          dueInDays: 14,
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        },
+        {
+          title: "Align drilling services with new wells",
+          why: "Mud logging crews tightening",
+          dueInDays: 10,
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      supplierRadar: [
+        {
+          supplier: "Woodside",
+          signal: "Pulling forward rig tenders",
+          implication: "Reduced spot availability",
+          nextStep: "Engage SRM to confirm standby options",
+          confidence: "high",
+          evidenceArticleIndex: 1
+        },
+        {
+          supplier: "Santos",
+          signal: "Awarded additional wells",
+          implication: "Adds pressure on semi availability",
+          nextStep: "Request rate caps in renewal drafts",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      negotiationLevers: [
+        {
+          lever: "Extension options with soft floors",
+          whenToUse: "For rigs rolling in next 90 days",
+          expectedOutcome: "Locks access while limiting upside risk",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        },
+        {
+          lever: "Standby retainer with call-off",
+          whenToUse: "If utilization keeps tightening",
+          expectedOutcome: "Keeps backup capacity without full commitment",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      intelGaps: ["Rate caps accepted by peers", "Rig substitution clauses used locally"],
+      talkingPoints: [
+        "Rig demand pulling into Q1 2025, pressuring options",
+        "Suppliers seeking rate protection; we need caps",
+        "Backlog tightening but leverage via standby retainers"
+      ]
+    },
+    vpSnapshot: {
+      health: {
+        overall: 72,
+        costPressure: 65,
+        supplyRisk: 55,
+        scheduleRisk: 35,
+        complianceRisk: 20,
+        narrative: "Rig tightness keeps upward cost pressure on renewals."
+      },
+      topSignals: [
+        {
+          title: "Jack-up awards pull forward Q1 2025 demand",
+          type: "supply",
+          horizon: "30-180d",
+          confidence: "medium",
+          impact: "Higher utilisation narrows options for spot cover.",
+          evidenceArticleIndex: 1
+        }
+      ],
+      recommendedActions: [
+        {
+          action: "Lock renewal options with rate caps",
+          ownerRole: "Contracts",
+          dueInDays: 21,
+          expectedImpact: "Protects exposure if dayrates keep rising.",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      riskRegister: [
+        {
+          risk: "Limited spot availability for Q1 wells",
+          probability: "medium",
+          impact: "high",
+          mitigation: "Pre-book standby coverage with extension clauses.",
+          trigger: "Operators announce incremental wells",
+          horizon: "0-30d",
+          evidenceArticleIndex: 1
+        }
+      ]
+    }
   },
   {
     postId: "rigs-us-001",
     title: "US Gulf drilling stabilizes as operators finalize 2025 programs",
     region: "us-mx-la-lng",
     portfolio: "rigs-integrated-drilling",
-    runWindow: "am",
+    runWindow: "international",
     status: "published",
     publishedAt: new Date().toISOString(),
     summary: "Gulf of Mexico rig counts remain steady with several contract extensions signed.",
@@ -34,14 +142,64 @@ export const MOCK_POSTS: BriefPost[] = [
     sources: ["https://www.rigzone.com/"],
     heroImageUrl: "https://example.com/images/rigs-us.jpg",
     heroImageSourceUrl: "https://www.rigzone.com/",
-    heroImageAlt: "Rig operating in the Gulf of Mexico"
+    heroImageAlt: "Rig operating in the Gulf of Mexico",
+    selectedArticles: [
+      {
+        title: "GoM dayrates stabilize",
+        url: "https://www.rigzone.com/article",
+        briefContent: "Operators extend semis at steady rates for 2025 programs.",
+        categoryImportance: "Limited downside for renewals; negotiate term flexibility.",
+        sourceIndex: 1
+      }
+    ],
+    vpSnapshot: {
+      health: {
+        overall: 64,
+        costPressure: 45,
+        supplyRisk: 40,
+        scheduleRisk: 35,
+        complianceRisk: 25,
+        narrative: "Stable utilisation keeps costs steady but locks rigs early."
+      },
+      topSignals: [
+        {
+          title: "Operators locking 2025 terms early",
+          type: "commercial",
+          horizon: "30-180d",
+          confidence: "high",
+          impact: "Less spot flexibility later in the year.",
+          evidenceArticleIndex: 1
+        }
+      ],
+      recommendedActions: [
+        {
+          action: "Negotiate extension options with soft floors",
+          ownerRole: "Category Manager",
+          dueInDays: 30,
+          expectedImpact: "Preserves access without locking full rate escalators.",
+          confidence: "high",
+          evidenceArticleIndex: 1
+        }
+      ],
+      riskRegister: [
+        {
+          risk: "Reduced flexibility if demand lifts late 2025",
+          probability: "medium",
+          impact: "medium",
+          mitigation: "Add substitution clauses into term deals.",
+          trigger: "Operators announce additional wells",
+          horizon: "180d+",
+          evidenceArticleIndex: 1
+        }
+      ]
+    }
   },
   {
     postId: "ds-au-001",
     title: "WA mud logging demand rising on back of appraisal wells",
     region: "au",
     portfolio: "drilling-services",
-    runWindow: "pm",
+    runWindow: "apac",
     status: "published",
     publishedAt: new Date().toISOString(),
     summary: "Two appraisal wells in the Carnarvon basin are driving short-term mud logging demand.",
@@ -57,7 +215,7 @@ export const MOCK_POSTS: BriefPost[] = [
     title: "OCTG import prices ease as mills chase volume",
     region: "us-mx-la-lng",
     portfolio: "wells-materials-octg",
-    runWindow: "pm",
+    runWindow: "international",
     status: "published",
     publishedAt: new Date().toISOString(),
     summary: "Lower HRC prices are feeding through to OCTG offers for Q2 deliveries.",
@@ -73,7 +231,7 @@ export const MOCK_POSTS: BriefPost[] = [
     title: "Subsea tie-back awards progress on Scarborough project",
     region: "au",
     portfolio: "subsea-surf-offshore",
-    runWindow: "am",
+    runWindow: "apac",
     status: "published",
     publishedAt: new Date().toISOString(),
     summary: "Contractors received ITTs for subsea hardware packages, firming 2025 vessel demand.",
@@ -89,7 +247,7 @@ export const MOCK_POSTS: BriefPost[] = [
     title: "US LNG construction pipeline expands with new EPC award",
     region: "us-mx-la-lng",
     portfolio: "projects-epc-epcm-construction",
-    runWindow: "am",
+    runWindow: "international",
     status: "published",
     publishedAt: new Date().toISOString(),
     summary: "Another Gulf Coast LNG train reached FID, adding EPC backlog into 2026.",

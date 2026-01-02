@@ -19,7 +19,9 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
+      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
 - id: drilling-services
   portfolio: drilling-services
   label: Drilling Services
@@ -63,6 +65,8 @@
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
       - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: completions-intervention
   portfolio: completions-intervention
   label: Completions & Intervention
@@ -85,7 +89,9 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
+      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
 - id: pa-decommissioning
   portfolio: pa-decommissioning
   label: Plug & Abandonment / Decommissioning
@@ -105,7 +111,9 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
+      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
 - id: subsea-surf-offshore
   portfolio: subsea-surf-offshore
   label: Subsea, SURF & Offshore
@@ -195,9 +203,10 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
       - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
 - id: mro-site-consumables
   portfolio: mro-site-consumables
   label: MRO & Site Consumables
@@ -220,7 +229,8 @@
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
-      - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
 - id: logistics-marine-aviation
   portfolio: logistics-marine-aviation
   label: Logistics, Marine & Aviation
@@ -265,9 +275,10 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Safe Work Australia – News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
       - { name: Waste Management Review, url: https://wastemanagementreview.com.au/feed/, type: rss }
       - { name: Inside Waste, url: https://www.insidewaste.com.au/feed/, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
 - id: it-telecom-cyber
   portfolio: it-telecom-cyber
   label: IT, Telecom & Cyber
@@ -313,9 +324,10 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Fair Work Ombudsman – News, url: https://www.fairwork.gov.au/newsroom/news, type: web }
       - { name: Accountants Daily, url: https://www.accountantsdaily.com.au/feed, type: rss }
       - { name: Lawyers Weekly, url: https://www.lawyersweekly.com.au/feed, type: rss }
+      - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
+      - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
 - id: market-dashboard
   portfolio: market-dashboard
   label: Market Dashboard

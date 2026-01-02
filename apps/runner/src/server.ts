@@ -1,14 +1,18 @@
 import Fastify from "fastify";
-import { REGIONS, RegionSlug, runWindowFromDate, type RunWindow } from "@proof/shared";
+import { getCronSecret, REGIONS, RegionSlug, runWindowForRegion, type RunWindow, usingBootstrapCron } from "@proof/shared";
 import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { requiredArticleCount } from "./llm/prompts.js";
 
-function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: string, toleranceMinutes = 10): boolean {
+function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
+  const windowConfig = runWindow === "apac"
+    ? { timeZone: REGIONS.au.timeZone, h: 6, m: 0 }
+    : { timeZone: REGIONS["us-mx-la-lng"].timeZone, h: 6, m: 0 };
+
   const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: windowConfig.timeZone,
     hour: "numeric",
     minute: "numeric",
     hour12: false
@@ -16,8 +20,7 @@ function isWithinScheduledWindow(runWindow: RunWindow, now: Date, timeZone: stri
   const parts = formatter.formatToParts(now);
   const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
   const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-  const target = runWindow === "am" ? { h: 6, m: 0 } : { h: 14, m: 45 };
-  const diff = Math.abs((hour * 60 + minute) - (target.h * 60 + target.m));
+  const diff = Math.abs((hour * 60 + minute) - (windowConfig.h * 60 + windowConfig.m));
   return diff <= toleranceMinutes;
 }
 
@@ -25,8 +28,12 @@ async function main() {
   // Load secrets from AWS Secrets Manager before starting the server
   await initializeSecrets();
 
+  if (usingBootstrapCron()) {
+    console.warn("WARN: Using BOOTSTRAP_CRON_SECRET because CRON_SECRET env var is not set. Set CRON_SECRET to override.");
+  }
+
   const PORT = Number(process.env.PORT ?? 8080);
-  const CRON_SECRET = process.env.CRON_SECRET ?? "";
+  const CRON_SECRET = getCronSecret();
 
   const fastify = Fastify({ logger: true });
 
@@ -53,9 +60,14 @@ async function main() {
       reply.code(401).send({ error: "unauthorized" });
       return;
     }
+
+    if (!process.env.OPENAI_API_KEY) {
+      reply.code(500).send({ error: "OPENAI_API_KEY is not configured" });
+      return;
+    }
     const body = (request.body as any) || {};
-    const runWindow: RunWindow = body.runWindow ?? runWindowFromDate(new Date());
     const runId = crypto.randomUUID();
+    const now = new Date();
 
     const regionInput = Array.isArray(body?.regions)
       ? body.regions
@@ -63,29 +75,49 @@ async function main() {
         ? [body.region]
         : undefined;
 
-    const regions = regionInput
+    const requestedRegions = regionInput
       ?.map((r: string) => r as RegionSlug)
       .filter((r: RegionSlug) => Boolean(REGIONS[r]));
 
-    if (body.scheduled === true && !body.force) {
-      const now = new Date();
-      const inWindow = regions?.length
-        ? regions.some((region: RegionSlug) => isWithinScheduledWindow(runWindow, now, REGIONS[region].timeZone))
-        : isWithinScheduledWindow(runWindow, now, "America/Chicago");
+    type RegionRun = { region: RegionSlug; runWindow: RunWindow; inWindow: boolean };
 
-      if (!inWindow) {
-        reply.code(202).send({ ok: true, accepted: true, skipped: true, runWindow, runId });
-        return;
+    const regionRuns = (requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[])).map(
+      (region: RegionSlug): RegionRun => {
+        const localizedRunWindow: RunWindow = body.runWindow ?? runWindowForRegion(region);
+        const inWindow =
+          body.scheduled === true && !body.force ? isWithinScheduledWindow(localizedRunWindow, now) : true;
+
+        return { region, runWindow: localizedRunWindow, inWindow };
       }
+    );
+
+    const readyRegions = body.scheduled === true && !body.force
+      ? regionRuns.filter((r: RegionRun) => r.inWindow)
+      : regionRuns;
+
+    const targetRegions = readyRegions.length > 0 ? readyRegions : regionRuns;
+
+    if (body.scheduled === true && readyRegions.length === 0) {
+      fastify.log.warn({ runId, regions: regionRuns.map((r: RegionRun) => r.region) }, "outside window; forcing catch-up run");
     }
 
-    reply.code(202).send({ ok: true, accepted: true, runWindow, runId });
+    reply.code(202).send({
+      ok: true,
+      accepted: true,
+      runId,
+      regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow }))
+    });
+
     setImmediate(() => {
-      handleCron(runWindow, {
-        runId,
-        scheduled: body.scheduled === true,
-        regions: regions?.length ? regions : undefined
-      }).catch((err) => fastify.log.error(err));
+      Promise.all(
+        targetRegions.map((target: RegionRun) =>
+          handleCron(target.runWindow, {
+            runId,
+            scheduled: body.scheduled === true,
+            regions: [target.region]
+          })
+        )
+      ).catch((err) => fastify.log.error(err));
     });
   });
 
@@ -98,7 +130,7 @@ async function main() {
     const body = (request.body as any) || {};
     reply.code(202).send({ ok: true, accepted: true });
     setImmediate(() => {
-      const runWindow: RunWindow = body.runWindow ?? runWindowFromDate(new Date());
+      const runWindow: RunWindow = body.runWindow ?? runWindowForRegion(body.region ?? "us-mx-la-lng");
       runAgent(agentId, body.region, runWindow).catch((err) => fastify.log.error(err));
     });
   });

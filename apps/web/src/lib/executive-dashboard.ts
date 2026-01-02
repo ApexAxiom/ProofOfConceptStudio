@@ -1,4 +1,4 @@
-import { cache } from "react";
+type ExecutiveRegion = "apac" | "international" | "woodside";
 
 export interface ExecutiveIndexPoint {
   date: string;
@@ -26,7 +26,7 @@ export interface ExecutiveArticle {
   publishedAt: string;
   category: string;
   summary?: string;
-  region: "apac" | "international";
+  region: ExecutiveRegion;
   imageUrl?: string;
 }
 
@@ -36,6 +36,7 @@ export interface ExecutiveDashboardPayload {
   articles: ExecutiveArticle[];
   apacArticles: ExecutiveArticle[];
   internationalArticles: ExecutiveArticle[];
+  woodsideArticles: ExecutiveArticle[];
   sources: { pricing: string; news: string };
 }
 
@@ -140,7 +141,7 @@ const INDEX_CONFIG: IndexConfig[] = [
 ];
 
 // News feeds organized by region
-const NEWS_FEEDS: Array<{ url: string; category: string; source: string; region: "apac" | "international" }> = [
+const NEWS_FEEDS: Array<{ url: string; category: string; source: string; region: ExecutiveRegion }> = [
   // APAC Sources (Australia, Asia-Pacific)
   {
     url: "https://www.energynewsbulletin.net/rss",
@@ -193,6 +194,21 @@ const NEWS_FEEDS: Array<{ url: string; category: string; source: string; region:
   },
 ];
 
+const WOODSIDE_FEEDS: Array<{ url: string; category: string; source: string; region: ExecutiveRegion }> = [
+  {
+    url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-AU&gl=AU&ceid=AU:en",
+    category: "Woodside",
+    source: "Google News",
+    region: "woodside",
+  },
+  {
+    url: "https://www.offshore-energy.biz/feed/",
+    category: "Offshore",
+    source: "Offshore Energy",
+    region: "woodside",
+  },
+];
+
 function randomBetween(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
@@ -224,7 +240,7 @@ async function fetchSparkSeries(symbols: string[]): Promise<Map<string, Executiv
     const url = `https://query1.finance.yahoo.com/v8/finance/spark?interval=1d&range=6mo&symbols=${symbols.join(",")}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; ProofStudio/1.0)" },
-      next: { revalidate: 86_400 },
+      next: { revalidate: 3_600 },
     });
 
     if (!res.ok) {
@@ -285,6 +301,34 @@ function getFallbackArticles(): ExecutiveArticle[] {
   const iso = (daysAgo: number) => new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
 
   return [
+    // Woodside Energy Focus
+    {
+      title: "Woodside submits revised Scarborough environmental plan",
+      url: "https://news.google.com/rss/articles/CBMiemh0dHBzOi8vd3d3LnJlZmluZXJ5MzcwLmNvbS9uZXdzL3dvb2RzaWRlLXN1Ym1pdHMtcmV2aXNlZC1zY2FyYm9yb3VnaC1lbnZpcm9ubWVudGFsLXBsYW4tdG8ta2VlcC1wcm9qZWN0LW9uLXRyYWNrL9IBAA?oc=5",
+      source: "Refinery29",
+      publishedAt: iso(1),
+      category: "Projects",
+      region: "woodside",
+      summary: "Operator refreshes approvals for Scarborough as stakeholder consultations continue.",
+    },
+    {
+      title: "Woodside eyes hydrogen and ammonia offtake partnerships",
+      url: "https://news.google.com/rss/articles/CBMiZGh0dHBzOi8vd3d3LmFmdC5jb20uYXUvbmV3cy93b29kc2lkZS1lbmVyZ3ktc2Vla3MtaHlkcm9nZW4tYW5kLWFtbW9uaWEtbWFya2V0LXBhcnRuZXJzLzYxNjA1NjcyM9IBAA?oc=5",
+      source: "AFR",
+      publishedAt: iso(2),
+      category: "Energy Transition",
+      region: "woodside",
+      summary: "Company pursues offtake deals to underpin clean energy projects across WA and Asia.",
+    },
+    {
+      title: "Sangomar ramp-up lifts Woodside West Africa production",
+      url: "https://news.google.com/rss/articles/CBMiOGh0dHBzOi8vd3d3Lm9nam91cm5hbC5jb20vbmV3cy9zYW5nb21hci1wcmljZS13b29kc2lkZS1leHBlY3RhdGlvbnPSAQA?oc=5",
+      source: "OGJ",
+      publishedAt: iso(3),
+      category: "Production",
+      region: "woodside",
+      summary: "West African volumes climb as Sangomar moves toward plateau output under Woodside operatorship.",
+    },
     // APAC
     {
       title: "Woodside Scarborough project reaches key milestone",
@@ -383,20 +427,25 @@ function parseTagValue(item: string, tag: string): string | null {
   return cdataMatch?.[1]?.trim() ?? null;
 }
 
-async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; international: ExecutiveArticle[] }> {
-  const apacArticles: ExecutiveArticle[] = [];
-  const internationalArticles: ExecutiveArticle[] = [];
+async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; international: ExecutiveArticle[]; woodside: ExecutiveArticle[] }> {
+  const buckets: Record<ExecutiveRegion, ExecutiveArticle[]> = {
+    apac: [],
+    international: [],
+    woodside: [],
+  };
 
-  for (const feed of NEWS_FEEDS) {
+  const feeds = [...NEWS_FEEDS, ...WOODSIDE_FEEDS];
+
+  for (const feed of feeds) {
     try {
-      const res = await fetch(feed.url, { next: { revalidate: 86_400 } });
+      const res = await fetch(feed.url, { next: { revalidate: 3_600 } });
       if (!res.ok) {
         continue;
       }
       const xml = await res.text();
       const itemRegex = /<item>([\s\S]*?)<\/item>/g;
       let match: RegExpExecArray | null = null;
-      const targetArray = feed.region === "apac" ? apacArticles : internationalArticles;
+      const targetArray = buckets[feed.region];
 
       while ((match = itemRegex.exec(xml)) && targetArray.length < 6) {
         const item = match[1];
@@ -404,7 +453,7 @@ async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; internationa
         const link = parseTagValue(item, "link");
         const pubDate = parseTagValue(item, "pubDate") ?? new Date().toISOString();
         const description = parseTagValue(item, "description");
-        
+
         // Try to extract image from media:content or enclosure
         const mediaMatch = item.match(/url="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/i);
         const imageUrl = mediaMatch?.[1];
@@ -413,7 +462,7 @@ async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; internationa
           targetArray.push({
             title,
             url: link,
-            source: feed.source,
+            source: feed.region === "woodside" ? "News" : feed.source,
             publishedAt: new Date(pubDate).toISOString(),
             category: feed.category,
             region: feed.region,
@@ -428,27 +477,31 @@ async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; internationa
   }
 
   // Use fallbacks if no articles fetched
-  if (apacArticles.length === 0 || internationalArticles.length === 0) {
-    const fallback = getFallbackArticles();
-    if (apacArticles.length === 0) {
-      apacArticles.push(...fallback.filter(a => a.region === "apac"));
+  const fallback = getFallbackArticles();
+  (Object.keys(buckets) as ExecutiveRegion[]).forEach((region) => {
+    if (buckets[region].length === 0) {
+      buckets[region].push(...fallback.filter((a) => a.region === region));
     }
-    if (internationalArticles.length === 0) {
-      internationalArticles.push(...fallback.filter(a => a.region === "international"));
-    }
-  }
+  });
 
   return {
-    apac: apacArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).slice(0, 6),
-    international: internationalArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).slice(0, 6),
+    apac: buckets.apac
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+      .slice(0, 6),
+    international: buckets.international
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+      .slice(0, 6),
+    woodside: buckets.woodside
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+      .slice(0, 6),
   };
 }
 
 /**
  * Builds the executive dashboard payload with 6-month price history and energy headlines.
- * Articles are split by region: APAC (Australia/Asia-Pacific) and International (Houston/Mexico/Senegal/LNG).
+ * Articles are split by region: Woodside spotlight, APAC (Australia/Asia-Pacific) and International (Houston/Mexico/Senegal/LNG).
  */
-export const getExecutiveDashboardData = cache(async (): Promise<ExecutiveDashboardPayload> => {
+export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
   const now = new Date().toISOString();
 
   const yahooSymbols = INDEX_CONFIG.map((cfg) => cfg.yahooSymbol);
@@ -460,8 +513,8 @@ export const getExecutiveDashboardData = cache(async (): Promise<ExecutiveDashbo
     return buildIndex(config, series);
   });
 
-  const { apac, international } = await fetchArticles();
-  const allArticles = [...apac, ...international].sort((a, b) => 
+  const { apac, international, woodside } = await fetchArticles();
+  const allArticles = [...woodside, ...apac, ...international].sort((a, b) =>
     new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 
@@ -471,9 +524,10 @@ export const getExecutiveDashboardData = cache(async (): Promise<ExecutiveDashbo
     articles: allArticles,
     apacArticles: apac,
     internationalArticles: international,
+    woodsideArticles: woodside,
     sources: {
       pricing: "Yahoo Finance Spark (6 month, 1d interval) with synthetic fallback",
-      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters, World Oil, OGJ) with curated fallback",
+      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters, World Oil, OGJ) with Woodside spotlight (Google News, Offshore Energy) and curated fallback",
     },
   };
-});
+}
