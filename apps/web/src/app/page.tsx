@@ -116,22 +116,6 @@ function SectionHeader({ icon, title, subtitle, action }: { icon: string; title:
 }
 
 // Stat card for hero section
-function StatCard({ label, value, trend, trendValue }: { label: string; value: string; trend?: "up" | "down"; trendValue?: string }) {
-  return (
-    <div className="stat-card">
-      <div className="flex items-start justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">{label}</span>
-        {trend && trendValue && (
-          <span className={`text-xs font-mono font-semibold ${trend === "up" ? "text-emerald-400" : "text-red-400"}`}>
-            {trend === "up" ? "↑" : "↓"} {trendValue}
-          </span>
-        )}
-      </div>
-      <div className="font-display text-3xl font-bold text-foreground tracking-tight mt-2">{value}</div>
-    </div>
-  );
-}
-
 export default async function Dashboard() {
   const [auBriefs, usBriefs, executiveDashboard] = await Promise.all([
     fetchLatest("au"),
@@ -162,17 +146,12 @@ export default async function Dashboard() {
             <span className="text-gradient-gold">Intelligence Brief</span>
           </h1>
           <p className="hero-subtitle">
-            AI-curated procurement insights across energy, steel, freight, and services. 
+            AI-curated procurement insights across energy, steel, freight, and services.
             Updated in real-time from {totalArticles}+ verified sources.
           </p>
-        </div>
-        
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-          <StatCard label="Active Briefs" value={`${allBriefs.length}`} />
-          <StatCard label="Categories" value="15" />
-          <StatCard label="Sources Monitored" value={`${totalArticles}`} trend="up" trendValue="12%" />
-          <StatCard label="Regions" value="2" />
+          <p className="mt-3 text-sm font-semibold text-amber-500">
+            Currently offline after intelligence data.
+          </p>
         </div>
       </section>
 
