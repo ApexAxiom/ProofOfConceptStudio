@@ -13,7 +13,8 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     throw new Error("OPENAI_API_KEY is not configured");
   }
 
-  const requiredCount = Math.min(input.agent.articlesPerRun ?? 3, Math.max(1, Math.min(5, input.candidates.length)));
+  // Allow the dashboard to include broader cross-category coverage when configured.
+  const requiredCount = Math.min(input.agent.articlesPerRun ?? 3, Math.max(1, Math.min(8, input.candidates.length)));
   const prompt = buildMarketPrompt({ ...input, agent: { ...input.agent, articlesPerRun: requiredCount } });
 
   const response = await client.chat.completions.create({

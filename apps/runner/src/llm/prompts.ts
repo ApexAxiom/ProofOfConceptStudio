@@ -17,7 +17,9 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function requiredArticleCount(agent: AgentConfig): number {
-  return clamp(agent.articlesPerRun ?? WRITING_GUIDE.articleSelection.count, 1, 5);
+  // Allow dashboard-style briefs to include broader coverage (e.g. 6 category groups).
+  // Most category briefs still use the default of 3.
+  return clamp(agent.articlesPerRun ?? WRITING_GUIDE.articleSelection.count, 1, 8);
 }
 
 export interface ArticleInput {

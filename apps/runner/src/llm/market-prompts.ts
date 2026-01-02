@@ -1,10 +1,12 @@
-import { AgentConfig, MarketIndex, RegionSlug, RunWindow } from "@proof/shared";
+import { AgentConfig, CategoryGroup, MarketIndex, RegionSlug, RunWindow } from "@proof/shared";
 import { requiredArticleCount } from "./prompts.js";
 
 export interface MarketCandidate {
   title: string;
   url: string;
   briefContent: string;
+  portfolio?: string;
+  categoryGroup?: CategoryGroup;
   sourceName?: string;
   imageUrl?: string;
 }
@@ -35,7 +37,7 @@ export function buildMarketPrompt(input: MarketPromptInput): string {
   const regionName = input.region === "au" ? "Australia (Perth)" : "Americas (Houston)";
   const candidateList = input.candidates
     .map(
-      (c, idx) => `### Candidate ${idx + 1}${c.sourceName ? ` (${c.sourceName})` : ""}
+      (c, idx) => `### Candidate ${idx + 1}${c.sourceName ? ` (${c.sourceName})` : ""}${c.categoryGroup ? ` [${c.categoryGroup}]` : ""}${c.portfolio ? ` (${c.portfolio})` : ""}
 Title: ${c.title}
 URL: ${c.url}
 Summary: ${c.briefContent.slice(0, 600)}`

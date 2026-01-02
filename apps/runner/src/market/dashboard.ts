@@ -1,5 +1,5 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { AgentConfig, RegionSlug, RunWindow, indicesForRegion } from "@proof/shared";
+import { AgentConfig, CategoryGroup, RegionSlug, RunWindow, categoryForPortfolio, indicesForRegion } from "@proof/shared";
 import { documentClient, tableName } from "../db/client.js";
 import { normalizeForDedupe } from "../ingest/url-normalize.js";
 import { generateMarketBrief } from "../llm/market-openai.js";
@@ -16,7 +16,46 @@ interface RunResult {
   error?: string;
 }
 
-const EXCLUDED_PORTFOLIOS = new Set(["it-telecom-cyber", "professional-services-hr", "market-dashboard"]);
+// Exclude only the dashboard itself to avoid feeding prior dashboards back into the dashboard.
+const EXCLUDED_PORTFOLIOS = new Set(["market-dashboard"]);
+
+const CATEGORY_GROUP_PRIORITY: CategoryGroup[] = ["energy", "steel", "freight", "facility", "cyber", "services"];
+
+function shortlistWithCategoryCoverage(candidates: MarketCandidate[], requiredCount: number): MarketCandidate[] {
+  if (candidates.length <= requiredCount) return candidates.slice(0, requiredCount);
+
+  const byGroup = new Map<CategoryGroup, MarketCandidate[]>();
+  for (const c of candidates) {
+    const group = c.categoryGroup;
+    if (!group) continue;
+    const list = byGroup.get(group) ?? [];
+    list.push(c);
+    byGroup.set(group, list);
+  }
+
+  const chosen: MarketCandidate[] = [];
+  const chosenUrls = new Set<string>();
+
+  // 1) Take one per category group in priority order when available.
+  for (const group of CATEGORY_GROUP_PRIORITY) {
+    const list = byGroup.get(group) ?? [];
+    const pick = list.find((c) => !chosenUrls.has(c.url));
+    if (!pick) continue;
+    chosen.push(pick);
+    chosenUrls.add(pick.url);
+    if (chosen.length >= requiredCount) return chosen;
+  }
+
+  // 2) Fill remaining slots with best remaining candidates in original order.
+  for (const c of candidates) {
+    if (chosenUrls.has(c.url)) continue;
+    chosen.push(c);
+    chosenUrls.add(c.url);
+    if (chosen.length >= requiredCount) break;
+  }
+
+  return chosen;
+}
 
 export async function runMarketDashboard(
   agent: AgentConfig,
@@ -49,6 +88,8 @@ export async function runMarketDashboard(
     const seen = new Set<string>();
     for (const item of query.Items ?? []) {
       if (EXCLUDED_PORTFOLIOS.has(item.portfolio)) continue;
+      const portfolio = typeof item.portfolio === "string" ? item.portfolio : undefined;
+      const categoryGroup = portfolio ? categoryForPortfolio(portfolio) : undefined;
       const articles = Array.isArray(item.selectedArticles) ? item.selectedArticles : [];
       for (const art of articles) {
         const normalized = normalizeForDedupe(art.url);
@@ -58,6 +99,8 @@ export async function runMarketDashboard(
           title: art.title,
           url: art.url,
           briefContent: art.briefContent || art.title,
+          portfolio,
+          categoryGroup,
           sourceName: art.sourceName,
           imageUrl: art.imageUrl
         });
@@ -76,7 +119,12 @@ export async function runMarketDashboard(
     const indexUrls = new Set(indices.map((i) => i.url));
     const allowedUrls = new Set([...candidates.map((c) => c.url), ...indexUrls]);
 
-    const brief = await generateMarketBrief({ agent, region, runWindow, candidates, indices });
+    // Shortlist candidates to ensure broad category coverage in the dashboard selection.
+    // By passing exactly N candidates where N == requiredCount, we strongly constrain selection to be category-balanced.
+    const requiredCount = Math.min(agent.articlesPerRun ?? 5, Math.max(1, Math.min(8, candidates.length)));
+    const shortlisted = shortlistWithCategoryCoverage(candidates, requiredCount);
+
+    const brief = await generateMarketBrief({ agent: { ...agent, articlesPerRun: requiredCount }, region, runWindow, candidates: shortlisted, indices });
     const validated = validateBrief(brief, allowedUrls, indexUrls);
 
     const enrichedArticles = await Promise.all(

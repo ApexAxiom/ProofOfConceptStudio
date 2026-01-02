@@ -333,8 +333,10 @@
   label: Market Dashboard
   description: Executive market overview for O&G/LNG with procurement actions
   maxArticlesToConsider: 20
-  articlesPerRun: 5
-  lookbackDays: 2
+  # 6 allows one slot per category group (energy/steel/freight/facility/cyber/services) when available
+  articlesPerRun: 6
+  # Use a longer lookback so less-frequent categories (e.g. cyber/services) still appear daily when possible
+  lookbackDays: 7
   mode: market-dashboard
   feedsByRegion:
     au: []
