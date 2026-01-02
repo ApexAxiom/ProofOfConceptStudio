@@ -152,11 +152,10 @@ jobs:
           echo "Run Window: $RUN_WINDOW"
           echo "Regions: $REGIONS_JSON"
           
-          # Build JSON payload properly
-          PAYLOAD=$(jq -n \
+          # Build JSON payload properly - REGIONS_JSON is already a JSON array string
+          PAYLOAD=$(echo "$REGIONS_JSON" | jq -c \
             --arg runWindow "$RUN_WINDOW" \
-            --argjson regions "$REGIONS_JSON" \
-            '{runWindow: $runWindow, regions: $regions, scheduled: true}')
+            '{runWindow: $runWindow, regions: ., scheduled: true}')
           
           echo "Payload: $PAYLOAD"
           
