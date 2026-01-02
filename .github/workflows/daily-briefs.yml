@@ -153,9 +153,16 @@ jobs:
           echo "Run Window: $RUN_WINDOW"
           echo "Regions: $REGIONS_JSON"
           
-          # Build JSON payload - REGIONS_JSON should be like ["au"] but may need escaping
-          # Use printf to properly handle the JSON array
-          PAYLOAD=$(printf '{"runWindow":"%s","regions":%s,"scheduled":true}' "$RUN_WINDOW" "$REGIONS_JSON")
+          # Build JSON payload - REGIONS_JSON is like ["au"] but quotes may be stripped
+          # Ensure regions is properly quoted by using jq or manual construction
+          # REGIONS_JSON should be ["au"] or ["us-mx-la-lng"]
+          if [[ "$REGIONS_JSON" =~ ^\[.*\]$ ]]; then
+            # Already looks like JSON array, use as-is but ensure quotes are preserved
+            PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":$REGIONS_JSON,\"scheduled\":true}"
+          else
+            # Fallback: wrap in array
+            PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":[\"$REGIONS_JSON\"],\"scheduled\":true}"
+          fi
           
           echo "Payload: $PAYLOAD"
           
