@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EventBridge Scheduler for daily brief runs
+
+Parameters:
+  RunnerBaseUrl:
+    Type: String
+    Description: Base URL of the runner service
+  SecretArn:
+    Type: String
+    Description: ARN of the secret containing CRON_SECRET
+
+Resources:
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SecretArn
+
+  APACSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-apac-daily
+      Description: Daily APAC brief run at 22:00 UTC
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true}'
+
+  InternationalSchedule1:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-11utc
+      Description: Daily international brief run at 11:00 UTC
+      ScheduleExpression: cron(0 11 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+
+  InternationalSchedule2:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-12utc
+      Description: Daily international brief run at 12:00 UTC
+      ScheduleExpression: cron(0 12 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'

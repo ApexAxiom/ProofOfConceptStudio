@@ -1,98 +1,41 @@
-name: Generate Daily Intelligence Briefs
+name: Daily Brief Runs
 
 on:
-  # Run twice daily (CST/CDT - America/Chicago)
-  # 6:00 AM CST = 12:00 UTC (winter) / 11:00 UTC (summer)
-  # 2:45 PM CST = 20:45 UTC (winter) / 19:45 UTC (summer)
   schedule:
-    # AM run - 6:00 AM CST (12:00 UTC)
-    - cron: '0 12 * * *'
-    # PM run - 2:45 PM CST (20:45 UTC)
-    - cron: '45 20 * * *'
-  
-  # Allow manual trigger
-  workflow_dispatch:
-    inputs:
-      run_window:
-        description: 'Run window (am or pm)'
-        required: true
-        default: 'am'
-        type: choice
-        options:
-          - am
-          - pm
-      region:
-        description: 'Region to run (leave empty for all)'
-        required: false
-        type: choice
-        options:
-          - ''
-          - au
-          - us-mx-la-lng
+    - cron: '0 22 * * *'  # APAC at 22:00 UTC
+    - cron: '0 11 * * *'  # International at 11:00 UTC
+    - cron: '0 12 * * *'  # International at 12:00 UTC
 
 jobs:
-  generate-briefs:
+  apac-run:
+    if: github.event.schedule == '0 22 * * *'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        region: [au, us-mx-la-lng]
-    
     steps:
-      - name: Determine run window
-        id: window
+      - name: Trigger APAC Run
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "window=${{ github.event.inputs.run_window }}" >> $GITHUB_OUTPUT
-          else
-            # Determine based on current UTC hour
-            HOUR=$(date -u +%H)
-            if [ "$HOUR" -lt 15 ]; then
-              echo "window=am" >> $GITHUB_OUTPUT
-            else
-              echo "window=pm" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-      - name: Skip if specific region requested
-        if: github.event.inputs.region != '' && github.event.inputs.region != matrix.region
-        run: |
-          echo "Skipping ${{ matrix.region }} - only running ${{ github.event.inputs.region }}"
-          exit 0
-
-      - name: Trigger ${{ matrix.region }} brief generation
-        run: |
-          echo "🚀 Triggering ${{ steps.window.outputs.window }} briefs for ${{ matrix.region }}"
-          
-          # For manual triggers (workflow_dispatch), set force=true to bypass time window check
-          IS_MANUAL=${{ github.event_name == 'workflow_dispatch' }}
-          
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ secrets.RUNNER_BASE_URL }}/cron" \
+          curl -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"runWindow\": \"${{ steps.window.outputs.window }}\",
-              \"regions\": [\"${{ matrix.region }}\"],
-              \"scheduled\": true,
-              \"force\": $IS_MANUAL
-            }")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Response: $BODY"
-          echo "HTTP Status: $HTTP_CODE"
-          
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "✅ Successfully triggered brief generation for ${{ matrix.region }}"
-          else
-            echo "❌ Failed to trigger brief generation"
-            exit 1
-          fi
+            -d '{"runWindow":"apac","regions":["au"],"scheduled":true}'
 
-      - name: Log completion
+  international-11utc:
+    if: github.event.schedule == '0 11 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger International Run 11UTC
         run: |
-          echo "📝 Completed ${{ steps.window.outputs.window }} run for ${{ matrix.region }}"
-          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          curl -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
 
-
+  international-12utc:
+    if: github.event.schedule == '0 12 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger International Run 12UTC
+        run: |
+          curl -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
