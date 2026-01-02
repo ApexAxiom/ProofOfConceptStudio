@@ -153,16 +153,8 @@ jobs:
           echo "Regions: $REGIONS_JSON"
           
           # Build JSON payload - REGIONS_JSON is already a valid JSON array string like ["au"]
-          PAYLOAD=$(jq -n \
-            --arg runWindow "$RUN_WINDOW" \
-            --argjson regions "$REGIONS_JSON" \
-            '{runWindow: $runWindow, regions: $regions, scheduled: true}' 2>&1)
-          
-          if [ $? -ne 0 ]; then
-            echo "⚠️  jq failed, constructing JSON manually"
-            # Fallback: construct JSON manually
-            PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":$REGIONS_JSON,\"scheduled\":true}"
-          fi
+          # Construct JSON directly since we know the format
+          PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":$REGIONS_JSON,\"scheduled\":true}"
           
           echo "Payload: $PAYLOAD"
           
