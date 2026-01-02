@@ -13,6 +13,13 @@ interface PriceData {
   sourceUrl: string;
 }
 
+interface PortfolioMarketTickerProps {
+  portfolio: string;
+  variant?: "ticker" | "grid";
+  limit?: number;
+  showHeader?: boolean;
+}
+
 function formatPrice(price: number): string {
   if (price >= 1000) {
     return price.toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -51,7 +58,44 @@ function TickerItem({ data }: { data: PriceData }) {
   );
 }
 
-export function PortfolioMarketTicker({ portfolio }: { portfolio: string }) {
+function GridItem({ data }: { data: PriceData }) {
+  const isPositive = data.change >= 0;
+  const changeText = `${isPositive ? "+" : ""}${data.changePercent.toFixed(2)}%`;
+  
+  return (
+    <a
+      href={data.sourceUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex flex-col gap-1 rounded-lg border border-border bg-background p-3 hover:border-primary/30 hover:bg-secondary/30 transition-all"
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-foreground text-sm">{data.symbol}</span>
+        <span className={`font-mono text-xs font-semibold px-1.5 py-0.5 rounded ${
+          isPositive 
+            ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" 
+            : "text-red-600 dark:text-red-400 bg-red-500/10"
+        }`}>
+          {isPositive ? "▲" : "▼"} {changeText}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-foreground font-mono text-lg font-medium">
+          {data.unit.startsWith("/") ? "" : "$"}{formatPrice(data.price)}
+        </span>
+        {data.unit && <span className="text-xs text-muted-foreground">{data.unit}</span>}
+      </div>
+      <span className="text-xs text-muted-foreground truncate">{data.name}</span>
+    </a>
+  );
+}
+
+export function PortfolioMarketTicker({ 
+  portfolio, 
+  variant = "ticker", 
+  limit = 4, 
+  showHeader = true 
+}: PortfolioMarketTickerProps) {
   const [data, setData] = useState<PriceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
@@ -150,7 +194,23 @@ export function PortfolioMarketTicker({ portfolio }: { portfolio: string }) {
     return () => clearInterval(interval);
   }, [portfolio]);
 
+  const displayData = variant === "grid" ? data.slice(0, limit) : data;
+
   if (loading) {
+    if (variant === "grid") {
+      return (
+        <div className="space-y-3">
+          {showHeader && (
+            <div className="h-5 w-32 animate-pulse rounded bg-muted/50" />
+          )}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: limit }).map((_, i) => (
+              <div key={i} className="h-20 animate-pulse rounded-lg bg-muted/50" />
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="ticker-container">
         <div className="flex items-center gap-6 px-4">
@@ -163,9 +223,59 @@ export function PortfolioMarketTicker({ portfolio }: { portfolio: string }) {
   }
 
   if (data.length === 0) {
+    if (variant === "grid") {
+      return (
+        <div className="space-y-3">
+          {showHeader && (
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span>Market Indices</span>
+            </div>
+          )}
+          <p className="text-sm text-muted-foreground">
+            No market indices configured for this portfolio.
+          </p>
+        </div>
+      );
+    }
     return null;
   }
 
+  // Grid variant
+  if (variant === "grid") {
+    return (
+      <div className="space-y-3">
+        {showHeader && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
+              <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                LIVE
+              </span>
+            </div>
+            {lastUpdated && (
+              <span className="text-xs text-muted-foreground font-mono">
+                {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+          </div>
+        )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {displayData.map((item) => (
+            <GridItem key={item.symbol} data={item} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Default ticker variant
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
