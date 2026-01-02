@@ -45,6 +45,15 @@ Resources:
                   - apprunner:DescribeService
                   - apprunner:StartDeployment
                 Resource: "*"
+        - PolicyName: SecretsManagerReadAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: 
+                  - arn:aws:secretsmanager:us-east-1:405894865970:secret:daily-briefs/app-secrets-*
 
 Outputs:
   RoleArn:
