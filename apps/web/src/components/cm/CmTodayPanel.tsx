@@ -9,10 +9,14 @@ interface CmTodayPanelProps {
   brief?: BriefPost;
 }
 
+const DEFAULT_VISIBLE = 3;
+
 export function CmTodayPanel({ brief }: CmTodayPanelProps) {
-  const priorities = brief?.cmSnapshot?.todayPriorities ?? [];
-  const fallbackActions = priorities.length === 0 ? brief?.procurementActions ?? [] : [];
   const [copied, setCopied] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  const priorities = useMemo(() => brief?.cmSnapshot?.todayPriorities ?? [], [brief?.cmSnapshot?.todayPriorities]);
+  const fallbackActions = useMemo(() => priorities.length === 0 ? brief?.procurementActions ?? [] : [], [priorities.length, brief?.procurementActions]);
 
   const checklist = useMemo(() => {
     if (priorities.length > 0) {
@@ -27,6 +31,12 @@ export function CmTodayPanel({ brief }: CmTodayPanelProps) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  const visiblePriorities = showAll ? priorities : priorities.slice(0, DEFAULT_VISIBLE);
+  const hiddenPrioritiesCount = priorities.length - DEFAULT_VISIBLE;
+
+  const visibleActions = showAll ? fallbackActions : fallbackActions.slice(0, DEFAULT_VISIBLE);
+  const hiddenActionsCount = fallbackActions.length - DEFAULT_VISIBLE;
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
@@ -51,7 +61,7 @@ export function CmTodayPanel({ brief }: CmTodayPanelProps) {
 
       {priorities.length > 0 && (
         <div className="space-y-3">
-          {priorities.map((item, idx) => (
+          {visiblePriorities.map((item, idx) => (
             <div
               key={`${item.title}-${idx}`}
               className="rounded-lg border border-border bg-background p-3 shadow-sm space-y-1"
@@ -73,17 +83,69 @@ export function CmTodayPanel({ brief }: CmTodayPanelProps) {
               </div>
             </div>
           ))}
+
+          {!showAll && hiddenPrioritiesCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+              Show all ({priorities.length})
+            </button>
+          )}
+
+          {showAll && priorities.length > DEFAULT_VISIBLE && (
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+              </svg>
+              Show less
+            </button>
+          )}
         </div>
       )}
 
       {priorities.length === 0 && fallbackActions.length > 0 && (
         <div className="space-y-2">
-          {fallbackActions.map((action, idx) => (
+          {visibleActions.map((action, idx) => (
             <div key={`${action}-${idx}`} className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-sm">
               <span className="mt-1 h-2 w-2 rounded-full bg-primary" aria-hidden />
               <span className="text-foreground">{action}</span>
             </div>
           ))}
+
+          {!showAll && hiddenActionsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+              Show all ({fallbackActions.length})
+            </button>
+          )}
+
+          {showAll && fallbackActions.length > DEFAULT_VISIBLE && (
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+              </svg>
+              Show less
+            </button>
+          )}
         </div>
       )}
     </div>
