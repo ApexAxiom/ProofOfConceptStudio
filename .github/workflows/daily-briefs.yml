@@ -145,17 +145,25 @@ jobs:
           RUNNER_URL="${{ steps.runner-url.outputs.url }}"
           CRON_SECRET="${{ steps.run-target.outputs.secret }}"
           RUN_WINDOW="${{ steps.setup.outputs.runWindow }}"
-          REGIONS="${{ steps.setup.outputs.regions }}"
+          REGIONS_JSON="${{ steps.setup.outputs.regions }}"
           
           echo "Triggering ${{ steps.setup.outputs.label }} run..."
           echo "URL: $RUNNER_URL/cron"
           echo "Run Window: $RUN_WINDOW"
-          echo "Regions: $REGIONS"
+          echo "Regions: $REGIONS_JSON"
+          
+          # Build JSON payload properly
+          PAYLOAD=$(jq -n \
+            --arg runWindow "$RUN_WINDOW" \
+            --argjson regions "$REGIONS_JSON" \
+            '{runWindow: $runWindow, regions: $regions, scheduled: true}')
+          
+          echo "Payload: $PAYLOAD"
           
           RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "$RUNNER_URL/cron" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"runWindow\":\"$RUN_WINDOW\",\"regions\":$REGIONS,\"scheduled\":true}")
+            -d "$PAYLOAD")
           
           HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
           BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
