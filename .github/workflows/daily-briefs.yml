@@ -38,6 +38,7 @@ jobs:
             RUN_WINDOW="${{ github.event.inputs.run_window }}"
             REGION="${{ github.event.inputs.region }}"
             echo "runWindow=$RUN_WINDOW" >> $GITHUB_OUTPUT
+            # Output regions as properly escaped JSON array
             echo "regions=[\"$REGION\"]" >> $GITHUB_OUTPUT
             echo "label=$RUN_WINDOW-$REGION" >> $GITHUB_OUTPUT
           else
@@ -152,9 +153,9 @@ jobs:
           echo "Run Window: $RUN_WINDOW"
           echo "Regions: $REGIONS_JSON"
           
-          # Build JSON payload - REGIONS_JSON is already a valid JSON array string like ["au"]
-          # Construct JSON directly since we know the format
-          PAYLOAD="{\"runWindow\":\"$RUN_WINDOW\",\"regions\":$REGIONS_JSON,\"scheduled\":true}"
+          # Build JSON payload - REGIONS_JSON should be like ["au"] but may need escaping
+          # Use printf to properly handle the JSON array
+          PAYLOAD=$(printf '{"runWindow":"%s","regions":%s,"scheduled":true}' "$RUN_WINDOW" "$REGIONS_JSON")
           
           echo "Payload: $PAYLOAD"
           
