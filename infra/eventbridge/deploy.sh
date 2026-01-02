@@ -2,8 +2,8 @@
 # Deploy EventBridge Scheduler for daily brief runs
 
 STACK_NAME="briefs-scheduler"
-RUNNER_BASE_URL="https://your-runner.awsapprunner.com"
-SECRET_ARN="arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:daily-briefs/app-secrets-XXXXXX"
+RUNNER_BASE_URL="https://pe8rz3uzip.us-east-1.awsapprunner.com"
+SECRET_ARN="arn:aws:secretsmanager:us-east-1:405894865970:secret:daily-briefs/app-secrets-hFtQFU"
 
 aws cloudformation deploy \
   --template-file scheduler.yml \

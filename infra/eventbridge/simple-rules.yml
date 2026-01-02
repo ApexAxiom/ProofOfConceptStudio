@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EventBridge Rules for daily brief runs
+
+Parameters:
+  RunnerBaseUrl:
+    Type: String
+    Description: Base URL of the runner service
+  CronSecret:
+    Type: String
+    Description: CRON_SECRET value
+    NoEcho: true
+
+Resources:
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+
+  APACRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: briefs-apac-daily
+      Description: Daily APAC brief run at 22:00 UTC
+      ScheduleExpression: cron(0 22 * * ? *)
+      State: ENABLED
+      Targets:
+        - Id: APACTarget
+          Arn: !Sub "${RunnerBaseUrl}/cron"
+          HttpParameters:
+            HeaderParameters:
+              Authorization: !Sub "Bearer ${CronSecret}"
+              Content-Type: application/json
+          Input: '{"runWindow":"apac","regions":["au"],"scheduled":true}'
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  InternationalRule1:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: briefs-international-11utc
+      Description: Daily international brief run at 11:00 UTC
+      ScheduleExpression: cron(0 11 * * ? *)
+      State: ENABLED
+      Targets:
+        - Id: International11Target
+          Arn: !Sub "${RunnerBaseUrl}/cron"
+          HttpParameters:
+            HeaderParameters:
+              Authorization: !Sub "Bearer ${CronSecret}"
+              Content-Type: application/json
+          Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  InternationalRule2:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: briefs-international-12utc
+      Description: Daily international brief run at 12:00 UTC
+      ScheduleExpression: cron(0 12 * * ? *)
+      State: ENABLED
+      Targets:
+        - Id: International12Target
+          Arn: !Sub "${RunnerBaseUrl}/cron"
+          HttpParameters:
+            HeaderParameters:
+              Authorization: !Sub "Bearer ${CronSecret}"
+              Content-Type: application/json
+          Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+          RoleArn: !GetAtt EventBridgeRole.Arn
