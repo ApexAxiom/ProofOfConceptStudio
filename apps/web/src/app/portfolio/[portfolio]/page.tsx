@@ -208,7 +208,7 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
             <div className="accent-line" />
             <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">Brief History</h2>
           </div>
-          <BriefsTable briefs={allBriefs} showRegion={true} />
+          <BriefsTable briefs={allBriefs} showRegion={true} variant="history" />
         </div>
       )}
 
