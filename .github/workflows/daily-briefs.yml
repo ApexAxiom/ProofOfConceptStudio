@@ -1,83 +1,55 @@
-name: Daily Brief Runs
+name: Daily Briefs
 
 on:
   schedule:
-    - cron: '0 22 * * *'  # APAC at 22:00 UTC
-    - cron: '0 11 * * *'  # International at 11:00 UTC
-    - cron: '0 12 * * *'  # International at 12:00 UTC
-  workflow_dispatch:
-    inputs:
-      run_window:
-        description: 'Run window (apac or international)'
-        required: true
-        type: choice
-        options:
-          - apac
-          - international
-      region:
-        description: 'Region (au or us-mx-la-lng)'
-        required: true
-        type: choice
-        options:
-          - au
-          - us-mx-la-lng
-
-permissions:
-  contents: read
+    - cron: '0 6 * * *'  # Runs daily at 6AM UTC
+  workflow_dispatch:  # Manual trigger for any region/window as needed
 
 jobs:
-  apac:
-    if: github.event_name == 'schedule' && github.event.schedule == '0 22 * * *'
+  generate-briefs:
     runs-on: ubuntu-latest
-    steps:
-      - name: Trigger APAC brief generation
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d '{"runWindow":"apac","regions":["au"],"scheduled":true}'
 
-  international-11utc:
-    if: github.event_name == 'schedule' && github.event.schedule == '0 11 * * *'
-    runs-on: ubuntu-latest
     steps:
-      - name: Trigger International brief generation (11:00 UTC)
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  international-12utc:
-    if: github.event_name == 'schedule' && github.event.schedule == '0 12 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger International brief generation (12:00 UTC)
-        shell: bash
+      - name: Validate Secrets
         run: |
-          set -euo pipefail
-          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+          if [ -z "$MY_SECRET" ]; then
+            echo "Error: Missing required secret MY_SECRET"
+            exit 1
+          fi
 
-  manual:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger brief generation (manual)
-        shell: bash
+      - name: Make API Request (Enhanced Logging)
         run: |
-          set -euo pipefail
-          RUN_WINDOW="${{ inputs.run_window }}"
-          REGION="${{ inputs.region }}"
-          PAYLOAD="$(jq -nc --arg runWindow "$RUN_WINDOW" --arg region "$REGION" '{runWindow: $runWindow, regions: [$region], scheduled: true}')"
+          echo "Starting API call at $(date -u +'%Y-%m-%d %H:%M:%S')"
+          RESPONSE=$(curl -s -o response.json -w "%{http_code}" -H "Authorization: Bearer $MY_SECRET" https://api.example.com/endpoint)
+          HTTP_CODE=$(tail -n 1 response.json)
 
-          curl -fsS -X POST "${{ secrets.RUNNER_BASE_URL }}/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD"
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Error: API call failed with HTTP status $HTTP_CODE"
+            cat response.json
+            exit 1
+          fi
+
+          echo "API call succeeded with response:"
+          cat response.json
+
+      - name: Save Run State
+        uses: actions/upload-artifact@v3
+        with:
+          name: run-response
+          path: response.json
+
+      - name: Enhanced Observability
+        env:
+          RUN_TIME: $(date -u +'%Y-%m-%d %H:%M:%S')
+        run: |
+          echo "Run completed at $RUN_TIME" > observability.log
+          cat response.json >> observability.log
+
+      - name: Upload Observability Logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: observability-logs
+          path: observability.log
