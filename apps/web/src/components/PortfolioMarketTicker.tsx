@@ -11,6 +11,7 @@ interface PriceData {
   changePercent: number;
   unit: string;
   sourceUrl: string;
+  source: "live" | "estimate" | "fallback";
 }
 
 interface PortfolioMarketTickerProps {
@@ -100,6 +101,7 @@ export function PortfolioMarketTicker({
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [isPaused, setIsPaused] = useState(false);
+  const [hasFallback, setHasFallback] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -149,6 +151,7 @@ export function PortfolioMarketTicker({
               changePercent: live.changePercent,
               unit: idx.unit,
               sourceUrl: idx.sourceUrl,
+              source: "live",
             });
           } else {
             const variation = (Math.random() - 0.5) * 0.02;
@@ -161,17 +164,19 @@ export function PortfolioMarketTicker({
               changePercent: variation * 100,
               unit: idx.unit,
               sourceUrl: idx.sourceUrl,
+              source: "estimate",
             });
           }
         }
 
         setData(priceData);
+        setHasFallback(priceData.some((item) => item.source !== "live"));
         setLastUpdated(new Date().toISOString());
       } catch (error) {
         console.error("Failed to fetch portfolio market data:", error);
         // Use fallbacks on error
         const seen = new Set<string>();
-        setData(indices.filter(idx => {
+        const fallbackData = indices.filter(idx => {
           if (seen.has(idx.symbol)) return false;
           seen.add(idx.symbol);
           return true;
@@ -183,7 +188,10 @@ export function PortfolioMarketTicker({
           changePercent: 0,
           unit: idx.unit,
           sourceUrl: idx.sourceUrl,
-        })));
+          source: "fallback" as const,
+        }));
+        setData(fallbackData);
+        setHasFallback(true);
       } finally {
         setLoading(false);
       }
@@ -254,9 +262,15 @@ export function PortfolioMarketTicker({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
               <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
-              <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                LIVE
+              <span className={`flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full ${
+                hasFallback
+                  ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                  : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+              }`}>
+                <span className={`live-pulse h-1.5 w-1.5 rounded-full ${
+                  hasFallback ? "bg-amber-500" : "bg-emerald-500"
+                }`} />
+                {hasFallback ? "ESTIMATED (SYNTHETIC)" : "LIVE"}
               </span>
             </div>
             {lastUpdated && (
@@ -286,9 +300,15 @@ export function PortfolioMarketTicker({
             </svg>
             <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
           </div>
-          <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-            <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            LIVE
+          <span className={`flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full ${
+            hasFallback
+              ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
+              : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+          }`}>
+            <span className={`live-pulse h-1.5 w-1.5 rounded-full ${
+              hasFallback ? "bg-amber-500" : "bg-emerald-500"
+            }`} />
+            {hasFallback ? "ESTIMATED (SYNTHETIC)" : "LIVE"}
           </span>
         </div>
         {lastUpdated && (
@@ -322,4 +342,3 @@ export function PortfolioMarketTicker({
     </div>
   );
 }
-

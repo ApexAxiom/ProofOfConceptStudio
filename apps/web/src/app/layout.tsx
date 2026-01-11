@@ -8,12 +8,12 @@ import { MobileHeader } from "../components/MobileHeader";
 
 function LiveIndicator() {
   return (
-    <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5">
+    <div className="flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1.5">
       <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
       </span>
-      <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
+      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Live / Estimated</span>
     </div>
   );
 }
