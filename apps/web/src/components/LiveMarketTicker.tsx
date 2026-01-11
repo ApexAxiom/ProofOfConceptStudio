@@ -91,6 +91,7 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
   const [source, setSource] = useState<string>("");
   const [isPaused, setIsPaused] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
+  const isLive = source === "live" || source === "yahoo";
 
   useEffect(() => {
     async function fetchData() {
@@ -143,12 +144,14 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
               <h3 className="font-display text-sm font-semibold text-foreground">Market Indices</h3>
             </div>
             
-            {(source === "live" || source === "yahoo") && (
-              <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-full">
-                <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Live
-              </span>
-            )}
+            <span className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.15em] px-2 py-1 rounded-full ${
+              isLive
+                ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                : "text-amber-400 bg-amber-500/10 border border-amber-500/20"
+            }`}>
+              <span className={`live-pulse h-1.5 w-1.5 rounded-full ${isLive ? "bg-emerald-500" : "bg-amber-500"}`} />
+              {isLive ? "Live" : "Estimated (Synthetic)"}
+            </span>
           </div>
           
           {lastUpdated && (

@@ -142,10 +142,10 @@ export function Sidebar() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
               </span>
-              <span className="text-xs font-medium text-emerald-400">Live Updates</span>
+              <span className="text-xs font-medium text-amber-400">Live / Estimated</span>
             </div>
             <span className="text-[10px] font-mono text-muted-foreground">
               {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
