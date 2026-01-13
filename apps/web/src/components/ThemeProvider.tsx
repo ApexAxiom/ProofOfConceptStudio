@@ -7,12 +7,15 @@ interface ThemeProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Provides theme context with a dark default.
+ */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="light"
-      enableSystem
+      defaultTheme="dark"
+      enableSystem={false}
       disableTransitionOnChange
     >
       {children}

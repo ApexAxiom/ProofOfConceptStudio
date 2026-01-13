@@ -18,6 +18,9 @@ function PlayIcon() {
   );
 }
 
+/**
+ * Admin console for manual intelligence runs.
+ */
 export default function AdminPage() {
   const [runWindow, setRunWindow] = useState("apac");
   const [region, setRegion] = useState<string>(REGION_LIST[0].slug);
@@ -26,17 +29,50 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const runRequest = async (payload: {
+    runWindow: string;
+    region: string;
+    agentId?: string;
+  }) => {
+    const res = await fetch("/api/admin/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, adminToken })
+    });
+    const json = await res.json();
+    return { status: res.status, data: json, runWindow: payload.runWindow };
+  };
+
   const trigger = async () => {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/admin/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runWindow, region, agentId: agentId || undefined, adminToken })
+      const result = await runRequest({
+        runWindow,
+        region,
+        agentId: agentId || undefined
       });
-      const json = await res.json();
-      setMessage(JSON.stringify(json, null, 2));
+      setMessage(JSON.stringify(result, null, 2));
+    } catch (err) {
+      setMessage("Failed to trigger run. Check console for details.");
+    }
+    setLoading(false);
+  };
+
+  const triggerAll = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const results = [];
+      for (const window of ["apac", "international"]) {
+        const result = await runRequest({
+          runWindow: window,
+          region,
+          agentId: agentId || undefined
+        });
+        results.push(result);
+      }
+      setMessage(JSON.stringify({ results }, null, 2));
     } catch (err) {
       setMessage("Failed to trigger run. Check console for details.");
     }
@@ -140,6 +176,26 @@ export default function AdminPage() {
               <>
                 <PlayIcon />
                 Execute Run
+              </>
+            )}
+          </button>
+          <button
+            onClick={triggerAll}
+            disabled={loading || !adminToken}
+            className="btn-secondary"
+          >
+            {loading ? (
+              <>
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Running...
+              </>
+            ) : (
+              <>
+                <PlayIcon />
+                Run All Windows
               </>
             )}
           </button>
