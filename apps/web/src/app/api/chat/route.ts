@@ -1,5 +1,19 @@
 import { NextResponse } from "next/server";
 
+export async function GET() {
+  try {
+    const base = process.env.API_BASE_URL ?? "http://localhost:3001";
+    const res = await fetch(`${base}/chat/status`, { cache: "no-store" });
+    const json = await res.json();
+    return NextResponse.json(json, { status: res.status });
+  } catch (err) {
+    return NextResponse.json(
+      { enabled: false, model: null, runnerConfigured: false, error: "unavailable" },
+      { status: 503 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

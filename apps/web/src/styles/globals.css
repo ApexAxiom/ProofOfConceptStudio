@@ -795,13 +795,15 @@ tr:hover td {
 }
 
 .topbar-content {
-  @apply flex h-full items-center justify-between px-6 lg:px-8;
+  @apply flex h-full items-center justify-between px-6 lg:px-10;
 }
 
 /* Main Content Area */
 .main-content {
-  @apply flex-1 px-6 py-8 lg:px-8;
-  @apply max-w-[1600px] mx-auto w-full min-w-0;
+  @apply flex-1 px-6 py-6 lg:px-10;
+  @apply max-w-[1720px] w-full min-w-0;
+  margin-left: 0;
+  margin-right: auto;
 }
 
 /* Mobile Menu Button */
@@ -898,7 +900,7 @@ tr:hover td {
    DASHBOARD SECTIONS - Editorial layout
    ═══════════════════════════════════════════════════════════════════════════ */
 .dashboard-section {
-  @apply space-y-6;
+  @apply space-y-5;
 }
 
 .dashboard-section-header {
@@ -919,7 +921,7 @@ tr:hover td {
 
 /* Section divider with editorial styling */
 .section-divider {
-  @apply flex items-center gap-4 my-10;
+  @apply flex items-center gap-4 my-8;
 }
 
 .section-divider::before,

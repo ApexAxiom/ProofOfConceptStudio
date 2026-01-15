@@ -72,11 +72,33 @@ export const CATEGORY_META: Record<CategoryGroup, CategoryMeta> = {
   }
 };
 
+const PORTFOLIO_CATEGORY_MAP: Record<string, CategoryGroup> = {
+  "rigs-integrated-drilling": "energy",
+  "drilling-services": "energy",
+  "wells-materials-octg": "steel",
+  "completions-intervention": "energy",
+  "pa-decommissioning": "energy",
+  "subsea-surf-offshore": "energy",
+  "projects-epc-epcm-construction": "energy",
+  "major-equipment-oem-ltsa": "energy",
+  "ops-maintenance-services": "energy",
+  "mro-site-consumables": "steel",
+  "logistics-marine-aviation": "freight",
+  "site-services-facilities": "facility",
+  "market-dashboard": "energy",
+  "it-telecom-cyber": "cyber",
+  "professional-services-hr": "services"
+};
+
 /**
  * Determines the category group for a given portfolio slug.
  */
 export function categoryForPortfolio(slug: string): CategoryGroup {
   const lowerSlug = slug.toLowerCase();
+  const mapped = PORTFOLIO_CATEGORY_MAP[lowerSlug];
+  if (mapped) {
+    return mapped;
+  }
   
   // Energy-related portfolios
   if (
@@ -113,6 +135,14 @@ export function categoryForPortfolio(slug: string): CategoryGroup {
     return "cyber";
   }
   
+  // Facility
+  if (
+    lowerSlug.includes("facility") ||
+    lowerSlug.includes("site")
+  ) {
+    return "facility";
+  }
+
   // Professional Services
   if (
     lowerSlug.includes("services") ||
@@ -120,14 +150,6 @@ export function categoryForPortfolio(slug: string): CategoryGroup {
     lowerSlug.includes("professional")
   ) {
     return "services";
-  }
-  
-  // Facility
-  if (
-    lowerSlug.includes("facility") ||
-    lowerSlug.includes("site")
-  ) {
-    return "facility";
   }
   
   // Steel/Materials

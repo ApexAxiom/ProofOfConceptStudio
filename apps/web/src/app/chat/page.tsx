@@ -38,6 +38,12 @@ type AgentSummary = {
   feedsByRegion: Record<string, AgentFeed[]>;
 };
 
+type AssistantStatus = {
+  enabled: boolean;
+  model?: string | null;
+  runnerConfigured?: boolean;
+};
+
 export default function ChatPage({
   searchParams
 }: {
@@ -59,6 +65,7 @@ export default function ChatPage({
   const [loading, setLoading] = useState(false);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [assistantStatus, setAssistantStatus] = useState<AssistantStatus | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const answerRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +87,23 @@ export default function ChatPage({
       }
     };
     loadAgents();
+  }, []);
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const res = await fetch("/api/chat", { method: "GET" });
+        const json = await res.json();
+        setAssistantStatus({
+          enabled: Boolean(json.enabled),
+          model: json.model ?? null,
+          runnerConfigured: json.runnerConfigured ?? false
+        });
+      } catch (err) {
+        setAssistantStatus({ enabled: false, model: null, runnerConfigured: false });
+      }
+    };
+    loadStatus();
   }, []);
 
   const activeAgent = agents.find((a) => a.portfolio === portfolio);
@@ -115,6 +139,16 @@ export default function ChatPage({
     inputRef.current?.focus();
   };
 
+  const statusTone = assistantStatus ? (assistantStatus.enabled ? "live" : "offline") : "pending";
+  const statusLabel = assistantStatus
+    ? (assistantStatus.enabled ? "AI online" : "Briefs-only")
+    : "Checking AI";
+  const statusBadgeClass = assistantStatus
+    ? (assistantStatus.enabled
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      : "border-amber-500/30 bg-amber-500/10 text-amber-400")
+    : "border-border bg-secondary text-muted-foreground";
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
@@ -125,13 +159,29 @@ export default function ChatPage({
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-foreground">AI Category Assistant</h1>
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
-              Offline mode only
+            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${statusBadgeClass}`}>
+              <span className={`status-dot ${statusTone}`} />
+              <span>{statusLabel}</span>
+              {assistantStatus?.enabled && assistantStatus.model && (
+                <span className="hidden sm:inline text-[10px] font-semibold uppercase tracking-wider">
+                  {assistantStatus.model}
+                </span>
+              )}
             </span>
           </div>
           <p className="mt-1 text-muted-foreground">
             Ask questions about market intelligence, supplier trends, or any category-related topic.
           </p>
+          {assistantStatus && !assistantStatus.enabled && (
+            <p className="mt-2 text-xs text-amber-500">
+              Set OPENAI_API_KEY (and optional OPENAI_MODEL) on the API service to enable AI responses.
+            </p>
+          )}
+          {assistantStatus && assistantStatus.runnerConfigured === false && (
+            <p className="mt-1 text-xs text-amber-500">
+              Set RUNNER_BASE_URL on the API service to load the agent catalog.
+            </p>
+          )}
         </div>
       </div>
 

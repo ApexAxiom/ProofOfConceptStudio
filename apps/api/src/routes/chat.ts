@@ -33,6 +33,12 @@ async function findAgent(agentId?: string, portfolio?: string) {
 }
 
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.get("/status", async () => ({
+    enabled: Boolean(openaiApiKey),
+    model: openaiApiKey ? model : null,
+    runnerConfigured: Boolean(RUNNER_BASE_URL)
+  }));
+
   fastify.post("/", async (request, reply) => {
     const { question, region, portfolio, agentId } = request.body as any;
     if (!region || !portfolio || !question) {

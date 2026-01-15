@@ -103,7 +103,7 @@ function WoodsideHeadline({ article, index }: { article: ExecutiveArticle; index
 // Section header with editorial styling
 function SectionHeader({ icon, title, subtitle, action }: { icon: string; title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-end justify-between mb-6">
+    <div className="flex items-end justify-between mb-5">
       <div className="flex items-start gap-3">
         <span className="text-2xl">{icon}</span>
         <div>
@@ -141,48 +141,46 @@ export default async function Dashboard() {
   ];
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {/* Hero Section - Editorial masthead */}
-      <section className="relative -mx-6 -mt-8 px-6 pt-8 pb-10 lg:-mx-8 lg:px-8 border-b border-border bg-gradient-to-b from-secondary/30 to-transparent">
-        <div className="max-w-4xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="accent-line" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Category Intelligence</span>
-          </div>
-          <h1 className="hero-title text-foreground mb-4">
-            Your Daily Market<br />
-            <span className="text-gradient-gold">Intelligence Brief</span>
-          </h1>
-          <p className="hero-subtitle">
-            AI-curated procurement insights across energy, steel, freight, and services.
-            Updated in real-time from {totalArticles}+ verified sources.
-          </p>
-          <p className="mt-3 text-sm font-semibold text-amber-500">
-            Data status: Live / Estimated (fallbacks are explicitly labeled).
-          </p>
-        </div>
-      </section>
-
-      {/* Executive KPI strip */}
-      <section className="dashboard-section">
-        <div className="rounded-lg border border-border bg-card px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+      <section className="relative -mx-6 -mt-6 px-6 pt-6 pb-8 lg:-mx-8 lg:px-8 border-b border-border bg-gradient-to-b from-secondary/30 to-transparent">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-3 mb-4">
               <div className="accent-line" />
-              <h2 className="font-display text-sm font-semibold text-foreground">Executive KPIs</h2>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Category Intelligence</span>
             </div>
-            <div className="text-xs text-muted-foreground">Snapshot for leadership review</div>
+            <h1 className="hero-title text-foreground mb-4">
+              Your Daily Market<br />
+              <span className="text-gradient-gold">Intelligence Brief</span>
+            </h1>
+            <p className="hero-subtitle">
+              AI-curated procurement insights across energy, steel, freight, and services.
+              Updated in real-time from {totalArticles}+ verified sources.
+            </p>
+            <p className="mt-3 text-sm font-semibold text-amber-500">
+              Data status: Live / Estimated (fallbacks are explicitly labeled).
+            </p>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {executiveKpis.map((kpi) => (
-              <div key={kpi.label} className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  {kpi.label}
-                </div>
-                <div className="mt-2 text-2xl font-display font-semibold text-foreground">{kpi.value}</div>
-                <div className="text-xs text-muted-foreground mt-1">{kpi.detail}</div>
+          <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="accent-line" />
+                <h2 className="font-display text-sm font-semibold text-foreground">Executive KPIs</h2>
               </div>
-            ))}
+              <div className="text-xs text-muted-foreground">Snapshot for leadership review</div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {executiveKpis.map((kpi) => (
+                <div key={kpi.label} className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    {kpi.label}
+                  </div>
+                  <div className="mt-2 text-2xl font-display font-semibold text-foreground">{kpi.value}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{kpi.detail}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -207,8 +205,8 @@ export default async function Dashboard() {
           title="Woodside Energy" 
           subtitle="Latest news from Woodside.com and industry sources"
           action={
-            <Link href="/portfolio/lng" className="btn-outline-gold text-xs py-1.5">
-              View All Energy →
+            <Link href="/category/energy" className="btn-outline-gold text-xs py-1.5">
+              View All Energy ->
             </Link>
           }
         />
@@ -232,7 +230,7 @@ export default async function Dashboard() {
           subtitle="Australia, Perth, Asia-Pacific energy & procurement news"
           action={
             <Link href="/au" className="btn-ghost text-xs">
-              View Region →
+              View Region ->
             </Link>
           }
         />
@@ -254,7 +252,7 @@ export default async function Dashboard() {
           subtitle="Houston, Mexico, Senegal, Americas energy & procurement news"
           action={
             <Link href="/us-mx-la-lng" className="btn-ghost text-xs">
-              View Region →
+              View Region ->
             </Link>
           }
         />
@@ -279,7 +277,7 @@ export default async function Dashboard() {
       </section>
 
       {/* CTA Section */}
-      <section className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-secondary via-card to-secondary p-8 lg:p-12">
+      <section className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-secondary via-card to-secondary p-6 lg:p-8">
         {/* Background decoration */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
@@ -303,3 +301,5 @@ export default async function Dashboard() {
     </div>
   );
 }
+
+
