@@ -21,15 +21,6 @@ Your AWS Secrets Manager secret should include:
 }
 ```
 
-## GitHub Actions (Fallback)
-
-### 1. Configure repository secrets
-- `RUNNER_BASE_URL`: https://your-runner.awsapprunner.com
-- `CRON_SECRET`: your-cron-secret-value
-
-### 2. Enable workflow
-The workflow in `.github/workflows/daily-briefs.yml` will run automatically.
-
 ## Manual Testing
 
 Test the endpoints manually:

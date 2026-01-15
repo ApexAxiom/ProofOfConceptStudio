@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EventBridge Scheduler with Lambda proxy for daily brief runs
+
+Parameters:
+  RunnerBaseUrl:
+    Type: String
+    Description: Base URL of the runner service
+  SecretArn:
+    Type: String
+    Description: ARN of the secret containing CRON_SECRET
+
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SecretArn
+
+  CronProxyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: briefs-cron-proxy
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Environment:
+        Variables:
+          RUNNER_BASE_URL: !Ref RunnerBaseUrl
+          SECRET_ARN: !Ref SecretArn
+      Code:
+        ZipFile: |
+          import json
+          import urllib3
+          import boto3
+          import os
+          
+          def lambda_handler(event, context):
+              # Get secret
+              secrets_client = boto3.client('secretsmanager')
+              secret = secrets_client.get_secret_value(SecretId=os.environ['SECRET_ARN'])
+              cron_secret = json.loads(secret['SecretString'])['CRON_SECRET']
+              
+              # Make HTTP request
+              http = urllib3.PoolManager()
+              url = f"{os.environ['RUNNER_BASE_URL']}/cron"
+              headers = {
+                  'Authorization': f'Bearer {cron_secret}',
+                  'Content-Type': 'application/json'
+              }
+              
+              response = http.request('POST', url, body=json.dumps(event), headers=headers)
+              
+              return {
+                  'statusCode': response.status,
+                  'body': response.data.decode('utf-8')
+              }
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaInvokeAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt CronProxyFunction.Arn
+
+  APACSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-apac-daily
+      Description: Daily APAC brief run at 22:00 UTC
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true}'
+
+  InternationalSchedule1:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-11utc
+      Description: Daily international brief run at 11:00 UTC
+      ScheduleExpression: cron(0 11 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+
+  InternationalSchedule2:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-12utc
+      Description: Daily international brief run at 12:00 UTC
+      ScheduleExpression: cron(0 12 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'

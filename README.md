@@ -92,30 +92,6 @@ Use EventBridge Scheduler with region-specific times. POST to runner `/cron` wit
 - APAC (06:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`
 - International (06:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`
 
-### GitHub Actions Daily Briefs Workflow
-
-The repository includes a GitHub Actions workflow (`.github/workflows/daily-briefs.yml`) that can trigger brief generation as a fallback or supplement to EventBridge. This workflow runs on a schedule and can also be triggered manually. If repository secrets are not configured, the workflow discovers the runner URL via AWS OIDC (using the same role as `apprunner-redeploy.yml`) and authenticates with an embedded `BOOTSTRAP_CRON_SECRET`. Configuring GitHub secrets overrides the bootstrap values, and setting `CRON_SECRET` / `ADMIN_TOKEN` environment variables in App Runner overrides the bootstraps for the services themselves.
-
-**GitHub Repository Secrets (recommended):**
-
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `RUNNER_BASE_URL` | Full URL of the deployed runner service (overrides auto-discovery) | `https://your-runner.awsapprunner.com` |
-| `CRON_SECRET` | Bearer token matching the runner's `CRON_SECRET` env var (overrides bootstrap) | `your-secure-random-token` |
-
-**To configure these secrets (optional but preferred):**
-1. Go to your GitHub repository → Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Add `RUNNER_BASE_URL` with the URL of your deployed runner service
-4. Add `CRON_SECRET` with the same value configured in the runner's environment
-
-**Workflow Schedule:**
-- APAC: 22:00 UTC (06:00 next day Perth time)
-- International: 11:00 and 12:00 UTC (06:00 Chicago time, covers DST)
-
-**Manual Trigger:**
-The workflow can be manually triggered via the Actions tab with options to select the run window and region.
-
 ### Lockfile discipline
 Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds. Dockerfiles will use `--frozen-lockfile` when the lockfile is present.
 
@@ -185,3 +161,4 @@ The App Runner instance role needs permission to read the secret:
 - Admin and runner endpoints require tokens.
 - No secrets committed; use env vars or AWS Secrets Manager references in App Runner. Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.
 - Upgrade Next.js promptly when security advisories are published and move to patched 15.0.x releases as needed.
+
