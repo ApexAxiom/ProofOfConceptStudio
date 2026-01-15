@@ -69,23 +69,23 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const allowedSources = new Set<string>(selectedPosts.flatMap((p) => p.sources || []));
     const context = contextBlocks.join("\n\n---\n\n");
 
-    const buildFallbackAnswer = (posts: BriefPost[]) => {
+    const buildFallbackAnswer = (posts: BriefPost[], reason: string) => {
       const bullets = posts.slice(0, 3).map((p) => {
         const source = p.sources?.[0];
         const detail = p.summary ?? p.bodyMarkdown;
         return source
-          ? `- **${p.title}** — ${detail} ([source](${source}))`
-          : `- **${p.title}** — ${detail}`;
+          ? `- **${p.title}** - ${detail} ([source](${source}))`
+          : `- **${p.title}** - ${detail}`;
       });
       return [
-        "AI model is not configured, so here are the latest briefs we have:",
+        `${reason} Showing the latest briefs we have instead:`,
         ...bullets,
         "Ask again once ingestion and AI credentials are configured for richer answers."
       ].join("\n");
     };
 
     if (!openai) {
-      return { answer: buildFallbackAnswer(selectedPosts) };
+      return { answer: buildFallbackAnswer(selectedPosts, "AI is not configured.") };
     }
 
     try {
@@ -105,13 +105,13 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       const hasAllowed = [...found].some((u) => allowedSources.has(u));
 
       if (!hasAllowed || disallowed.length > 0) {
-        return { answer: buildFallbackAnswer(selectedPosts) };
+        return { answer: buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.") };
       }
 
       return { answer };
     } catch (err) {
       request.log.error({ err }, "AI call failed; using fallback answer");
-      return { answer: buildFallbackAnswer(selectedPosts) };
+      return { answer: buildFallbackAnswer(selectedPosts, "AI response failed to generate.") };
     }
   });
 };
