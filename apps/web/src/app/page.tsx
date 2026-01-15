@@ -206,7 +206,7 @@ export default async function Dashboard() {
           subtitle="Latest news from Woodside.com and industry sources"
           action={
             <Link href="/category/energy" className="btn-outline-gold text-xs py-1.5">
-              View All Energy ->
+              View All Energy {"->"}
             </Link>
           }
         />
@@ -230,7 +230,7 @@ export default async function Dashboard() {
           subtitle="Australia, Perth, Asia-Pacific energy & procurement news"
           action={
             <Link href="/au" className="btn-ghost text-xs">
-              View Region ->
+              View Region {"->"}
             </Link>
           }
         />
@@ -252,7 +252,7 @@ export default async function Dashboard() {
           subtitle="Houston, Mexico, Senegal, Americas energy & procurement news"
           action={
             <Link href="/us-mx-la-lng" className="btn-ghost text-xs">
-              View Region ->
+              View Region {"->"}
             </Link>
           }
         />
