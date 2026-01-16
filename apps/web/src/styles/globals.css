@@ -580,7 +580,7 @@ tr:hover td {
    KPI CARD - Executive metrics
    ═══════════════════════════════════════════════════════════════════════════ */
 .kpi-card {
-  @apply rounded-lg border border-border bg-card p-5;
+  @apply hidden;
 }
 
 .kpi-value {
