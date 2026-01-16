@@ -89,7 +89,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     <span className="font-display text-primary">◈</span>
                     <span>Category Intelligence Hub</span>
                     <span className="text-border">•</span>
-                    <span>Powered by AlexAxiom</span>
+                    <span>Powered by ApexAxiom</span>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="font-mono">v0.1</span>
