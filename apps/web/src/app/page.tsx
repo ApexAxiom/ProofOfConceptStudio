@@ -133,13 +133,6 @@ export default async function Dashboard() {
     executiveDashboard.internationalArticles.length + 
     executiveDashboard.woodsideArticles.length;
 
-  const executiveKpis = [
-    { label: "Headlines tracked", value: totalArticles.toLocaleString(), detail: "Across priority feeds" },
-    { label: "Market indices", value: executiveDashboard.indices.length.toString(), detail: "Live / estimated" },
-    { label: "Briefs staged", value: allBriefs.length.toString(), detail: "Latest run windows" },
-    { label: "Category coverage", value: PORTFOLIOS.length.toString(), detail: "Active portfolios" },
-  ];
-
   return (
     <div className="space-y-10">
       {/* Hero Section - Editorial masthead */}
@@ -161,26 +154,6 @@ export default async function Dashboard() {
             <p className="mt-3 text-sm font-semibold text-amber-500">
               Data status: Live / Estimated (fallbacks are explicitly labeled).
             </p>
-          </div>
-          <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="accent-line" />
-                <h2 className="font-display text-sm font-semibold text-foreground">Executive KPIs</h2>
-              </div>
-              <div className="text-xs text-muted-foreground">Snapshot for leadership review</div>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {executiveKpis.map((kpi) => (
-                <div key={kpi.label} className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    {kpi.label}
-                  </div>
-                  <div className="mt-2 text-2xl font-display font-semibold text-foreground">{kpi.value}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{kpi.detail}</div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
@@ -304,4 +277,3 @@ export default async function Dashboard() {
     </div>
   );
 }
-
