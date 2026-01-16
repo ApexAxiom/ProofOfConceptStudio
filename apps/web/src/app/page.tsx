@@ -289,6 +289,9 @@ export default async function Dashboard() {
               Ask our AI assistant about any category, market trend, or procurement strategy. 
               Get instant analysis powered by your intelligence data.
             </p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">
+              AI conversation currently in development.
+            </p>
           </div>
           <Link href="/chat" className="btn-primary text-sm flex-shrink-0">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -301,5 +304,4 @@ export default async function Dashboard() {
     </div>
   );
 }
-
 

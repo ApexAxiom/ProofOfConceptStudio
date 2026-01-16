@@ -89,12 +89,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     <span className="font-display text-primary">◈</span>
                     <span>Category Intelligence Hub</span>
                     <span className="text-border">•</span>
-                    <span>Powered by AI Market Analysis</span>
+                    <span>Powered by AlexAxiom</span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-mono">v1.0</span>
+                    <span className="font-mono">v0.1</span>
                     <span className="text-border">|</span>
-                    <span>Updated every 15 minutes</span>
+                    <span>Updated daily</span>
                   </div>
                 </div>
               </footer>
