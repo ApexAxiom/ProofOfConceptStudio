@@ -10,6 +10,7 @@ import {
 } from "./prompts.js";
 import { BriefPost, SelectedArticle } from "@proof/shared";
 import { renderBriefMarkdown } from "./render.js";
+import { selectHeroArticle } from "./hero-selection.js";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
@@ -69,7 +70,7 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     };
   });
 
-  const heroArticle = selectedArticles.find((_, idx) => idx + 1 === parsed.heroSelection.articleIndex) || selectedArticles[0];
+  const heroArticle = selectHeroArticle(selectedArticles, parsed.heroSelection.articleIndex);
 
   const marketIndicators = parsed.marketIndicators
     .map((m) => {

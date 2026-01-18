@@ -47,8 +47,8 @@ function TimeAgo({ date }: { date: string }) {
 export function BriefCard({ brief }: { brief: BriefPost }) {
   const summary = truncate(previewText(brief) || brief.title);
   const primaryArticleUrl = 
+    extractValidUrl(brief.heroImageSourceUrl) ??
     extractValidUrl(brief.selectedArticles?.[0]?.url) ??
-    extractValidUrl(brief.heroImageSourceUrl) ?? 
     extractValidUrl(brief.sources?.[0]);
   const category = categoryForPortfolio(brief.portfolio);
   const categoryMeta = CATEGORY_META[category];
