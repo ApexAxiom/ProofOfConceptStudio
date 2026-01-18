@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { BriefMarketIndicator, BriefPost, SelectedArticle } from "@proof/shared";
 import { OpenAI } from "openai";
 import { renderBriefMarkdown } from "./render.js";
+import { selectHeroArticle } from "./hero-selection.js";
 import { MarketPromptInput, MarketOutput, buildMarketPrompt, parseMarketOutput } from "./market-prompts.js";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -50,11 +51,12 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
       briefContent: briefNote,
       imageUrl: candidate.imageUrl,
       imageAlt: item.imageAlt || candidate.title,
-      sourceName: candidate.sourceName
+      sourceName: candidate.sourceName,
+      sourceIndex: item.candidateIndex
     };
   });
 
-  const heroArticle = selectedArticles.find((_, idx) => idx + 1 === parsed.heroCandidateIndex) || selectedArticles[0];
+  const heroArticle = selectHeroArticle(selectedArticles, parsed.heroCandidateIndex);
 
   const marketIndicators: BriefMarketIndicator[] = parsed.marketIndicators
     .map((m) => {
