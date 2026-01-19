@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { getApiBaseUrl } from "../../../lib/api-base";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const base = process.env.API_BASE_URL ?? "http://localhost:3001";
+    const base = await getApiBaseUrl();
     const res = await fetch(`${base}/chat/status`, {
       cache: "no-store",
       signal: controller.signal
@@ -35,7 +39,7 @@ export async function POST(request: Request) {
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const body = await request.json();
-    const base = process.env.API_BASE_URL ?? "http://localhost:3001";
+    const base = await getApiBaseUrl();
     const res = await fetch(`${base}/chat`, {
       method: "POST",
       headers: {

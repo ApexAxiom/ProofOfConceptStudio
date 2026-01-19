@@ -1,6 +1,5 @@
 import { BriefPost, PORTFOLIOS, RunWindow, MOCK_POSTS } from "@proof/shared";
-
-const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
+import { getApiBaseUrl } from "./api-base";
 
 function sortByPublished(posts: BriefPost[]): BriefPost[] {
   return [...posts].sort((a, b) => (a.publishedAt > b.publishedAt ? -1 : 1));
@@ -32,7 +31,8 @@ function getMockPost(postId: string): BriefPost | null {
  */
 export async function fetchLatest(region: string): Promise<BriefPost[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/posts/latest?region=${region}`, { cache: "no-store" });
+    const apiBaseUrl = await getApiBaseUrl();
+    const res = await fetch(`${apiBaseUrl}/posts/latest?region=${region}`, { cache: "no-store" });
     if (!res.ok) return filterMockPosts({ region, limit: 30 });
     return res.json();
   } catch {
@@ -50,12 +50,13 @@ export async function fetchPosts(params: {
   limit?: number;
 }): Promise<BriefPost[]> {
   try {
+    const apiBaseUrl = await getApiBaseUrl();
     const query = new URLSearchParams();
     if (params.region) query.set("region", params.region);
     if (params.portfolio) query.set("portfolio", params.portfolio);
     if (params.runWindow) query.set("runWindow", params.runWindow);
     if (params.limit) query.set("limit", String(params.limit));
-    const res = await fetch(`${API_BASE_URL}/posts?${query.toString()}`, { cache: "no-store" });
+    const res = await fetch(`${apiBaseUrl}/posts?${query.toString()}`, { cache: "no-store" });
     if (!res.ok) return filterMockPosts(params);
     return res.json();
   } catch {
@@ -86,7 +87,8 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
  */
 export async function fetchPost(postId: string): Promise<BriefPost | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/posts/${postId}`, { cache: "no-store" });
+    const apiBaseUrl = await getApiBaseUrl();
+    const res = await fetch(`${apiBaseUrl}/posts/${postId}`, { cache: "no-store" });
     if (!res.ok) return getMockPost(postId);
     return res.json();
   } catch {
