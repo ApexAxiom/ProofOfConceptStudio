@@ -2,54 +2,8 @@ import "../styles/globals.css";
 import { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeProvider } from "../components/ThemeProvider";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { Sidebar } from "../components/Sidebar";
-import { MobileHeader } from "../components/MobileHeader";
-
-function LiveIndicator() {
-  return (
-    <div className="flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1.5">
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
-      </span>
-      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Live / Estimated</span>
-    </div>
-  );
-}
-
-function TopBar() {
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric"
-  });
-
-  return (
-    <header className="topbar hidden md:block">
-      <div className="topbar-content">
-        <div className="flex items-center gap-6">
-          {/* Editorial-style date & title */}
-          <div className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{today}</span>
-            <h1 className="font-display text-xl font-semibold text-foreground tracking-tight">Intelligence Hub</h1>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          {/* Live Market Status */}
-          <LiveIndicator />
-          
-          {/* Premium divider */}
-          <div className="h-8 w-px bg-border" />
-          
-          <ThemeToggle />
-        </div>
-      </div>
-    </header>
-  );
-}
+import { StatusBar } from "../components/StatusBar";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -71,11 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             
             {/* Main Content Area */}
             <div className="main-wrapper">
-              {/* Mobile Header */}
-              <MobileHeader />
-              
-              {/* Desktop Top Bar */}
-              <TopBar />
+              <StatusBar />
               
               {/* Page Content */}
               <main className="main-content">

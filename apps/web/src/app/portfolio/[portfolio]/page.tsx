@@ -8,13 +8,14 @@ import {
   CATEGORY_META,
   getPortfolioSources,
   PortfolioSource,
-  BriefPost,
-  RegionSlug
+  BriefPost
 } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
+import { getPortfolioPlaybook } from "../../../lib/portfolio-playbook";
 
 interface PortfolioDashboardProps {
   params: Promise<{ portfolio: string }>;
+  searchParams?: Promise<{ tab?: string }>;
 }
 
 // Featured brief card - Premium styling
@@ -73,8 +74,11 @@ function SourceCard({ source }: { source: PortfolioSource }) {
   );
 }
 
-export default async function PortfolioDashboard({ params }: PortfolioDashboardProps) {
+export default async function PortfolioDashboard({ params, searchParams }: PortfolioDashboardProps) {
   const { portfolio } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const tabParam = resolvedSearchParams?.tab ?? "briefs";
+  const activeTab = ["briefs", "playbook", "kpis", "suppliers"].includes(tabParam) ? tabParam : "briefs";
   
   // Find the portfolio
   const portfolioDef = PORTFOLIOS.find(p => p.slug === portfolio);
@@ -96,10 +100,11 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
   const category = categoryForPortfolio(portfolio);
   const categoryMeta = CATEGORY_META[category];
   
-  // Get sources split by region
-  const apacSources = getPortfolioSources(portfolio, "apac");
-  const intlSources = getPortfolioSources(portfolio, "intl");
-  const globalSources = getPortfolioSources(portfolio).filter(s => s.region === "both");
+  // Get sources and dedupe by URL
+  const sources = getPortfolioSources(portfolio);
+  const dedupedSources = Array.from(
+    new Map(sources.map((source) => [source.url, source])).values()
+  );
   
   // Fetch briefs for this portfolio - separate by region
   const [auBriefs, usBriefs] = await Promise.all([
@@ -115,6 +120,14 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
   const allBriefs = [...auBriefs, ...usBriefs]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 20);
+
+  const playbook = getPortfolioPlaybook(portfolio);
+  const tabs = [
+    { id: "briefs", label: "Briefs" },
+    { id: "playbook", label: "Category Playbook" },
+    { id: "kpis", label: "KPIs" },
+    { id: "suppliers", label: "Suppliers" }
+  ];
 
   return (
     <div className="space-y-10">
@@ -159,99 +172,160 @@ export default async function PortfolioDashboard({ params }: PortfolioDashboardP
         </div>
       </div>
 
-      {/* TODAY'S INTELLIGENCE BRIEFS - Featured section */}
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="accent-line" />
-            <h2 className="font-display text-lg font-bold text-foreground">Today&apos;s Intelligence Briefs</h2>
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
-            Updated {latestApacBrief || latestIntlBrief ? "today" : "awaiting first run"}
-          </span>
-        </div>
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+        {tabs.map((tab) => (
+          <Link
+            key={tab.id}
+            href={`/portfolio/${portfolio}?tab=${tab.id}`}
+            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] ${
+              activeTab === tab.id ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
 
-        {(latestApacBrief || latestIntlBrief) ? (
-          <div className="grid gap-5 lg:grid-cols-2">
-            {latestApacBrief && (
-              <FeaturedBrief brief={latestApacBrief} region="au" />
-            )}
-            {latestIntlBrief && (
-              <FeaturedBrief brief={latestIntlBrief} region="us-mx-la-lng" />
-            )}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-10 text-center">
-            <div className="w-14 h-14 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
-              <svg className="h-7 w-7 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+      {activeTab === "briefs" && (
+        <>
+          {/* TODAY'S INTELLIGENCE BRIEFS - Featured section */}
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="accent-line" />
+                <h2 className="font-display text-lg font-bold text-foreground">Today&apos;s Intelligence Briefs</h2>
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                Updated {latestApacBrief || latestIntlBrief ? "today" : "awaiting first run"}
+              </span>
             </div>
-            <h4 className="font-display text-base font-semibold text-foreground mb-2">Intelligence briefs coming soon</h4>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Your dedicated Category Management AI Agent is analyzing sources and will publish the first daily brief shortly
-              Briefs are generated daily at 06:00 local time for each region.
-            </p>
-          </div>
-        )}
-      </div>
 
-      {/* Market Indices - Premium card */}
-      <div className="rounded-xl border border-border bg-card p-5">
-        <PortfolioMarketTicker portfolio={portfolio} />
-      </div>
-
-      {/* Brief History */}
-      {allBriefs.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="accent-line" />
-            <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">Brief History</h2>
+            {(latestApacBrief || latestIntlBrief) ? (
+              <div className="grid gap-5 lg:grid-cols-2">
+                {latestApacBrief && (
+                  <FeaturedBrief brief={latestApacBrief} region="au" />
+                )}
+                {latestIntlBrief && (
+                  <FeaturedBrief brief={latestIntlBrief} region="us-mx-la-lng" />
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-10 text-center">
+                <div className="w-14 h-14 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+                  <svg className="h-7 w-7 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h4 className="font-display text-base font-semibold text-foreground mb-2">Intelligence briefs coming soon</h4>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Your dedicated Category Management AI Agent is analyzing sources and will publish the first daily brief shortly
+                  Briefs are generated daily at 06:00 local time for each region.
+                </p>
+              </div>
+            )}
           </div>
-          <BriefsTable briefs={allBriefs} showRegion={true} variant="history" />
+
+          {/* Market Indices - Premium card */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <PortfolioMarketTicker portfolio={portfolio} />
+          </div>
+
+          {/* Brief History */}
+          {allBriefs.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="accent-line" />
+                <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">Brief History</h2>
+              </div>
+              <BriefsTable briefs={allBriefs} showRegion={true} variant="history" />
+            </div>
+          )}
+
+          {/* Sources Accordion */}
+          <details className="rounded-xl border border-border bg-card">
+            <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center justify-between">
+              <span>Sources ({dedupedSources.length})</span>
+              <span className="text-xs text-muted-foreground">Expand</span>
+            </summary>
+            <div className="space-y-2 px-5 pb-5 pt-2">
+              {dedupedSources.length > 0 ? (
+                dedupedSources.map((source) => (
+                  <SourceCard key={source.url} source={source} />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">No sources configured</p>
+              )}
+            </div>
+          </details>
+        </>
+      )}
+
+      {activeTab === "playbook" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-semibold text-foreground">Category Playbook</h2>
+            <p className="text-xs text-muted-foreground mt-1">Weekly refresh. Built to keep daily briefs concise.</p>
+          </div>
+          {playbook ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card p-5">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Key KPIs</h3>
+                <ul className="mt-3 space-y-2 text-sm text-foreground list-disc pl-4">
+                  {playbook.kpis.map((kpi) => (
+                    <li key={kpi}>{kpi}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Negotiation Levers</h3>
+                <ul className="mt-3 space-y-2 text-sm text-foreground list-disc pl-4">
+                  {playbook.levers.map((lever) => (
+                    <li key={lever}>{lever}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-8 text-center">
+              <p className="text-sm text-muted-foreground">Playbook details will be added after the first category cycle.</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Sources Grid - Editorial divider */}
-      <div className="section-divider">
-        <h2>Intelligence Sources</h2>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* APAC Sources */}
+      {activeTab === "kpis" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🌏</span>
-            <h3 className="font-display text-sm font-semibold text-foreground">APAC Sources</h3>
-            <span className="text-xs font-mono text-muted-foreground">({apacSources.length + globalSources.length})</span>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-semibold text-foreground">KPIs</h2>
+            <p className="text-xs text-muted-foreground mt-1">Sparkline trends roll up weekly using the playbook KPIs.</p>
           </div>
-          <div className="space-y-2">
-            {[...globalSources, ...apacSources].map((source) => (
-              <SourceCard key={source.url} source={source} />
-            ))}
-            {apacSources.length === 0 && globalSources.length === 0 && (
-              <p className="text-sm text-muted-foreground py-4 text-center">No APAC sources configured</p>
-            )}
+          {playbook ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {playbook.kpis.map((kpi) => (
+                <div key={kpi} className="rounded-lg border border-border bg-card p-4">
+                  <p className="text-sm font-medium text-foreground">{kpi}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Trend view coming soon.</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">KPIs will appear once the playbook is configured.</p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "suppliers" && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-semibold text-foreground">Suppliers</h2>
+            <p className="text-xs text-muted-foreground mt-1">Top vendors and notes captured from briefs.</p>
+          </div>
+          <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-8 text-center">
+            <p className="text-sm text-muted-foreground">Supplier notes will populate as briefs are published.</p>
           </div>
         </div>
-
-        {/* International Sources */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🌎</span>
-            <h3 className="font-display text-sm font-semibold text-foreground">International Sources</h3>
-            <span className="text-xs font-mono text-muted-foreground">({intlSources.length + globalSources.length})</span>
-          </div>
-          <div className="space-y-2">
-            {[...globalSources, ...intlSources].map((source) => (
-              <SourceCard key={`intl-${source.url}`} source={source} />
-            ))}
-            {intlSources.length === 0 && globalSources.length === 0 && (
-              <p className="text-sm text-muted-foreground py-4 text-center">No international sources configured</p>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Category Navigation - Premium footer */}
       <div className="pt-6 border-t border-border">

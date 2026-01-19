@@ -39,6 +39,10 @@ function ActionIcon() {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const groupedPortfolios = Object.values(CATEGORY_META).map((category) => ({
+    category,
+    portfolios: PORTFOLIOS.filter((portfolio) => categoryForPortfolio(portfolio.slug) === category.id)
+  }));
 
   return (
     <aside className="sidebar">
@@ -85,35 +89,46 @@ export function Sidebar() {
               <span className="text-primary/60">◈</span>
               <span>Categories</span>
             </div>
-            <div className="sidebar-section-items">
-              {PORTFOLIOS.map((portfolio) => {
-                const category = categoryForPortfolio(portfolio.slug);
-                const meta = CATEGORY_META[category];
-                const isActive = pathname === `/portfolio/${portfolio.slug}`;
+            <div className="sidebar-section-items space-y-2">
+              {groupedPortfolios.map(({ category, portfolios }) => (
+                <details key={category.id} className="sidebar-group" open>
+                  <summary className="sidebar-group-summary">
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} />
+                      {category.label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{portfolios.length}</span>
+                  </summary>
+                  <div className="sidebar-group-items">
+                    {portfolios.map((portfolio) => {
+                      const isActive = pathname === `/portfolio/${portfolio.slug}`;
 
-                return (
-                  <Link
-                    key={portfolio.slug}
-                    href={`/portfolio/${portfolio.slug}`}
-                    className={`sidebar-category-link ${isActive ? "active" : ""}`}
-                    title={portfolio.label}
-                  >
-                    <span 
-                      className="sidebar-category-dot" 
-                      style={{ 
-                        backgroundColor: meta.color,
-                        boxShadow: isActive ? `0 0 8px ${meta.color}60` : 'none'
-                      }}
-                    />
-                    <span className="truncate">{portfolio.label}</span>
-                    {isActive && (
-                      <svg className="h-3 w-3 ml-auto text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    )}
-                  </Link>
-                );
-              })}
+                      return (
+                        <Link
+                          key={portfolio.slug}
+                          href={`/portfolio/${portfolio.slug}`}
+                          className={`sidebar-category-link ${isActive ? "active" : ""}`}
+                          title={portfolio.label}
+                        >
+                          <span 
+                            className="sidebar-category-dot" 
+                            style={{ 
+                              backgroundColor: category.color,
+                              boxShadow: isActive ? `0 0 8px ${category.color}60` : 'none'
+                            }}
+                          />
+                          <span className="truncate">{portfolio.label}</span>
+                          {isActive && (
+                            <svg className="h-3 w-3 ml-auto text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                            </svg>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </details>
+              ))}
             </div>
           </div>
 
@@ -136,22 +151,6 @@ export function Sidebar() {
             </Link>
           </div>
         </nav>
-
-        {/* Live Status Footer - Premium styling */}
-        <div className="sidebar-footer">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
-              </span>
-              <span className="text-xs font-medium text-amber-400">Live / Estimated</span>
-            </div>
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          </div>
-        </div>
       </div>
     </aside>
   );
