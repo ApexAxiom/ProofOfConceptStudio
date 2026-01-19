@@ -39,7 +39,8 @@ export function buildDynamoItem(
       imageUrl: article.imageUrl,
       imageAlt: article.imageAlt,
       sourceName: article.sourceName,
-      publishedAt: article.publishedAt
+      publishedAt: article.publishedAt,
+      sourceIndex: article.sourceIndex
     })),
 
     // Ingestion metadata

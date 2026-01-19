@@ -4,6 +4,7 @@ import Link from "next/link";
 import { REGION_LIST } from "@proof/shared";
 import { inferSignals } from "../lib/signals";
 import { portfolioLabel } from "@proof/shared";
+import { cmEvidenceLink } from "../components/cm/cmEvidenceLink";
 
 // Premium article card with editorial styling
 function ArticleCard({ article, featured = false }: { article: ExecutiveArticle; featured?: boolean }) {
@@ -192,7 +193,8 @@ export default async function Dashboard({
         title: brief.title,
         action: action.action,
         ownerRole: action.ownerRole,
-        dueInDays: action.dueInDays
+        dueInDays: action.dueInDays,
+        href: cmEvidenceLink(brief, action.evidenceArticleIndex)
       })) ?? []
     )
     .sort((a, b) => a.dueInDays - b.dueInDays)
@@ -322,7 +324,7 @@ export default async function Dashboard({
                     </div>
                     <p className="text-sm font-medium text-foreground">{entry.action}</p>
                   </div>
-                  <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:text-primary/80">
+                  <Link href={entry.href} className="text-xs font-semibold text-primary hover:text-primary/80">
                     Brief
                   </Link>
                 </li>

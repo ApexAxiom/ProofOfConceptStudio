@@ -8,6 +8,7 @@ import {
 } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../../lib/api";
 import { inferSignals } from "../../../lib/signals";
+import { cmEvidenceLink } from "../../../components/cm/cmEvidenceLink";
 
 interface ActionEntry {
   portfolio: string;
@@ -21,7 +22,7 @@ interface VpActionEntry {
   portfolio: string;
   postId: string;
   title: string;
-  actions: Array<{ action: string; ownerRole: string; dueInDays: number; signal: string }>;
+  actions: Array<{ action: string; ownerRole: string; dueInDays: number; signal: string; href: string }>;
 }
 
 interface PortfolioEntry {
@@ -109,18 +110,19 @@ export default async function ActionCenter({
   const vpActions = briefs
     .map<VpActionEntry | null>((brief) =>
       brief.vpSnapshot?.recommendedActions?.length
-        ? {
-            portfolio: brief.portfolio,
-            postId: brief.postId,
-            title: brief.title,
-            actions: brief.vpSnapshot.recommendedActions.map((action) => ({
-              action: action.action,
-              ownerRole: action.ownerRole,
-              dueInDays: action.dueInDays,
-              signal: inferSignals(brief)[0]?.label ?? "—"
-            }))
-          }
-        : null
+          ? {
+              portfolio: brief.portfolio,
+              postId: brief.postId,
+              title: brief.title,
+              actions: brief.vpSnapshot.recommendedActions.map((action) => ({
+                action: action.action,
+                ownerRole: action.ownerRole,
+                dueInDays: action.dueInDays,
+                signal: inferSignals(brief)[0]?.label ?? "—",
+                href: cmEvidenceLink(brief, action.evidenceArticleIndex)
+              }))
+            }
+          : null
     )
     .filter((entry): entry is VpActionEntry => Boolean(entry))
     .sort((a, b) => {
@@ -295,7 +297,7 @@ export default async function ActionCenter({
                     <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{entry.action}</td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                      <Link href={entry.href} className="text-xs font-semibold text-primary hover:underline">
                         Open
                       </Link>
                     </td>
@@ -388,7 +390,7 @@ export default async function ActionCenter({
                     {actions.slice(0, 5).map((action) => (
                       <li key={`${action.postId}-${action.action}`} className="flex items-center justify-between gap-3">
                         <span className="text-foreground">{action.action}</span>
-                        <Link href={`/brief/${action.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                        <Link href={action.href} className="text-xs font-semibold text-primary hover:underline">
                           Brief
                         </Link>
                       </li>
