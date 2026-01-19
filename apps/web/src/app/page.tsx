@@ -1,9 +1,9 @@
-import { LatestBriefsList } from "../components/LatestBriefsList";
-import { LiveMarketTicker } from "../components/LiveMarketTicker";
 import { fetchLatest } from "../lib/api";
 import { getExecutiveDashboardData, ExecutiveArticle } from "../lib/executive-dashboard";
 import Link from "next/link";
-import { PORTFOLIOS } from "@proof/shared";
+import { REGION_LIST } from "@proof/shared";
+import { inferSignals } from "../lib/signals";
+import { portfolioLabel } from "@proof/shared";
 
 // Premium article card with editorial styling
 function ArticleCard({ article, featured = false }: { article: ExecutiveArticle; featured?: boolean }) {
@@ -116,8 +116,26 @@ function SectionHeader({ icon, title, subtitle, action }: { icon: string; title:
   );
 }
 
-// Stat card for hero section
-export default async function Dashboard() {
+function KpiCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-display font-semibold text-foreground">{value}</p>
+      {detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}
+    </div>
+  );
+}
+
+export default async function Dashboard({
+  searchParams
+}: {
+  searchParams?: Promise<{ q?: string | string[] }>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const queryValue = Array.isArray(resolvedSearchParams?.q)
+    ? resolvedSearchParams?.q[0]
+    : resolvedSearchParams?.q;
+  const query = (queryValue ?? "").toLowerCase().trim();
   const [auBriefs, usBriefs, executiveDashboard] = await Promise.all([
     fetchLatest("au"),
     fetchLatest("us-mx-la-lng"),
@@ -133,120 +151,239 @@ export default async function Dashboard() {
     executiveDashboard.internationalArticles.length + 
     executiveDashboard.woodsideArticles.length;
 
+  const filteredBriefs = query
+    ? allBriefs.filter((brief) => {
+        const signals = inferSignals(brief).map((signal) => signal.label.toLowerCase()).join(" ");
+        return (
+          brief.title.toLowerCase().includes(query) ||
+          portfolioLabel(brief.portfolio).toLowerCase().includes(query) ||
+          signals.includes(query) ||
+          (brief.tags || []).some((tag) => tag.toLowerCase().includes(query))
+        );
+      })
+    : allBriefs;
+
+  const topBriefs = filteredBriefs.slice(0, 5);
+
+  const signalCounts = filteredBriefs.reduce(
+    (acc, brief) => {
+      inferSignals(brief).forEach((signal) => {
+        acc[signal.type] += 1;
+      });
+      return acc;
+    },
+    { cost: 0, "supply-risk": 0, regulatory: 0, cyber: 0, commercial: 0 }
+  );
+
+  const today = new Date();
+  const briefsUpdatedToday = filteredBriefs.filter((brief) => {
+    const published = new Date(brief.publishedAt);
+    return published.toDateString() === today.toDateString();
+  });
+
+  const apacBriefsToday = briefsUpdatedToday.filter((brief) => brief.region === "au").length;
+  const intlBriefsToday = briefsUpdatedToday.filter((brief) => brief.region !== "au").length;
+
+  const actions = filteredBriefs
+    .flatMap((brief) =>
+      brief.vpSnapshot?.recommendedActions?.map((action) => ({
+        portfolio: brief.portfolio,
+        postId: brief.postId,
+        title: brief.title,
+        action: action.action,
+        ownerRole: action.ownerRole,
+        dueInDays: action.dueInDays
+      })) ?? []
+    )
+    .sort((a, b) => a.dueInDays - b.dueInDays)
+    .slice(0, 5);
+
   return (
     <div className="space-y-10">
-      {/* Hero Section - Editorial masthead */}
-      <section className="relative -mx-6 -mt-6 px-6 pt-6 pb-8 lg:-mx-8 lg:px-8 border-b border-border bg-gradient-to-b from-secondary/30 to-transparent">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="accent-line" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Category Intelligence</span>
-            </div>
-            <h1 className="hero-title text-foreground mb-4">
-              Your Daily Market<br />
-              <span className="text-gradient-gold">Intelligence Brief</span>
-            </h1>
-            <p className="hero-subtitle">
-              AI-curated procurement insights across energy, steel, freight, and services.
-              Updated in real-time from {totalArticles}+ verified sources.
-            </p>
-            <p className="mt-3 text-sm font-semibold text-amber-500">
-              Data status: Live / Estimated (fallbacks are explicitly labeled).
-            </p>
+      {/* Today at a glance */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Executive Scan</p>
+            <h1 className="text-2xl font-display font-semibold text-foreground">Today at a glance</h1>
           </div>
+          <span className="text-xs text-muted-foreground">
+            {query ? `Filtered by “${queryValue}”` : `${totalArticles}+ sources monitored`}
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <KpiCard label="Cost signals" value={`${signalCounts.cost}`} detail="Briefs tagged for cost movement" />
+          <KpiCard label="Supply risk" value={`${signalCounts["supply-risk"]}`} detail="Outages, capacity, disruption" />
+          <KpiCard label="Regulatory + Cyber" value={`${signalCounts.regulatory + signalCounts.cyber}`} detail="Policy + security drivers" />
+          <KpiCard label="Briefs updated" value={`${briefsUpdatedToday.length}`} detail={`APAC ${apacBriefsToday} • INTL ${intlBriefsToday}`} />
+          <KpiCard label="Actions due" value={`${actions.length}`} detail="Next 7/14/30 day focus" />
         </div>
       </section>
 
-      {/* Market Indices Ticker - Premium styling */}
-      <section className="dashboard-section">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="relative">
-            {/* Subtle gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-primary/[0.02]" />
-            <div className="relative py-2">
-              <LiveMarketTicker showHeader={true} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Woodside Energy News - Featured section */}
-      <section className="dashboard-section">
-        <SectionHeader 
-          icon="🛢️" 
-          title="Woodside Energy" 
-          subtitle="Latest news from Woodside.com and industry sources"
-          action={
-            <Link href="/category/energy" className="btn-outline-gold text-xs py-1.5">
-              View All Energy {"->"}
-            </Link>
-          }
-        />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {executiveDashboard.woodsideArticles.slice(0, 6).map((article, idx) => (
-            <WoodsideHeadline key={`woodside-${idx}`} article={article} index={idx} />
-          ))}
-        </div>
-      </section>
-
-      {/* Editorial divider */}
-      <div className="section-divider">
-        <h2>Regional Intelligence</h2>
-      </div>
-
-      {/* APAC Region News - Editorial grid */}
-      <section className="dashboard-section">
-        <SectionHeader 
-          icon="🌏" 
-          title="APAC Region" 
-          subtitle="Australia, Perth, Asia-Pacific energy & procurement news"
+      {/* Top briefs */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon="🧭"
+          title="Top 5 briefs you should read"
+          subtitle="Ranked by recency and signal strength"
           action={
             <Link href="/au" className="btn-ghost text-xs">
-              View Region {"->"}
+              Browse regions {"->"}
             </Link>
           }
         />
-        <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {executiveDashboard.apacArticles.slice(0, 1).map((article, idx) => (
-            <ArticleCard key={`apac-featured-${idx}`} article={article} featured={true} />
-          ))}
-          {executiveDashboard.apacArticles.slice(1, 5).map((article, idx) => (
-            <ArticleCard key={`apac-${idx}`} article={article} />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/20">
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Category</th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Headline</th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Key Data</th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Signal</th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Region</th>
+                <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Open</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {topBriefs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    No briefs match your filters.
+                  </td>
+                </tr>
+              ) : (
+                topBriefs.map((brief) => {
+                  const signals = inferSignals(brief);
+                  const keyMetric = brief.selectedArticles?.[0]?.keyMetrics?.[0];
+                  return (
+                    <tr key={brief.postId} className="hover:bg-secondary/10">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{portfolioLabel(brief.portfolio)}</td>
+                      <td className="px-4 py-3">
+                        <Link href={`/brief/${brief.postId}`} className="text-sm font-medium text-foreground hover:text-primary line-clamp-1">
+                          {brief.title}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        {keyMetric ? (
+                          <span className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            {keyMetric}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {signals.length > 0 ? (
+                          <span className="signal-chip text-[10px]">{signals[0].label}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs">{brief.region === "au" ? "APAC" : "INTL"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/brief/${brief.postId}`} className="text-xs font-semibold text-primary hover:text-primary/80">
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
-      {/* International Region News */}
-      <section className="dashboard-section">
-        <SectionHeader 
-          icon="🌎" 
-          title="International" 
-          subtitle="Houston, Mexico, Senegal, Americas energy & procurement news"
+      {/* Top actions */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon="✅"
+          title="Top 5 actions"
+          subtitle="Cross-portfolio priorities to execute"
           action={
-            <Link href="/us-mx-la-lng" className="btn-ghost text-xs">
-              View Region {"->"}
+            <Link href={`/actions/${REGION_LIST[0].slug}`} className="btn-ghost text-xs">
+              Open Action Center {"->"}
             </Link>
           }
         />
-        <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {executiveDashboard.internationalArticles.slice(0, 1).map((article, idx) => (
-            <ArticleCard key={`intl-featured-${idx}`} article={article} featured={true} />
-          ))}
-          {executiveDashboard.internationalArticles.slice(1, 5).map((article, idx) => (
-            <ArticleCard key={`intl-${idx}`} article={article} />
-          ))}
+        <div className="rounded-xl border border-border bg-card p-4">
+          {actions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No leadership actions available for the current filter.</p>
+          ) : (
+            <ul className="space-y-3">
+              {actions.map((entry) => (
+                <li key={`${entry.postId}-${entry.action}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-secondary/20 px-4 py-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="rounded-full bg-muted px-2 py-0.5 font-semibold text-foreground">{entry.ownerRole}</span>
+                      <span>{portfolioLabel(entry.portfolio)}</span>
+                      <span className="text-border">•</span>
+                      <span>Due in {entry.dueInDays} days</span>
+                    </div>
+                    <p className="text-sm font-medium text-foreground">{entry.action}</p>
+                  </div>
+                  <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:text-primary/80">
+                    Brief
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
-      {/* Editorial divider */}
-      <div className="section-divider">
-        <h2>Intelligence Briefs</h2>
-      </div>
-
-      {/* Latest Briefs - Premium styling */}
+      {/* News stream accordion */}
       <section className="dashboard-section">
-        <LatestBriefsList briefs={allBriefs} />
+        <details className="rounded-xl border border-border bg-card">
+          <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center justify-between">
+            <span>News & Sources ({totalArticles} items)</span>
+            <span className="text-xs text-muted-foreground">Expand</span>
+          </summary>
+          <div className="space-y-8 px-5 pb-5 pt-2">
+            <div>
+              <SectionHeader
+                icon="🛢️"
+                title="Woodside Energy"
+                subtitle="Latest news from Woodside.com and industry sources"
+              />
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {executiveDashboard.woodsideArticles.slice(0, 6).map((article, idx) => (
+                  <WoodsideHeadline key={`woodside-${idx}`} article={article} index={idx} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <SectionHeader
+                icon="🌏"
+                title="APAC Region"
+                subtitle="Australia, Perth, Asia-Pacific energy & procurement news"
+              />
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {executiveDashboard.apacArticles.slice(0, 1).map((article, idx) => (
+                  <ArticleCard key={`apac-featured-${idx}`} article={article} featured={true} />
+                ))}
+                {executiveDashboard.apacArticles.slice(1, 5).map((article, idx) => (
+                  <ArticleCard key={`apac-${idx}`} article={article} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <SectionHeader
+                icon="🌎"
+                title="International"
+                subtitle="Houston, Mexico, Senegal, Americas energy & procurement news"
+              />
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {executiveDashboard.internationalArticles.slice(0, 1).map((article, idx) => (
+                  <ArticleCard key={`intl-featured-${idx}`} article={article} featured={true} />
+                ))}
+                {executiveDashboard.internationalArticles.slice(1, 5).map((article, idx) => (
+                  <ArticleCard key={`intl-${idx}`} article={article} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </details>
       </section>
 
       {/* CTA Section */}

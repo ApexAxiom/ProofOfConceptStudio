@@ -49,6 +49,10 @@ function CloseIcon() {
 export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const defaultActionCenter = REGION_LIST[0].slug;
+  const groupedPortfolios = Object.values(CATEGORY_META).map((category) => ({
+    category,
+    portfolios: PORTFOLIOS.filter((portfolio) => categoryForPortfolio(portfolio.slug) === category.id)
+  }));
 
   // Close on route change
   useEffect(() => {
@@ -121,29 +125,39 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               <span className="text-primary/60">◈</span>
               Categories
             </span>
-            {PORTFOLIOS.map((portfolio) => {
-              const category = categoryForPortfolio(portfolio.slug);
-              const meta = CATEGORY_META[category];
-              const isActive = pathname === `/portfolio/${portfolio.slug}`;
+            <div className="space-y-3">
+              {groupedPortfolios.map(({ category, portfolios }) => (
+                <div key={category.id} className="space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} />
+                    {category.label}
+                  </div>
+                  <div className="space-y-1">
+                    {portfolios.map((portfolio) => {
+                      const isActive = pathname === `/portfolio/${portfolio.slug}`;
 
-              return (
-                <Link
-                  key={portfolio.slug}
-                  href={`/portfolio/${portfolio.slug}`}
-                  onClick={onClose}
-                  className={`mobile-nav-category ${isActive ? "active" : ""}`}
-                >
-                  <span 
-                    className="h-2 w-2 rounded-full flex-shrink-0 transition-transform" 
-                    style={{ 
-                      backgroundColor: meta.color,
-                      boxShadow: isActive ? `0 0 8px ${meta.color}60` : 'none'
-                    }}
-                  />
-                  <span className="truncate">{portfolio.label}</span>
-                </Link>
-              );
-            })}
+                      return (
+                        <Link
+                          key={portfolio.slug}
+                          href={`/portfolio/${portfolio.slug}`}
+                          onClick={onClose}
+                          className={`mobile-nav-category ${isActive ? "active" : ""}`}
+                        >
+                          <span 
+                            className="h-2 w-2 rounded-full flex-shrink-0 transition-transform" 
+                            style={{ 
+                              backgroundColor: category.color,
+                              boxShadow: isActive ? `0 0 8px ${category.color}60` : 'none'
+                            }}
+                          />
+                          <span className="truncate">{portfolio.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="mobile-nav-section mt-auto pt-6 border-t border-border">
@@ -166,22 +180,6 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </Link>
           </div>
         </nav>
-        
-        {/* Footer */}
-        <div className="border-t border-border p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-xs font-medium text-emerald-400">Live Updates</span>
-            </div>
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          </div>
-        </div>
       </div>
     </>
   );

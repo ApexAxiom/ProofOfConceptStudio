@@ -3,13 +3,59 @@ import { RegionTabs } from "../../components/RegionTabs";
 import { PortfolioNav } from "../../components/PortfolioNav";
 import { BriefsTable } from "../../components/BriefsTable";
 import { LiveMarketTicker } from "../../components/LiveMarketTicker";
-import { RegionSlug, REGIONS, PORTFOLIOS } from "@proof/shared";
+import { RegionSlug, REGIONS } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../lib/api";
+import { inferSignals } from "../../lib/signals";
 
-export default async function RegionPage({ params }: { params: Promise<{ region: RegionSlug }> }) {
+export default async function RegionPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ region: RegionSlug }>;
+  searchParams?: Promise<{ signal?: string; sort?: string; q?: string | string[] }>;
+}) {
   const { region } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const queryValue = Array.isArray(resolvedSearchParams?.q)
+    ? resolvedSearchParams?.q[0]
+    : resolvedSearchParams?.q;
+  const query = (queryValue ?? "").toLowerCase().trim();
+  const selectedSignal = resolvedSearchParams?.signal ?? "all";
+  const sort = resolvedSearchParams?.sort ?? "newest";
   const briefs = await fetchLatestByPortfolio(region);
   const portfoliosWithBriefs = new Set(briefs.map(b => b.portfolio)).size;
+
+  const filteredBriefs = briefs.filter((brief) => {
+    const matchesQuery = query
+      ? `${brief.title} ${brief.summary ?? ""} ${brief.tags?.join(" ") ?? ""}`.toLowerCase().includes(query)
+      : true;
+    if (!matchesQuery) return false;
+    if (selectedSignal === "all") return true;
+    const signals = inferSignals(brief).map((signal) => signal.type);
+    return signals.includes(selectedSignal as ReturnType<typeof inferSignals>[number]["type"]);
+  });
+
+  const getRiskScore = (brief: typeof briefs[number]) => {
+    const signals = inferSignals(brief).map((signal) => signal.type);
+    return signals.reduce((score, type) => {
+      if (type === "supply-risk" || type === "regulatory" || type === "cyber") return score + 2;
+      if (type === "cost") return score + 1;
+      return score;
+    }, 0);
+  };
+
+  const sortedBriefs = [...filteredBriefs].sort((a, b) => {
+    if (sort === "risk") {
+      const delta = getRiskScore(b) - getRiskScore(a);
+      if (delta !== 0) return delta;
+    }
+    if (sort === "cost") {
+      const delta = (inferSignals(b).some((signal) => signal.type === "cost") ? 1 : 0) -
+        (inferSignals(a).some((signal) => signal.type === "cost") ? 1 : 0);
+      if (delta !== 0) return delta;
+    }
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+  });
   
   return (
     <div className="space-y-6">
@@ -46,15 +92,71 @@ export default async function RegionPage({ params }: { params: Promise<{ region:
       
       {/* Category Filter */}
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Browse by Category</h2>
-        <PortfolioNav region={region} />
+        <details className="rounded-lg border border-border bg-card p-4" open>
+          <summary className="cursor-pointer text-sm font-semibold text-foreground">Browse by Category</summary>
+          <div className="mt-3">
+            <PortfolioNav region={region} />
+          </div>
+        </details>
       </div>
       
       {/* Briefs Table */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Intelligence Briefs</h2>
-        {briefs.length > 0 ? (
-          <BriefsTable briefs={briefs} showRegion={false} />
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Intelligence Briefs</h2>
+            <p className="text-xs text-muted-foreground">Filter by signal type or search by keyword.</p>
+          </div>
+          <form className="flex flex-wrap gap-2" role="search">
+            <input type="hidden" name="signal" value={selectedSignal} />
+            <input type="hidden" name="sort" value={sort} />
+            <input
+              type="search"
+              name="q"
+              placeholder="Search title or keyword"
+              defaultValue={resolvedSearchParams?.q ?? ""}
+              className="min-w-[220px] rounded-md border border-border bg-background px-3 py-2 text-xs"
+            />
+            <button type="submit" className="btn-secondary text-xs">
+              Search
+            </button>
+          </form>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {["all", "cost", "supply-risk", "regulatory", "cyber", "commercial"].map((signal) => (
+            <Link
+              key={signal}
+              href={`/${region}?signal=${signal}&sort=${sort}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+              className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
+                selectedSignal === signal ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"
+              }`}
+            >
+              {signal === "supply-risk" ? "Supply Risk" : signal === "all" ? "All Signals" : signal.replace("-", " ")}
+            </Link>
+          ))}
+          <form className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <input type="hidden" name="signal" value={selectedSignal} />
+            <input type="hidden" name="q" value={query} />
+            <label htmlFor="sort" className="text-xs text-muted-foreground">
+              Sort
+            </label>
+            <select
+              id="sort"
+              name="sort"
+              defaultValue={sort}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+            >
+              <option value="newest">Newest</option>
+              <option value="risk">Highest risk</option>
+              <option value="cost">Cost focus</option>
+            </select>
+            <button type="submit" className="btn-ghost text-xs">
+              Apply
+            </button>
+          </form>
+        </div>
+        {sortedBriefs.length > 0 ? (
+          <BriefsTable briefs={sortedBriefs} showRegion={false} />
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
             <svg className="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

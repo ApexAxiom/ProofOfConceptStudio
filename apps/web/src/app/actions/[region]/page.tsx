@@ -7,19 +7,21 @@ import {
   PORTFOLIOS
 } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../../lib/api";
+import { inferSignals } from "../../../lib/signals";
 
 interface ActionEntry {
   portfolio: string;
   postId: string;
   title: string;
   items: string[];
+  signal: string;
 }
 
 interface VpActionEntry {
   portfolio: string;
   postId: string;
   title: string;
-  actions: Array<{ action: string; ownerRole: string; dueInDays: number }>;
+  actions: Array<{ action: string; ownerRole: string; dueInDays: number; signal: string }>;
 }
 
 interface PortfolioEntry {
@@ -37,7 +39,14 @@ export default async function ActionCenter({
   searchParams
 }: {
   params: Promise<{ region: string }>;
-  searchParams?: Promise<{ q?: string | string[] }>;
+  searchParams?: Promise<{
+    q?: string | string[];
+    tab?: string;
+    portfolio?: string;
+    owner?: string;
+    signal?: string;
+    due?: string;
+  }>;
 }) {
   const { region } = await params;
   const selectedRegion = REGION_LIST.find((r) => r.slug === region);
@@ -46,6 +55,12 @@ export default async function ActionCenter({
     ? resolvedSearchParams.q[0]
     : resolvedSearchParams?.q;
   const query = (queryValue ?? "").toLowerCase().trim();
+  const tabParam = resolvedSearchParams?.tab;
+  const activeTab = tabParam === "watchlist" ? "watchlist" : tabParam === "leadership" ? "leadership" : "actions";
+  const selectedPortfolio = resolvedSearchParams?.portfolio ?? "all";
+  const selectedOwner = resolvedSearchParams?.owner ?? "all";
+  const selectedSignal = resolvedSearchParams?.signal ?? "all";
+  const selectedDue = resolvedSearchParams?.due ?? "all";
 
   if (!selectedRegion) {
     return (
@@ -68,7 +83,8 @@ export default async function ActionCenter({
             portfolio: brief.portfolio,
             postId: brief.postId,
             title: brief.title,
-            items: brief.procurementActions
+            items: brief.procurementActions,
+            signal: inferSignals(brief)[0]?.label ?? "—"
           }
         : null
     )
@@ -82,7 +98,8 @@ export default async function ActionCenter({
             portfolio: brief.portfolio,
             postId: brief.postId,
             title: brief.title,
-            items: brief.watchlist
+            items: brief.watchlist,
+            signal: inferSignals(brief)[0]?.label ?? "—"
           }
         : null
     )
@@ -99,7 +116,8 @@ export default async function ActionCenter({
             actions: brief.vpSnapshot.recommendedActions.map((action) => ({
               action: action.action,
               ownerRole: action.ownerRole,
-              dueInDays: action.dueInDays
+              dueInDays: action.dueInDays,
+              signal: inferSignals(brief)[0]?.label ?? "—"
             }))
           }
         : null
@@ -111,24 +129,43 @@ export default async function ActionCenter({
       return a.title.localeCompare(b.title);
     });
 
-  const filterEntries = (entries: ActionEntry[]) =>
-    query
-      ? entries.filter((entry) => {
-          const hay = `${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.items.join(" ")}`.toLowerCase();
-          return hay.includes(query);
-        })
-      : entries;
+  const matchesQuery = (text: string) => (query ? text.toLowerCase().includes(query) : true);
 
-  const filteredProcurement = filterEntries(procurement);
-  const filteredWatchlist = filterEntries(watchlist);
-  const filteredVpActions = query
-    ? vpActions.filter((entry) => {
-        const hay = `${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.actions
-          .map((a) => `${a.action} ${a.ownerRole} due ${a.dueInDays}`)
-          .join(" ")}`.toLowerCase();
-        return hay.includes(query);
-      })
-    : vpActions;
+  const filteredProcurement = procurement.filter((entry) => {
+    if (selectedPortfolio !== "all" && entry.portfolio !== selectedPortfolio) return false;
+    if (selectedSignal !== "all" && entry.signal.toLowerCase() !== selectedSignal) return false;
+    return matchesQuery(`${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.items.join(" ")}`);
+  });
+
+  const filteredWatchlist = watchlist.filter((entry) => {
+    if (selectedPortfolio !== "all" && entry.portfolio !== selectedPortfolio) return false;
+    if (selectedSignal !== "all" && entry.signal.toLowerCase() !== selectedSignal) return false;
+    return matchesQuery(`${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.items.join(" ")}`);
+  });
+
+  const flattenedVpActions = vpActions.flatMap((entry) =>
+    entry.actions.map((action) => ({
+      portfolio: entry.portfolio,
+      postId: entry.postId,
+      title: entry.title,
+      ...action
+    }))
+  );
+
+  const filteredVpActions = flattenedVpActions.filter((entry) => {
+    if (selectedPortfolio !== "all" && entry.portfolio !== selectedPortfolio) return false;
+    if (selectedOwner !== "all" && entry.ownerRole !== selectedOwner) return false;
+    if (selectedSignal !== "all" && entry.signal.toLowerCase() !== selectedSignal) return false;
+    if (selectedDue !== "all" && entry.dueInDays > Number(selectedDue)) return false;
+    return matchesQuery(`${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.action} ${entry.ownerRole}`);
+  });
+
+  const leadershipThemes = filteredVpActions.reduce<Record<string, typeof filteredVpActions>>((acc, entry) => {
+    const key = entry.signal === "—" ? "Other" : entry.signal;
+    acc[key] = acc[key] ?? [];
+    acc[key].push(entry);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -152,53 +189,143 @@ export default async function ActionCenter({
         </div>
       </div>
 
-      <form className="flex flex-col gap-2 sm:flex-row" role="search">
-        <input
-          type="search"
-          name="q"
-          placeholder="Search actions or watchlist"
-          defaultValue={resolvedSearchParams?.q ?? ""}
-          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
-        />
+      <form className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-5" role="search">
+        <input type="hidden" name="tab" value={activeTab} />
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label htmlFor="portfolio">Portfolio</label>
+          <select id="portfolio" name="portfolio" defaultValue={selectedPortfolio} className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+            <option value="all">All portfolios</option>
+            {PORTFOLIOS.map((portfolio) => (
+              <option key={portfolio.slug} value={portfolio.slug}>
+                {portfolio.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label htmlFor="owner">Owner role</label>
+          <select id="owner" name="owner" defaultValue={selectedOwner} className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+            <option value="all">All owners</option>
+            {Array.from(new Set(flattenedVpActions.map((action) => action.ownerRole))).map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label htmlFor="signal">Signal</label>
+          <select id="signal" name="signal" defaultValue={selectedSignal} className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+            <option value="all">All signals</option>
+            {Array.from(new Set(briefs.flatMap((brief) => inferSignals(brief).map((signal) => signal.label.toLowerCase())))).map((signal) => (
+              <option key={signal} value={signal}>
+                {signal}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label htmlFor="due">Due window</label>
+          <select id="due" name="due" defaultValue={selectedDue} className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+            <option value="all">All</option>
+            <option value="7">Next 7 days</option>
+            <option value="14">Next 14 days</option>
+            <option value="30">Next 30 days</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label htmlFor="q">Search</label>
+          <input
+            id="q"
+            type="search"
+            name="q"
+            placeholder="Search actions or watchlist"
+            defaultValue={resolvedSearchParams?.q ?? ""}
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          />
+        </div>
         <button type="submit" className="btn-primary text-sm">
-          Search
+          Apply filters
         </button>
       </form>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+        {[
+          { id: "actions", label: "Actions" },
+          { id: "watchlist", label: "Watchlist" },
+          { id: "leadership", label: "Leadership View" }
+        ].map((tab) => (
+          <Link
+            key={tab.id}
+            href={`/actions/${region}?tab=${tab.id}&portfolio=${selectedPortfolio}&owner=${selectedOwner}&signal=${selectedSignal}&due=${selectedDue}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] ${
+              activeTab === tab.id ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
+
+      {activeTab === "actions" && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Procurement Actions</p>
-              <h2 className="text-lg font-semibold text-foreground">Across portfolios</h2>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Actions</p>
+              <h2 className="text-lg font-semibold text-foreground">Unified task list</h2>
             </div>
-            <span className="text-xs text-muted-foreground">{filteredProcurement.length} portfolios</span>
+            <span className="text-xs text-muted-foreground">{filteredProcurement.length + filteredVpActions.length} items</span>
           </div>
-          <div className="space-y-3">
-            {filteredProcurement.length === 0 && (
-              <p className="text-sm text-muted-foreground">No procurement actions found.</p>
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/20">
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Due</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Owner</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Portfolio</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Action</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Brief</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {filteredVpActions.map((entry) => (
+                  <tr key={`${entry.postId}-${entry.action}`} className="hover:bg-secondary/10">
+                    <td className="px-4 py-3 text-xs text-muted-foreground">Due in {entry.dueInDays} days</td>
+                    <td className="px-4 py-3 text-xs">{entry.ownerRole}</td>
+                    <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{entry.action}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {filteredProcurement.flatMap((entry) =>
+                  entry.items.map((item, idx) => (
+                    <tr key={`${entry.postId}-proc-${idx}`} className="hover:bg-secondary/10">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">—</td>
+                      <td className="px-4 py-3 text-xs">Category Manager</td>
+                      <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{item}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {filteredProcurement.length + filteredVpActions.length === 0 && (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No actions match the current filters.</div>
             )}
-            {filteredProcurement.map((entry) => (
-              <div key={`${entry.portfolio}-${entry.postId}`} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{portfolioLabel(entry.portfolio)}</p>
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-2">{entry.title}</h3>
-                  </div>
-                  <Link href={`/brief/${entry.postId}`} className="text-xs font-medium text-primary hover:underline">
-                    View brief
-                  </Link>
-                </div>
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground">
-                  {entry.items.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
           </div>
         </section>
+      )}
 
+      {activeTab === "watchlist" && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -207,68 +334,72 @@ export default async function ActionCenter({
             </div>
             <span className="text-xs text-muted-foreground">{filteredWatchlist.length} portfolios</span>
           </div>
-          <div className="space-y-3">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/20">
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Signal</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Portfolio</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Item</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Brief</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {filteredWatchlist.map((entry) =>
+                  entry.items.map((item, idx) => (
+                    <tr key={`${entry.postId}-watch-${idx}`} className="hover:bg-secondary/10">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{entry.signal}</td>
+                      <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{item}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
             {filteredWatchlist.length === 0 && (
-              <p className="text-sm text-muted-foreground">No watchlist items found.</p>
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No watchlist items match the current filters.</div>
             )}
-            {filteredWatchlist.map((entry) => (
-              <div key={`${entry.portfolio}-${entry.postId}`} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{portfolioLabel(entry.portfolio)}</p>
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-2">{entry.title}</h3>
-                  </div>
-                  <Link href={`/brief/${entry.postId}`} className="text-xs font-medium text-primary hover:underline">
-                    View brief
-                  </Link>
-                </div>
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground">
-                  {entry.items.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
           </div>
         </section>
-      </div>
+      )}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Recommended Actions (VP)</p>
-            <h2 className="text-lg font-semibold text-foreground">Cross-portfolio leadership focus</h2>
-          </div>
-          <span className="text-xs text-muted-foreground">{filteredVpActions.length} portfolios</span>
-        </div>
-        <div className="space-y-3">
-          {filteredVpActions.length === 0 && <p className="text-sm text-muted-foreground">No VP actions available.</p>}
-          {filteredVpActions.map((entry) => (
-            <div key={`${entry.portfolio}-${entry.postId}-vp`} className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{portfolioLabel(entry.portfolio)}</p>
-                  <h3 className="text-sm font-semibold text-foreground line-clamp-2">{entry.title}</h3>
-                </div>
-                <Link href={`/brief/${entry.postId}`} className="text-xs font-medium text-primary hover:underline">
-                  View brief
-                </Link>
-              </div>
-              <ul className="mt-3 space-y-2 text-sm text-foreground">
-                {entry.actions.map((item, idx) => (
-                  <li key={`${entry.postId}-action-${idx}`} className="flex flex-col gap-1 rounded-md border border-border/70 bg-muted/30 p-2">
-                    <span className="font-semibold">{item.action}</span>
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-md bg-muted px-2 py-1 font-medium text-foreground">{item.ownerRole}</span>
-                      <span className="rounded-md bg-muted px-2 py-1 font-medium text-foreground">Due in {item.dueInDays} days</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+      {activeTab === "leadership" && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Leadership View</p>
+              <h2 className="text-lg font-semibold text-foreground">Cross-portfolio themes</h2>
             </div>
-          ))}
-        </div>
-      </section>
+            <span className="text-xs text-muted-foreground">{filteredVpActions.length} actions</span>
+          </div>
+          {Object.keys(leadershipThemes).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No leadership actions available.</p>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {Object.entries(leadershipThemes).slice(0, 10).map(([theme, actions]) => (
+                <div key={theme} className="rounded-lg border border-border bg-card p-4">
+                  <h3 className="text-sm font-semibold text-foreground">{theme}</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {actions.slice(0, 5).map((action) => (
+                      <li key={`${action.postId}-${action.action}`} className="flex items-center justify-between gap-3">
+                        <span className="text-foreground">{action.action}</span>
+                        <Link href={`/brief/${action.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                          Brief
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

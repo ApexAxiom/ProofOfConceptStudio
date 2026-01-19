@@ -8,6 +8,7 @@ import { ArticleList } from "../../components/ArticleCard";
 import { InsightListCard } from "../../components/InsightListCard";
 import { ProxiedImage } from "../../components/ProxiedImage";
 import { RegionTabs } from "../../components/RegionTabs";
+import { CopyActionsButton } from "../../components/CopyActionsButton";
 import { inferSignals } from "../../lib/signals";
 import { extractValidUrl } from "../../lib/url";
 import {
@@ -15,7 +16,6 @@ import {
   CATEGORY_META,
   REGIONS,
   categoryForPortfolio,
-  getCategoryBadgeClass,
   portfolioLabel,
   regionLabel
 } from "@proof/shared";
@@ -55,13 +55,15 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
     .map((source) => extractValidUrl(source))
     .filter((s): s is string => Boolean(s));
 
-  const badgeClass = getCategoryBadgeClass(brief.portfolio);
   const category = categoryForPortfolio(brief.portfolio);
   const categoryMeta = CATEGORY_META[category];
   const heroImageUrl = extractValidUrl(brief.heroImageUrl);
   const selectedArticles = brief.selectedArticles || [];
   const signals = inferSignals(brief);
   const sourceCount = selectedArticles.length || sources.length || 0;
+  const keyData = Array.from(
+    new Set(selectedArticles.flatMap((article) => article.keyMetrics ?? []))
+  ).slice(0, 3);
   const actionableSections = [
     { title: "Market Highlights", items: brief.highlights, icon: "⚡" },
     { title: "Procurement Actions", items: brief.procurementActions, icon: "🛠️" },
@@ -87,6 +89,43 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
       {/* Executive Brief Header - Premium styling */}
       <article className="overflow-hidden rounded-xl border border-border bg-card">
+        {/* Brief Summary Bar */}
+        <div className="brief-summary-bar">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {portfolioLabel(brief.portfolio)} • {regionLabel(brief.region)}
+              </p>
+              <h1 className="text-lg font-semibold text-foreground">{brief.title}</h1>
+              <p className="text-xs text-muted-foreground mt-1">
+                Published {publishedDate} · {publishedTime}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {signals.map((signal) => (
+                <span key={signal.type} className="signal-chip text-[10px]">
+                  {signal.label}
+                </span>
+              ))}
+              {keyData.map((metric) => (
+                <span key={metric} className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  {metric}
+                </span>
+              ))}
+              {primarySourceUrl && (
+                <a
+                  href={primarySourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary text-sm"
+                >
+                  Open primary source
+                </a>
+              )}
+              <CopyActionsButton actions={brief.procurementActions ?? []} />
+            </div>
+          </div>
+        </div>
         {/* Hero Section */}
         <div className="relative">
           {/* Hero Image with Premium Gradient Overlay */}
@@ -155,22 +194,9 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
             {/* Right: Actions */}
             <div className="flex gap-2">
-              {primarySourceUrl && (
-                <a
-                  href={primarySourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-secondary text-sm"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                  </svg>
-                  View Primary Source
-                </a>
-              )}
               <Link
                 href="/chat"
-                className="btn-primary text-sm"
+                className="btn-secondary text-sm"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -183,17 +209,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
         {/* Brief Content */}
         <div className="space-y-8 p-6 md:p-8">
-          {/* Signals Row */}
-          {signals.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {signals.map((signal) => (
-                <span key={signal.type} className={`signal-chip`}>
-                  {signal.label}
-                </span>
-              ))}
-            </div>
-          )}
-
           {/* Executive Summary Section - Premium card */}
           {brief.summary && (
             <div className="relative rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-6 overflow-hidden">
@@ -214,6 +229,20 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             </div>
           )}
 
+          {keyData.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span role="img" aria-label="data">📌</span>
+                <h2 className="text-sm font-semibold text-foreground">Key Data</h2>
+              </div>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-foreground">
+                {keyData.map((metric) => (
+                  <li key={metric}>{metric}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {actionableSections.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2">
               {actionableSections.map((section) => (
@@ -229,34 +258,52 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
           {/* Selected Articles with Enhanced Cards */}
           {selectedArticles.length > 0 && (
-            <ArticleList articles={selectedArticles} />
+            <div className="rounded-xl border border-border bg-secondary/20">
+              <details className="group" open={false}>
+                <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center gap-2">
+                  <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                  Top Stories
+                </summary>
+                <div className="px-5 pb-5">
+                  <ArticleList articles={selectedArticles} />
+                </div>
+              </details>
+            </div>
           )}
 
           {brief.marketIndicators && brief.marketIndicators.length > 0 && (
-            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <span role="img" aria-label="market" className="text-lg">📊</span>
-                <span className="font-display text-sm font-semibold text-foreground">Market Indicators</span>
-              </div>
-              <ul className="space-y-3">
-                {brief.marketIndicators.map((indicator) => (
-                  <li key={indicator.id} className="p-3 rounded-lg bg-secondary/50 border border-border">
-                    <div className="font-medium text-foreground text-sm">{indicator.label}</div>
-                    <div className="text-sm text-muted-foreground mt-1 leading-relaxed">{indicator.note}</div>
-                    <a
-                      href={indicator.url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex items-center gap-1 text-primary text-xs mt-2 hover:underline"
-                    >
-                      View source
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                      </svg>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+            <div className="rounded-xl border border-border bg-card">
+              <details className="group">
+                <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center gap-2">
+                  <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                  Market Indicators
+                </summary>
+                <div className="px-5 pb-5">
+                  <ul className="space-y-3">
+                    {brief.marketIndicators.map((indicator) => (
+                      <li key={indicator.id} className="p-3 rounded-lg bg-secondary/50 border border-border">
+                        <div className="font-medium text-foreground text-sm">{indicator.label}</div>
+                        <div className="text-sm text-muted-foreground mt-1 leading-relaxed">{indicator.note}</div>
+                        <a
+                          href={indicator.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-1 text-primary text-xs mt-2 hover:underline"
+                        >
+                          View source
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                          </svg>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
             </div>
           )}
 
@@ -267,7 +314,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
                   <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
-                  Raw brief (markdown)
+                  Developer / Export view
                 </summary>
                 <div className="prose prose-sm max-w-none px-5 pb-5 pt-4 dark:prose-invert prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary">
                   <ReactMarkdown
@@ -286,10 +333,19 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
           {/* Sources Footer */}
           {sources.length > 0 && (
-            <>
-              <div className="divider" />
-              <FooterSources sources={sources} />
-            </>
+            <div className="rounded-xl border border-border bg-card">
+              <details className="group">
+                <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center gap-2">
+                  <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                  Sources ({sources.length})
+                </summary>
+                <div className="px-5 pb-5 pt-2">
+                  <FooterSources sources={sources} />
+                </div>
+              </details>
+            </div>
           )}
         </div>
       </article>
