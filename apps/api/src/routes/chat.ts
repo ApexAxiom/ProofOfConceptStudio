@@ -231,32 +231,33 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       return { answer: buildFallbackAnswer(selectedPosts, "AI is not configured.") };
     }
 
+    const assistantIdentity = agent
+      ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
+      : `${portfolioLabel(portfolio)} category management advisor`;
+    const systemMessage = [
+      "You are ProofOfConceptStudio Chat Analyst.",
+      "Be concise, factual, and do not invent provenance.",
+      "Never claim to browse external sites; you only know the provided briefs context.",
+      "If the user asks about a specific brief id or URL and none is provided, ask for it.",
+      "If sources are missing, say so.",
+      "No hallucinated citations.",
+      `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
+      "Use Markdown with bullet points and short paragraphs.",
+      "Every factual statement must include a citation using only the provided URLs.",
+      "Do not emit HTML. Do not output any URL that is not in Allowed URLs."
+    ].join(" ");
+    const prompt = `Allowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${effectiveQuestion}`;
+    const requestChatCompletion = (modelOverride?: string) =>
+      openai.chat.completions.create({
+        model: modelOverride ?? getModel(),
+        max_tokens: getMaxOutputTokens(),
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: prompt }
+        ]
+      });
+
     try {
-      const assistantIdentity = agent
-        ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
-        : `${portfolioLabel(portfolio)} category management advisor`;
-      const systemMessage = [
-        "You are ProofOfConceptStudio Chat Analyst.",
-        "Be concise, factual, and do not invent provenance.",
-        "Never claim to browse external sites; you only know the provided briefs context.",
-        "If the user asks about a specific brief id or URL and none is provided, ask for it.",
-        "If sources are missing, say so.",
-        "No hallucinated citations.",
-        `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
-        "Use Markdown with bullet points and short paragraphs.",
-        "Every factual statement must include a citation using only the provided URLs.",
-        "Do not emit HTML. Do not output any URL that is not in Allowed URLs."
-      ].join(" ");
-      const prompt = `Allowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${effectiveQuestion}`;
-      const requestChatCompletion = (modelOverride?: string) =>
-        openai.chat.completions.create({
-          model: modelOverride ?? getModel(),
-          max_tokens: getMaxOutputTokens(),
-          messages: [
-            { role: "system", content: systemMessage },
-            { role: "user", content: prompt }
-          ]
-        });
       const response = await requestChatCompletion();
       const answer = response.choices?.[0]?.message?.content ?? "";
       const urlRegex = /https?:\/\/[^\s)]+/g;
