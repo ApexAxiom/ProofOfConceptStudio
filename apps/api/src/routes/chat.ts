@@ -248,15 +248,16 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         "Do not emit HTML. Do not output any URL that is not in Allowed URLs."
       ].join(" ");
       const prompt = `Allowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${effectiveQuestion}`;
-      const maxTokens = getMaxOutputTokens();
-      const response = await openai.chat.completions.create({
-        model: getModel(),
-        max_tokens: maxTokens,
-        messages: [
-          { role: "system", content: systemMessage },
-          { role: "user", content: prompt }
-        ]
-      });
+      const requestChatCompletion = (modelOverride?: string) =>
+        openai.chat.completions.create({
+          model: modelOverride ?? getModel(),
+          max_tokens: getMaxOutputTokens(),
+          messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: prompt }
+          ]
+        });
+      const response = await requestChatCompletion();
       const answer = response.choices?.[0]?.message?.content ?? "";
       const urlRegex = /https?:\/\/[^\s)]+/g;
       const found = new Set<string>(answer.match(urlRegex) ?? []);
@@ -298,6 +299,39 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       );
       if (getDebugChatLogging()) {
         request.log.info({ ...logContext, timingMs, result: "error", errorMessage }, "Chat error detail");
+      }
+      if (isNotFound && getModel() !== DEFAULT_MODEL) {
+        request.log.warn(
+          { ...logContext, timingMs, result: "retry", model: getModel(), fallbackModel: DEFAULT_MODEL },
+          "AI model not found; retrying with default model"
+        );
+        try {
+          const response = await requestChatCompletion(DEFAULT_MODEL);
+          const answer = response.choices?.[0]?.message?.content ?? "";
+          const urlRegex = /https?:\/\/[^\s)]+/g;
+          const found = new Set<string>(answer.match(urlRegex) ?? []);
+          const disallowed = [...found].filter((u) => !allowedSources.has(u));
+          const hasAllowed = [...found].some((u) => allowedSources.has(u));
+
+          if (!hasAllowed || disallowed.length > 0) {
+            request.log.info(
+              { ...logContext, timingMs, result: "fallback", openaiRequestId: response.id },
+              "AI response failed citation checks after model retry; returning fallback"
+            );
+            return { answer: buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.") };
+          }
+
+          request.log.info(
+            { ...logContext, timingMs, openaiRequestId: response.id, result: "ok", model: DEFAULT_MODEL },
+            "Chat response generated after model retry"
+          );
+          return { answer };
+        } catch (retryErr) {
+          request.log.error(
+            { err: retryErr, ...logContext, timingMs, result: "error", model: DEFAULT_MODEL },
+            "AI retry with default model failed"
+          );
+        }
       }
       if (isAuthError || isNotFound) {
         return {
