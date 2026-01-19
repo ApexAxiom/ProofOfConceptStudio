@@ -73,8 +73,13 @@ API
 - `PORT=8080`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (default `gpt-4o`; set explicitly for production quality)
+- `OPENAI_MAX_OUTPUT_TOKENS` (optional; default 1000)
 - `ADMIN_TOKEN`
 - `CORS_ORIGINS` (optional)
+- `DEBUG_CHAT_LOGGING` (optional; `true` to log truncated chat content)
+- `CHAT_RATE_LIMIT_RPM` (optional; default 30)
+- `CHAT_RATE_LIMIT_BURST` (optional; default 10)
+- `RUNNER_BASE_URL` (optional but recommended; used to load agent catalog)
 
 Runner
 - `PORT=8080`
@@ -84,7 +89,7 @@ Runner
 
 Web
 - `PORT=8080`
-- `API_BASE_URL` (URL of proof-api service)
+- `API_BASE_URL` (URL of proof-api service; required in production)
 - Web uses server-side proxy routes to call the API; set `API_BASE_URL` to the deployed api endpoint.
 
 ### Scheduler
@@ -94,6 +99,18 @@ Use EventBridge Scheduler with region-specific times. POST to runner `/cron` wit
 
 ### Lockfile discipline
 Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds. Dockerfiles will use `--frozen-lockfile` when the lockfile is present.
+
+## Chat API contract
+- `GET /chat/status` returns `{ enabled, model, runnerConfigured }`.
+- `POST /chat` accepts `{ question, region, portfolio, agentId }`.
+- Optional: `messages[]` may be provided (last user message is used as the question).
+
+## Chat smoke test
+Run a direct chat smoke test against the API:
+```bash
+pnpm exec tsx scripts/smokeChat.ts
+```
+To validate the missing-API-key fallback, restart the API without `OPENAI_API_KEY` and run the script again.
 
 ### Launch Checklist
 - [ ] Deploy DynamoDB table via `infra/cloudformation/main.yml`
@@ -161,4 +178,3 @@ The App Runner instance role needs permission to read the secret:
 - Admin and runner endpoints require tokens.
 - No secrets committed; use env vars or AWS Secrets Manager references in App Runner. Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.
 - Upgrade Next.js promptly when security advisories are published and move to patched 15.0.x releases as needed.
-

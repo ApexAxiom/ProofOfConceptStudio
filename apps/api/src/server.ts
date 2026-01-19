@@ -11,6 +11,12 @@ async function main() {
   // Load secrets from AWS Secrets Manager before starting the server
   await initializeSecrets();
 
+  console.log("AI configuration", {
+    openaiKeyPresent: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.OPENAI_MODEL ?? "gpt-4o",
+    runnerBaseUrlPresent: Boolean(process.env.RUNNER_BASE_URL)
+  });
+
   const PORT = Number(process.env.PORT ?? 8080);
   const fastify = Fastify({ logger: true });
 
