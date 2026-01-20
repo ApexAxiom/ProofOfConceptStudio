@@ -395,36 +395,17 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       externalChars += section.length;
     }
 
-    const buildFallbackAnswer = (posts: BriefPost[], reason: string) => {
-      if (posts.length === 0) {
-        return [
-          `${reason} No briefs are available yet.`,
-          "Ask again once ingestion and AI credentials are configured for richer answers."
-        ].join("\n");
-      }
-      const bullets = posts.slice(0, 3).map((p) => {
-        const source = p.sources?.[0];
-        const detail = p.summary ?? p.bodyMarkdown;
-        return source
-          ? `- **${p.title}** - ${detail} ([source](${source}))`
-          : `- **${p.title}** - ${detail}`;
-      });
-      return [
-        `${reason} Showing the latest briefs we have instead:`,
-        ...bullets,
-        "Ask again once ingestion and AI credentials are configured for richer answers."
-      ].join("\n");
-    };
-
     const openai = getOpenAIClient();
     if (!openai) {
       const timingMs = Date.now() - startMs;
       request.log.error(
-        { ...logContext, timingMs, result: "fallback" },
-        "Missing OPENAI_API_KEY; returning fallback answer"
+        { ...logContext, timingMs, result: "error" },
+        "Missing OPENAI_API_KEY; rejecting chat request."
       );
-      const answer = buildFallbackAnswer(selectedPosts, "AI is not configured.");
-      return { answer, sources: uniqueStrings(extractUrlsFromText(answer)) };
+      reply
+        .code(503)
+        .send({ error: "AI is temporarily unavailable due to configuration." });
+      return;
     }
 
     const assistantIdentity = agent
@@ -508,20 +489,19 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       const isNotFound = status === 404 || code === "model_not_found";
       request.log.error(
         { err, status, code, ...logContext, timingMs, result: "error" },
-        "AI call failed; using fallback answer"
+        "AI call failed; rejecting chat request."
       );
       if (getDebugChatLogging()) {
         request.log.info({ ...logContext, timingMs, result: "error", errorMessage }, "Chat error detail");
       }
       if (isAuthError || isNotFound) {
-        const fallback = buildFallbackAnswer(
-          selectedPosts,
-          "AI is temporarily unavailable due to configuration."
-        );
-        return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
+        reply
+          .code(503)
+          .send({ error: "AI is temporarily unavailable due to configuration." });
+        return;
       }
-      const fallback = buildFallbackAnswer(selectedPosts, "AI response failed to generate.");
-      return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
+      reply.code(500).send({ error: "AI response failed to generate." });
+      return;
     }
   });
 };
