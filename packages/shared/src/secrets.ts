@@ -31,7 +31,7 @@ export const DEFAULT_SECRET_NAME = "daily-briefs/app-secrets";
  * Get the secrets config from environment variables
  */
 export function getSecretsConfig(): SecretsConfig | null {
-  const secretName = process.env.AWS_SECRET_NAME;
+  const secretName = process.env.AWS_SECRET_NAME ?? (process.env.AWS_REGION ? DEFAULT_SECRET_NAME : undefined);
   if (!secretName) return null;
   
   return {
