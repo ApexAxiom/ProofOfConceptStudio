@@ -6,8 +6,8 @@ import { OpenAI } from "openai";
 const DEFAULT_MODEL = "gpt-4o";
 const MAX_CONTEXT_CHARS = 100_000; // ~25k token budget
 const DEFAULT_MAX_COMPLETION_TOKENS = 1000;
-const MAX_QUESTION_CHARS = 4000;
-const MAX_MESSAGE_COUNT = 20;
+const MAX_QUESTION_CHARS = 8000;
+const MAX_MESSAGE_COUNT = 40;
 const FALLBACK_AGENT_URL = "http://localhost:3002";
 const PROOF_OF_CONCEPT_STUDIO_URL = "https://proofofconceptstudio.com";
 const MAX_WEB_DOCS = 3;
@@ -239,8 +239,14 @@ async function buildWebSearchContext(
 }
 
 function checkRateLimit(clientIp: string) {
+  if (process.env.CHAT_RATE_LIMIT_DISABLED === "true") {
+    return true;
+  }
   const now = Date.now();
   const { rpm, burst } = getRateLimitConfig();
+  if (rpm <= 0 || burst <= 0) {
+    return true;
+  }
   const state = RATE_LIMIT_STATE.get(clientIp) ?? { tokens: burst, lastRefillMs: now };
   const elapsedMinutes = (now - state.lastRefillMs) / 60000;
   const refill = elapsedMinutes * rpm;
@@ -367,15 +373,6 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       usedChars += block.length;
     }
 
-    if (selectedPosts.length === 0) {
-      const timingMs = Date.now() - startMs;
-      request.log.info(
-        { ...logContext, timingMs, result: "fallback" },
-        "No briefs available; returning fallback answer"
-      );
-      return { answer: "No briefs are available yet. Please run an ingestion cycle and try again." };
-    }
-
     const proofContext = await buildProofOfConceptContext(effectiveQuestion);
     const webContext = await buildWebSearchContext(effectiveQuestion, region, portfolio);
     const allowedSources = new Set<string>([
@@ -399,6 +396,12 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const buildFallbackAnswer = (posts: BriefPost[], reason: string) => {
+      if (posts.length === 0) {
+        return [
+          `${reason} No briefs are available yet.`,
+          "Ask again once ingestion and AI credentials are configured for richer answers."
+        ].join("\n");
+      }
       const bullets = posts.slice(0, 3).map((p) => {
         const source = p.sources?.[0];
         const detail = p.summary ?? p.bodyMarkdown;
@@ -435,7 +438,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       "If the user asks about a specific brief id or URL and none is provided, ask for it.",
       "If sources are missing, say so.",
       "Use citations for claims that come from provided sources.",
-      "If you rely on general knowledge or reasoning, say so explicitly.",
+      "You may answer using general knowledge when sources are not available; say so explicitly.",
       `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
       "Use Markdown with bullet points and short paragraphs.",
       "Do not emit HTML."
@@ -443,7 +446,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const promptSections = [
       `Allowed URLs:\n${Array.from(allowedSources).join("\n")}`,
       "Briefs:",
-      context
+      context || "No briefs available."
     ];
     if (externalSections.length > 0) {
       promptSections.push(...externalSections);
