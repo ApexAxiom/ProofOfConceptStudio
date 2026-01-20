@@ -14,6 +14,7 @@ const MAX_WEB_DOCS = 3;
 const MAX_WEB_DOC_CHARS = 2200;
 const MAX_WEB_CONTEXT_CHARS = 8000;
 const SEARCH_TIMEOUT_MS = 5000;
+const FALLBACK_MODELS = ["gpt-4o-mini"];
 const RATE_LIMIT_STATE = new Map<string, { tokens: number; lastRefillMs: number }>();
 let cachedOpenAIKey: string | null = null;
 let cachedOpenAI: OpenAI | null = null;
@@ -99,6 +100,10 @@ function extractUrlsFromSitemap(xml: string) {
 
 function uniqueStrings(values: string[]) {
   return [...new Set(values)];
+}
+
+function getModelFallbacks() {
+  return uniqueStrings([getModel(), DEFAULT_MODEL, ...FALLBACK_MODELS]).filter(Boolean);
 }
 
 function extractUrlsFromText(text: string) {
@@ -429,11 +434,11 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       "Prioritize sources in this order: ProofOfConceptStudio.com, then briefs, then web search context.",
       "If the user asks about a specific brief id or URL and none is provided, ask for it.",
       "If sources are missing, say so.",
-      "No hallucinated citations.",
+      "Use citations for claims that come from provided sources.",
+      "If you rely on general knowledge or reasoning, say so explicitly.",
       `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
       "Use Markdown with bullet points and short paragraphs.",
-      "Every factual statement must include a citation using only the provided URLs.",
-      "Do not emit HTML. Do not output any URL that is not in Allowed URLs."
+      "Do not emit HTML."
     ].join(" ");
     const promptSections = [
       `Allowed URLs:\n${Array.from(allowedSources).join("\n")}`,
@@ -454,22 +459,28 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         ]
       });
 
+    const requestChatCompletionWithFallbacks = async (models: string[]) => {
+      let lastError: unknown;
+      for (const model of models) {
+        try {
+          return { response: await requestChatCompletion(model), model };
+        } catch (err) {
+          lastError = err;
+          const status = (err as { status?: number })?.status;
+          const code = (err as { code?: string })?.code;
+          const isModelError = status === 404 || status === 403 || code === "model_not_found";
+          if (!isModelError) {
+            throw err;
+          }
+        }
+      }
+      throw lastError;
+    };
+
     try {
-      const response = await requestChatCompletion();
+      const { response, model } = await requestChatCompletionWithFallbacks(getModelFallbacks());
       const answer = response.choices?.[0]?.message?.content ?? "";
       const found = new Set<string>(extractUrlsFromText(answer));
-      const disallowed = [...found].filter((u) => !allowedSources.has(u));
-      const hasAllowed = [...found].some((u) => allowedSources.has(u));
-
-      if (!hasAllowed || disallowed.length > 0) {
-        const timingMs = Date.now() - startMs;
-        request.log.info(
-          { ...logContext, timingMs, result: "fallback", openaiRequestId: response.id },
-          "AI response failed citation checks; returning fallback"
-        );
-        const fallback = buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.");
-        return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
-      }
 
       const timingMs = Date.now() - startMs;
       const debug = getDebugChatLogging();
@@ -479,6 +490,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
           timingMs,
           openaiRequestId: response.id,
           result: "ok",
+          model,
           questionPreview: debug ? effectiveQuestion.slice(0, 300) : undefined
         },
         "Chat response generated"
@@ -497,39 +509,6 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       );
       if (getDebugChatLogging()) {
         request.log.info({ ...logContext, timingMs, result: "error", errorMessage }, "Chat error detail");
-      }
-      if (isNotFound && getModel() !== DEFAULT_MODEL) {
-        request.log.warn(
-          { ...logContext, timingMs, result: "retry", model: getModel(), fallbackModel: DEFAULT_MODEL },
-          "AI model not found; retrying with default model"
-        );
-        try {
-          const response = await requestChatCompletion(DEFAULT_MODEL);
-          const answer = response.choices?.[0]?.message?.content ?? "";
-          const found = new Set<string>(extractUrlsFromText(answer));
-          const disallowed = [...found].filter((u) => !allowedSources.has(u));
-          const hasAllowed = [...found].some((u) => allowedSources.has(u));
-
-          if (!hasAllowed || disallowed.length > 0) {
-            request.log.info(
-              { ...logContext, timingMs, result: "fallback", openaiRequestId: response.id },
-              "AI response failed citation checks after model retry; returning fallback"
-            );
-            const fallback = buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.");
-            return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
-          }
-
-          request.log.info(
-            { ...logContext, timingMs, openaiRequestId: response.id, result: "ok", model: DEFAULT_MODEL },
-            "Chat response generated after model retry"
-          );
-          return { answer, sources: uniqueStrings([...found]) };
-        } catch (retryErr) {
-          request.log.error(
-            { err: retryErr, ...logContext, timingMs, result: "error", model: DEFAULT_MODEL },
-            "AI retry with default model failed"
-          );
-        }
       }
       if (isAuthError || isNotFound) {
         const fallback = buildFallbackAnswer(
