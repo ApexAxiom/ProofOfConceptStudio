@@ -9,6 +9,11 @@ const DEFAULT_MAX_COMPLETION_TOKENS = 1000;
 const MAX_QUESTION_CHARS = 4000;
 const MAX_MESSAGE_COUNT = 20;
 const FALLBACK_AGENT_URL = "http://localhost:3002";
+const PROOF_OF_CONCEPT_STUDIO_URL = "https://proofofconceptstudio.com";
+const MAX_WEB_DOCS = 3;
+const MAX_WEB_DOC_CHARS = 2200;
+const MAX_WEB_CONTEXT_CHARS = 8000;
+const SEARCH_TIMEOUT_MS = 5000;
 const RATE_LIMIT_STATE = new Map<string, { tokens: number; lastRefillMs: number }>();
 let cachedOpenAIKey: string | null = null;
 let cachedOpenAI: OpenAI | null = null;
@@ -25,6 +30,11 @@ type AgentSummary = {
 type IncomingMessage = {
   role?: string;
   content?: string;
+};
+
+type ExternalContext = {
+  blocks: string[];
+  urls: string[];
 };
 
 function getRunnerBaseUrl() {
@@ -63,6 +73,164 @@ function getRateLimitConfig() {
     rpm: Number.isFinite(rpm) && rpm > 0 ? rpm : 30,
     burst: Number.isFinite(burst) && burst > 0 ? burst : 10
   };
+}
+
+function isWebSearchEnabled() {
+  return process.env.WEB_SEARCH_ENABLED !== "false";
+}
+
+function stripHtml(raw: string) {
+  return raw
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractTitle(html: string) {
+  const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  return match ? match[1].trim() : undefined;
+}
+
+function extractUrlsFromSitemap(xml: string) {
+  return Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/gi)).map((match) => match[1].trim());
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
+}
+
+function extractUrlsFromText(text: string) {
+  const urlRegex = /https?:\/\/[^\s)]+/g;
+  return text.match(urlRegex) ?? [];
+}
+
+function summarizeContent(content: string, maxChars: number) {
+  if (content.length <= maxChars) return content;
+  return `${content.slice(0, maxChars).trim()}…`;
+}
+
+function keywordTokens(question: string) {
+  const tokens = question.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const filtered = tokens.filter((token) => token.length > 3);
+  return uniqueStrings(filtered).slice(0, 8);
+}
+
+async function fetchWithTimeout(url: string, timeoutMs = SEARCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function resolveDuckDuckGoUrl(rawUrl: string) {
+  if (!rawUrl.includes("duckduckgo.com/l/")) return rawUrl;
+  try {
+    const parsed = new URL(rawUrl);
+    const target = parsed.searchParams.get("uddg");
+    return target ? decodeURIComponent(target) : rawUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
+async function fetchDuckDuckGoResults(query: string) {
+  const res = await fetchWithTimeout(
+    `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+    SEARCH_TIMEOUT_MS
+  );
+  if (!res.ok) return [];
+  const html = await res.text();
+  const matches = Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"/g));
+  const urls = matches.map((match) => resolveDuckDuckGoUrl(match[1]));
+  return uniqueStrings(urls.filter((url) => url.startsWith("http")));
+}
+
+async function fetchReadableText(url: string) {
+  const jinaUrl = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}`;
+  const res = await fetchWithTimeout(jinaUrl, SEARCH_TIMEOUT_MS);
+  if (!res.ok) return null;
+  const text = await res.text();
+  return stripHtml(text);
+}
+
+async function buildProofOfConceptContext(question: string): Promise<ExternalContext> {
+  const candidates = [
+    `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap.xml`,
+    `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap_index.xml`,
+    `${PROOF_OF_CONCEPT_STUDIO_URL}/wp-sitemap.xml`
+  ];
+  let urls: string[] = [];
+  for (const sitemapUrl of candidates) {
+    try {
+      const res = await fetchWithTimeout(sitemapUrl, SEARCH_TIMEOUT_MS);
+      if (!res.ok) continue;
+      const xml = await res.text();
+      urls = extractUrlsFromSitemap(xml);
+      if (urls.length) break;
+    } catch {
+      continue;
+    }
+  }
+  if (!urls.length) {
+    return { blocks: [], urls: [] };
+  }
+
+  const tokens = keywordTokens(question);
+  const scored = urls
+    .filter((url) => url.includes("proofofconceptstudio.com"))
+    .map((url) => ({
+      url,
+      score: tokens.reduce((acc, token) => (url.toLowerCase().includes(token) ? acc + 1 : acc), 0)
+    }))
+    .sort((a, b) => b.score - a.score);
+  const topUrls = scored.slice(0, MAX_WEB_DOCS).map((item) => item.url);
+
+  const blocks: string[] = [];
+  for (const url of topUrls) {
+    try {
+      const raw = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+      const html = await raw.text();
+      const title = extractTitle(html) ?? "ProofOfConceptStudio.com";
+      const text = stripHtml(html);
+      const excerpt = summarizeContent(text, MAX_WEB_DOC_CHARS);
+      blocks.push(`Title: ${title}\nURL: ${url}\nExcerpt: ${excerpt}`);
+    } catch {
+      continue;
+    }
+  }
+  return { blocks, urls: topUrls };
+}
+
+async function buildWebSearchContext(
+  question: string,
+  region: string,
+  portfolio: string
+): Promise<ExternalContext> {
+  if (!isWebSearchEnabled()) {
+    return { blocks: [], urls: [] };
+  }
+  const query = `${question} ${portfolioLabel(portfolio)} ${region}`;
+  try {
+    const results = await fetchDuckDuckGoResults(query);
+    const filtered = results.filter((url) => !url.includes("proofofconceptstudio.com")).slice(0, MAX_WEB_DOCS);
+    const blocks: string[] = [];
+    const urls: string[] = [];
+    for (const url of filtered) {
+      const text = await fetchReadableText(url);
+      if (!text) continue;
+      const excerpt = summarizeContent(text, MAX_WEB_DOC_CHARS);
+      blocks.push(`URL: ${url}\nExcerpt: ${excerpt}`);
+      urls.push(url);
+    }
+    return { blocks, urls };
+  } catch {
+    return { blocks: [], urls: [] };
+  }
 }
 
 function checkRateLimit(clientIp: string) {
@@ -203,8 +371,27 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       return { answer: "No briefs are available yet. Please run an ingestion cycle and try again." };
     }
 
-    const allowedSources = new Set<string>(selectedPosts.flatMap((p) => p.sources || []));
+    const proofContext = await buildProofOfConceptContext(effectiveQuestion);
+    const webContext = await buildWebSearchContext(effectiveQuestion, region, portfolio);
+    const allowedSources = new Set<string>([
+      ...selectedPosts.flatMap((p) => p.sources || []),
+      ...proofContext.urls,
+      ...webContext.urls
+    ]);
     const context = contextBlocks.join("\n\n---\n\n");
+    const externalSections: string[] = [];
+    let externalChars = 0;
+    if (proofContext.blocks.length > 0) {
+      const section = `ProofOfConceptStudio.com context:\n${proofContext.blocks.join("\n\n")}`;
+      externalSections.push(section);
+      externalChars += section.length;
+    }
+    if (webContext.blocks.length > 0 && externalChars < MAX_WEB_CONTEXT_CHARS) {
+      const remaining = MAX_WEB_CONTEXT_CHARS - externalChars;
+      const section = `Web search context:\n${webContext.blocks.join("\n\n")}`;
+      externalSections.push(section.slice(0, remaining));
+      externalChars += section.length;
+    }
 
     const buildFallbackAnswer = (posts: BriefPost[], reason: string) => {
       const bullets = posts.slice(0, 3).map((p) => {
@@ -228,7 +415,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         { ...logContext, timingMs, result: "fallback" },
         "Missing OPENAI_API_KEY; returning fallback answer"
       );
-      return { answer: buildFallbackAnswer(selectedPosts, "AI is not configured.") };
+      const answer = buildFallbackAnswer(selectedPosts, "AI is not configured.");
+      return { answer, sources: uniqueStrings(extractUrlsFromText(answer)) };
     }
 
     const assistantIdentity = agent
@@ -237,7 +425,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const systemMessage = [
       "You are ProofOfConceptStudio Chat Analyst.",
       "Be concise, factual, and do not invent provenance.",
-      "Never claim to browse external sites; you only know the provided briefs context.",
+      "Reason from first principles: demand drivers, supply constraints, cost structure, and risk controls.",
+      "Prioritize sources in this order: ProofOfConceptStudio.com, then briefs, then web search context.",
       "If the user asks about a specific brief id or URL and none is provided, ask for it.",
       "If sources are missing, say so.",
       "No hallucinated citations.",
@@ -246,7 +435,15 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       "Every factual statement must include a citation using only the provided URLs.",
       "Do not emit HTML. Do not output any URL that is not in Allowed URLs."
     ].join(" ");
-    const prompt = `Allowed URLs:\n${Array.from(allowedSources).join("\n")}\n\nBriefs:\n${context}\n\nQuestion: ${effectiveQuestion}`;
+    const promptSections = [
+      `Allowed URLs:\n${Array.from(allowedSources).join("\n")}`,
+      "Briefs:",
+      context
+    ];
+    if (externalSections.length > 0) {
+      promptSections.push(...externalSections);
+    }
+    const prompt = `${promptSections.join("\n\n")}\n\nQuestion: ${effectiveQuestion}`;
     const requestChatCompletion = (modelOverride?: string) =>
       openai.chat.completions.create({
         model: modelOverride ?? getModel(),
@@ -260,8 +457,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const response = await requestChatCompletion();
       const answer = response.choices?.[0]?.message?.content ?? "";
-      const urlRegex = /https?:\/\/[^\s)]+/g;
-      const found = new Set<string>(answer.match(urlRegex) ?? []);
+      const found = new Set<string>(extractUrlsFromText(answer));
       const disallowed = [...found].filter((u) => !allowedSources.has(u));
       const hasAllowed = [...found].some((u) => allowedSources.has(u));
 
@@ -271,7 +467,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
           { ...logContext, timingMs, result: "fallback", openaiRequestId: response.id },
           "AI response failed citation checks; returning fallback"
         );
-        return { answer: buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.") };
+        const fallback = buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.");
+        return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
       }
 
       const timingMs = Date.now() - startMs;
@@ -286,7 +483,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         },
         "Chat response generated"
       );
-      return { answer };
+      return { answer, sources: uniqueStrings([...found]) };
     } catch (err) {
       const timingMs = Date.now() - startMs;
       const errorMessage = (err as Error)?.message ?? "Unknown error";
@@ -309,8 +506,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         try {
           const response = await requestChatCompletion(DEFAULT_MODEL);
           const answer = response.choices?.[0]?.message?.content ?? "";
-          const urlRegex = /https?:\/\/[^\s)]+/g;
-          const found = new Set<string>(answer.match(urlRegex) ?? []);
+          const found = new Set<string>(extractUrlsFromText(answer));
           const disallowed = [...found].filter((u) => !allowedSources.has(u));
           const hasAllowed = [...found].some((u) => allowedSources.has(u));
 
@@ -319,14 +515,15 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
               { ...logContext, timingMs, result: "fallback", openaiRequestId: response.id },
               "AI response failed citation checks after model retry; returning fallback"
             );
-            return { answer: buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.") };
+            const fallback = buildFallbackAnswer(selectedPosts, "AI response was missing verified citations.");
+            return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
           }
 
           request.log.info(
             { ...logContext, timingMs, openaiRequestId: response.id, result: "ok", model: DEFAULT_MODEL },
             "Chat response generated after model retry"
           );
-          return { answer };
+          return { answer, sources: uniqueStrings([...found]) };
         } catch (retryErr) {
           request.log.error(
             { err: retryErr, ...logContext, timingMs, result: "error", model: DEFAULT_MODEL },
@@ -335,12 +532,14 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
       if (isAuthError || isNotFound) {
-        return {
-          answer:
-            "AI is temporarily unavailable due to configuration. Please verify OPENAI_API_KEY and OPENAI_MODEL."
-        };
+        const fallback = buildFallbackAnswer(
+          selectedPosts,
+          "AI is temporarily unavailable due to configuration."
+        );
+        return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
       }
-      return { answer: buildFallbackAnswer(selectedPosts, "AI response failed to generate.") };
+      const fallback = buildFallbackAnswer(selectedPosts, "AI response failed to generate.");
+      return { answer: fallback, sources: uniqueStrings(extractUrlsFromText(fallback)) };
     }
   });
 };
