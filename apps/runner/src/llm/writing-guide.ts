@@ -41,7 +41,7 @@ export const WRITING_GUIDE = {
     headline: {
       rules: [
         "Lead with action or impact, never generic labels",
-        "Include specific numbers when available",
+        "Use numbers only when explicitly present in evidence excerpts",
         "Maximum 12 words",
         "No colons or question marks"
       ],
@@ -60,7 +60,7 @@ export const WRITING_GUIDE = {
       rules: [
         "Maximum 2 sentences",
         "Lead with the most actionable insight",
-        "Include one specific data point",
+        "Include a specific data point only if evidence-backed",
         "End with relevance to procurement/category managers"
       ],
       maxWords: 50
@@ -69,7 +69,7 @@ export const WRITING_GUIDE = {
       rules: [
         "Each article gets its own section",
         "Lead with the key insight, not the source",
-        "Include specific numbers and dates",
+        "Include numbers and dates only when explicitly present in evidence excerpts",
         "Explain 'so what' for category managers",
         "End with exact source article link"
       ],
@@ -146,6 +146,9 @@ export const WRITING_GUIDE = {
       "Every factual claim must cite its source",
       "Do NOT output URLs in JSON; reference sources by articleIndex only",
       "Use the provided articleIndex numbers when attributing facts",
+      "Factual bullets must end with (source: articleIndex N)",
+      "Analysis bullets must end with (analysis) and include no numbers",
+      "Any numeric token must be accompanied by (source: articleIndex N)",
       "Never invent, modify, or guess URLs"
     ],
     format: {

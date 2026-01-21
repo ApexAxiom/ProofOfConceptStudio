@@ -1,11 +1,12 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { AgentConfig, CategoryGroup, RegionSlug, RunWindow, categoryForPortfolio, indicesForRegion } from "@proof/shared";
+import { AgentConfig, BriefPost, CategoryGroup, RegionSlug, RunWindow, categoryForPortfolio, indicesForRegion } from "@proof/shared";
 import { documentClient, tableName } from "../db/client.js";
 import { normalizeForDedupe } from "../ingest/url-normalize.js";
 import { generateMarketBrief } from "../llm/market-openai.js";
 import { MarketCandidate } from "../llm/market-prompts.js";
 import { publishBrief, logRunResult } from "../publish/dynamo.js";
 import { validateBrief } from "../publish/validate.js";
+import { validateMarketNumericClaims } from "../publish/factuality.js";
 import { findBestImageFromSources, findImageFromPage } from "../images/image-scraper.js";
 import { IngestResult } from "../ingest/fetch.js";
 
@@ -124,8 +125,68 @@ export async function runMarketDashboard(
     const requiredCount = Math.min(agent.articlesPerRun ?? 5, Math.max(1, Math.min(8, candidates.length)));
     const shortlisted = shortlistWithCategoryCoverage(candidates, requiredCount);
 
-    const brief = await generateMarketBrief({ agent: { ...agent, articlesPerRun: requiredCount }, region, runWindow, candidates: shortlisted, indices });
-    const validated = validateBrief(brief, allowedUrls, indexUrls);
+    const parseIssues = (err: unknown): string[] => {
+      try {
+        return JSON.parse((err as Error).message);
+      } catch {
+        return [(err as Error).message];
+      }
+    };
+
+    const runValidation = (candidate: BriefPost) => {
+      const issues: string[] = [];
+      let validatedBrief: BriefPost | undefined;
+      try {
+        validatedBrief = validateBrief(candidate, allowedUrls, indexUrls);
+      } catch (err) {
+        issues.push(...parseIssues(err));
+      }
+      issues.push(...validateMarketNumericClaims(candidate, shortlisted));
+      return { validatedBrief, issues };
+    };
+
+    let brief = await generateMarketBrief({
+      agent: { ...agent, articlesPerRun: requiredCount },
+      region,
+      runWindow,
+      candidates: shortlisted,
+      indices
+    });
+
+    let { validatedBrief, issues } = runValidation(brief);
+
+    if (issues.length > 0) {
+      const retryBrief = await generateMarketBrief({
+        agent: { ...agent, articlesPerRun: requiredCount },
+        region,
+        runWindow,
+        candidates: shortlisted,
+        indices,
+        repairIssues: issues,
+        previousJson: JSON.stringify(brief)
+      });
+
+      brief = retryBrief;
+      const retryResult = runValidation(retryBrief);
+      validatedBrief = retryResult.validatedBrief;
+      issues = retryResult.issues;
+    }
+
+    if (issues.length > 0 || !validatedBrief) {
+      const failedBrief = {
+        ...brief,
+        status: "failed" as const,
+        bodyMarkdown: `Validation failed. Issues: ${issues.join("; ")}`,
+        sources: [],
+        qualityReport: { issues, decision: "block" as const }
+      };
+
+      await publishBrief(failedBrief, { articles: [], scannedSources: [], metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } }, runId);
+      await logRunResult(runId, agent.id, region, "failed", issues.join("; "));
+      return { agentId: agent.id, region, ok: false, error: issues.join("; ") };
+    }
+
+    const validated = validatedBrief;
 
     const enrichedArticles = await Promise.all(
       (validated.selectedArticles || []).map(async (article) => {

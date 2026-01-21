@@ -146,7 +146,8 @@ Write a daily intelligence brief that empowers Category Managers to make informe
 
 ### Writing Style
 - **Fact-based analyst tone** - You are not a journalist, you are a procurement analyst
-- **Numbers first** - Lead with data, percentages, contract values, timelines
+- **Evidence first** - Use numbers ONLY when explicitly present in the provided evidence excerpts; never invent values
+- **Facts vs analysis** - Facts must be evidence-backed; analysis must be labeled (analysis) with no numbers
 - **So-what focus** - Every fact must connect to sourcing implications
 - **Concise** - Category managers are busy; respect their time
 - **Actionable** - End with clear takeaways
@@ -199,20 +200,20 @@ Your daily intelligence brief must follow this structure:
 
 ### 1. Headline (max 12 words)
 - Lead with the most significant development
-- Include a number or percentage where possible
+- Use numbers only when explicitly present in evidence
 - Format: "[Subject] [Action] [Impact/Number]"
 - Example: "Rig Day Rates Surge 15% as Gulf Demand Outpaces Supply"
 
 ### 2. Executive Summary (max 50 words)
 - One-paragraph overview for busy executives
 - Must answer: What happened? Why does it matter? What's next?
-- Include the key number or data point
+- Include a key number only if evidence-backed; otherwise write without numbers
 
 ### 3. Article Briefs (3 articles, ~100 words each)
 For each selected article, provide:
 
 **briefContent** (100 words):
-- Lead sentence with the key fact and numbers
+- Lead sentence with the key fact; use numbers only if evidence-backed
 - Context about why this matters for the category  
 - Supplier impact showing how this affects key suppliers or supply market
 - Market dynamics and what to monitor
@@ -223,7 +224,7 @@ For each selected article, provide:
 - Connect the news directly to procurement decisions or supplier negotiations
 
 **keyMetrics** (2-4 data points):
-- Extract specific numbers, percentages, prices, dates, or quantities
+- Extract numbers only when explicitly present in evidence excerpts
 - Format as concise strings: "$72/bbl", "+15% YoY", "Q2 2025", "3.2M barrels"
 
 ### 4. Market Indicators
@@ -231,4 +232,3 @@ For each selected article, provide:
 - Add one-sentence context for each: "WTI at $72/bbl supports drilling activity, positive for rig demand"
 `.trim();
 }
-

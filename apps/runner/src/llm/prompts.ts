@@ -16,6 +16,33 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function extractEvidenceExcerpts(content: string): string {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (!normalized) return "- [No content available]";
+
+  const sentences = normalized.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [];
+  const excerpts: string[] = [];
+  const seen = new Set<string>();
+
+  const addSentence = (sentence: string) => {
+    const trimmed = sentence.trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    const clipped = trimmed.length > 240 ? `${trimmed.slice(0, 237)}...` : trimmed;
+    excerpts.push(`- ${clipped}`);
+  };
+
+  sentences.slice(0, 3).forEach(addSentence);
+
+  const numericRegex = /(\d|%|\$|€|£|¥|million|billion|kb\/d|bpd|mbpd|mmbtu|tcf|bcf)/i;
+  sentences.filter((s) => numericRegex.test(s)).forEach(addSentence);
+
+  const supplierRegex = /\b(Inc|Ltd|LLC|Corp|Corporation|Company|Co\.|Group|Holdings|Energy|Oil|Gas)\b/;
+  sentences.filter((s) => supplierRegex.test(s)).slice(0, 2).forEach(addSentence);
+
+  return excerpts.slice(0, 10).join("\n");
+}
+
 export function requiredArticleCount(agent: AgentConfig): number {
   // Allow dashboard-style briefs to include broader coverage (e.g. 6 category groups).
   // Most category briefs still use the default of 3.
@@ -29,6 +56,7 @@ export interface ArticleInput {
   ogImageUrl?: string;
   sourceName?: string;
   publishedAt?: string;
+  contentStatus?: "ok" | "thin";
 }
 
 export interface PromptInput {
@@ -414,12 +442,16 @@ export function buildPrompt({
       const imageInfo = a.ogImageUrl ? `\nImage: ${a.ogImageUrl}` : "";
       const sourceInfo = a.sourceName ? ` (${a.sourceName})` : "";
       const dateInfo = a.publishedAt ? ` [${new Date(a.publishedAt).toLocaleDateString()}]` : "";
+      const contentNote =
+        a.contentStatus === "thin"
+          ? "\n**CONTENT_MISSING:** This article has limited or missing text. Do NOT use numbers from it."
+          : "";
       return `
 ### Article ${idx + 1}${sourceInfo}${dateInfo}
 **Title:** ${a.title}
 **URL:** ${a.url}${imageInfo}
-**Content Preview:**
-${a.content?.slice(0, 1500) ?? "[No content available]"}
+**EVIDENCE EXCERPTS (verbatim):**
+${extractEvidenceExcerpts(a.content ?? "")}${contentNote}
 `;
     })
     .join("\n---\n");
@@ -489,6 +521,19 @@ ${getImageInstructions()}
 
 ---
 
+## EVIDENCE & FACT RULES (NON-NEGOTIABLE)
+- Any bullet or sentence that contains **any numeric token** (digits, %, $, dates, volumes) MUST end with **"(source: articleIndex N)"** where N is one of the selectedArticles.articleIndex values.
+- If a statement is not explicitly supported by the evidence excerpts, end it with **"(analysis)"** and include **NO numeric tokens**.
+- Do NOT use numbers from articles marked CONTENT_MISSING.
+- For highlights, procurementActions, watchlist, and deltaSinceLastRun:
+  - If the item contains any numeric token → it MUST end with "(source: articleIndex N)".
+  - If it is analysis → end with "(analysis)" and include no numbers.
+- For selectedArticles[].keyMetrics:
+  - Include ONLY metrics that appear verbatim in the evidence excerpts for that article.
+  - Each keyMetric string must end with "(source: articleIndex N)" where N is that articleIndex.
+- For selectedArticles[].briefContent and categoryImportance:
+  - If you include numbers, they must be present in the evidence excerpts and end with "(source: articleIndex N)".
+
 ## OUTPUT FORMAT
 
 Return ONLY valid JSON with this exact structure:
@@ -506,7 +551,7 @@ Return ONLY valid JSON with this exact structure:
       "articleIndex": 1,
       "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief covering: key facts, supplier impact, and market context",
       "categoryImportance": "1-2 sentence explanation of why this matters for category managers. Focus on actionable insight: 'This signals X for your supplier negotiations' or 'Monitor this because Y affects your contracts'",
-      "keyMetrics": ["$72/bbl WTI", "+15% YoY", "Q2 2025 timeline"],
+      "keyMetrics": ["$72/bbl WTI (source: articleIndex 1)", "+15% YoY (source: articleIndex 1)", "Q2 2025 timeline (source: articleIndex 1)"],
       "imageAlt": "Descriptive alt text for the image"
     }
   ],
@@ -607,7 +652,7 @@ Rules for cmSnapshot output:
 5. **MARKET INDICATORS BY ID**: For marketIndicators, pick by indexId from the list below (no URLs in JSON)
 6. **ANALYST TONE**: Write like a procurement analyst, not a journalist. Facts and implications, no filler.
 7. **CATEGORY IMPORTANCE REQUIRED**: Each article MUST include a categoryImportance field explaining why this matters for category managers
-8. **KEY METRICS**: Extract 2-4 key numbers, percentages, dates, or values from each article
+8. **KEY METRICS**: Include up to 2-4 evidence-backed metrics per article when available; if no numeric data exists, omit keyMetrics or use non-numeric metrics tagged as (analysis) without numbers
 9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
 10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
 11. **VP SNAPSHOT DATA ONLY**: vpSnapshot.health.* must be integers 0..100. topSignals/recommendedActions/riskRegister should have 3-5 items each when possible (never empty unless no signal). evidenceArticleIndex must match one of the selectedArticles.articleIndex values. ownerRole must be one of: Category Manager, SRM, Contracts, Legal, Engineering, Logistics, Finance, HSE, Digital/IT. dueInDays must be 1..60. Do NOT include any URLs anywhere in vpSnapshot.
@@ -631,7 +676,7 @@ ${repairSection}
 ## FINAL CHECKLIST
 
 Before submitting, verify:
-- [ ] Headline leads with impact and includes a number
+- [ ] Headline leads with impact (use numbers only if supported by evidence)
 - [ ] Summary explains "so what" for category managers
 - [ ] Each article brief connects news to sourcing implications
 - [ ] Market indicators include procurement context

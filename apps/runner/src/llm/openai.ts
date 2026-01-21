@@ -33,7 +33,7 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     model,
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
-    temperature: 0.7, // Balanced between creativity and consistency
+    temperature: 0.25, // Lower temperature for more grounded outputs
     max_tokens: 3000
   });
   
