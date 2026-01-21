@@ -28,10 +28,20 @@ async function runWithLimit<T>(tasks: (() => Promise<T>)[], limit = 3): Promise<
   return results;
 }
 
+type ArticleSource = Pick<
+  ArticleDetail,
+  "title" | "url" | "content" | "ogImageUrl" | "sourceName" | "published" | "contentStatus"
+> & {
+  contentStatus?: string;
+};
+
+const normalizeContentStatus = (status?: string): ArticleInput["contentStatus"] =>
+  status === "ok" || status === "thin" ? status : undefined;
+
 /**
  * Converts ArticleDetail to ArticleInput for the LLM
  */
-function toArticleInput(article: ArticleDetail): ArticleInput {
+function toArticleInput(article: ArticleSource): ArticleInput {
   return {
     title: article.title,
     url: article.url,
@@ -39,7 +49,7 @@ function toArticleInput(article: ArticleDetail): ArticleInput {
     ogImageUrl: article.ogImageUrl,
     sourceName: article.sourceName,
     publishedAt: article.published,
-    contentStatus: article.contentStatus
+    contentStatus: normalizeContentStatus(article.contentStatus)
   };
 }
 

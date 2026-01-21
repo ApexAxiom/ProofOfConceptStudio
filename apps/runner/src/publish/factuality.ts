@@ -145,7 +145,7 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
     }
 
     if (tag.kind === "source") {
-      if (Number.isInteger(evidenceIndex) && tag.articleIndex !== evidenceIndex) {
+      if (typeof evidenceIndex === "number" && Number.isInteger(evidenceIndex) && tag.articleIndex !== evidenceIndex) {
         recordIssue(`${path} uses articleIndex ${tag.articleIndex} but evidenceArticleIndex is ${evidenceIndex}.`);
       }
       const content = contentByIndex.get(tag.articleIndex) ?? "";
@@ -156,7 +156,7 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
     }
 
     recordIssue(`${path} has numbers but is missing an evidence tag.`);
-    if (Number.isInteger(evidenceIndex)) {
+    if (typeof evidenceIndex === "number" && Number.isInteger(evidenceIndex)) {
       const content = contentByIndex.get(evidenceIndex) ?? "";
       if (!contentContainsAllTokens(tokens, content)) {
         recordIssue(`${path} contains '${tokens.join(", ")}' but not found in articleIndex ${evidenceIndex} content.`);
