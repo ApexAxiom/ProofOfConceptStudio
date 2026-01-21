@@ -1,9 +1,11 @@
 import { BriefPost, RegionSlug, RunWindow, indicesForRegion } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { ingestAgent, ArticleDetail } from "./ingest/fetch.js";
-import { generateBrief, ArticleInput } from "./llm/openai.js";
+import { generateBrief } from "./llm/openai.js";
+import type { ArticleInput } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
 import { validateNumericClaims } from "./publish/factuality.js";
+import { attachEvidenceToBrief } from "./publish/evidence.js";
 import { publishBrief, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
 import { findImageFromPage, findBestImageFromSources } from "./images/image-scraper.js";
@@ -148,6 +150,17 @@ export async function runAgent(
     }
     
     console.log(`[${agentId}/${region}] Found ${articles.length} articles (metrics: ${JSON.stringify(ingestResult.metrics)})`);
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "ingest_complete",
+        runId: runIdentifier,
+        agentId: agent.id,
+        region,
+        metrics: ingestResult.metrics,
+        scannedSourcesCount: ingestResult.scannedSources?.length ?? 0
+      })
+    );
     
     // Step 2: Get market indices for this region/portfolio
     const indices = indicesForRegion(agent.portfolio, region);
@@ -204,12 +217,20 @@ export async function runAgent(
     const runValidation = (candidate: BriefPost) => {
       const issues: string[] = [];
       let validatedBrief: BriefPost | undefined;
+      const numericIssues = validateNumericClaims(candidate, articleInputs);
+      const evidenceResult = attachEvidenceToBrief({ brief: candidate, articles: articleInputs });
       try {
-        validatedBrief = validateBrief(candidate, allowedUrls, indexUrls);
+        validatedBrief = validateBrief(evidenceResult.brief, allowedUrls, indexUrls);
       } catch (err) {
         issues.push(...parseIssues(err));
       }
-      issues.push(...validateNumericClaims(candidate, articleInputs));
+      issues.push(...numericIssues);
+      issues.push(...evidenceResult.issues);
+      if (evidenceResult.stats.total > 0) {
+        console.log(
+          `[${agentId}/${region}] Evidence stats: ${evidenceResult.stats.supported} supported, ${evidenceResult.stats.needsVerification} needs verification, ${evidenceResult.stats.analysis} analysis`
+        );
+      }
       return { validatedBrief, issues };
     };
 
@@ -218,6 +239,16 @@ export async function runAgent(
 
     if (issues.length > 0) {
       console.log(`[${agentId}/${region}] Validation failed, retrying...`, issues);
+      console.log(
+        JSON.stringify({
+          level: "warn",
+          event: "brief_validation_failed",
+          runId: runIdentifier,
+          agentId: agent.id,
+          region,
+          issuesCount: issues.length
+        })
+      );
 
       // Step 8: Retry with repair instructions
       const retryBrief = await generateBrief({
@@ -242,8 +273,8 @@ export async function runAgent(
 
       const failedBrief = {
         ...brief,
-        status: "failed" as const,
-        bodyMarkdown: `Validation failed. Issues: ${issues.join("; ")}`,
+        status: "draft" as const,
+        bodyMarkdown: `Evidence validation failed. Needs review. Issues: ${issues.join("; ")}`,
         sources: [],
         qualityReport: { issues, decision: "block" as const }
       };
@@ -293,6 +324,17 @@ export async function runAgent(
     console.log(`[${agentId}/${region}] Publishing brief...`);
     await publishBrief(published, ingestResult, runIdentifier);
     await logRunResult(runIdentifier, agent.id, region, "success");
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "brief_published",
+        runId: runIdentifier,
+        agentId: agent.id,
+        region,
+        briefId: published.postId,
+        sourcesCount: published.sources?.length ?? 0
+      })
+    );
     
     console.log(`[${agentId}/${region}] ✓ Brief published successfully`);
     return { agentId: agent.id, region, ok: true };

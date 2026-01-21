@@ -122,6 +122,8 @@ export interface SelectedArticle {
   sourceName?: string;
   /** Original input article index for traceability */
   sourceIndex?: number;
+  /** Linked source identifier for evidence mapping */
+  sourceId?: string;
 }
 
 export interface BriefMarketIndicator {
@@ -129,7 +131,54 @@ export interface BriefMarketIndicator {
   label: string;
   url: string;
   note: string;
+  sourceId?: string;
 }
+
+export type BriefClaimStatus = "supported" | "analysis" | "needs_verification";
+
+export type BriefClaimSection =
+  | "summary"
+  | "highlight"
+  | "procurement_action"
+  | "watchlist"
+  | "delta"
+  | "top_story"
+  | "category_importance"
+  | "market_indicator"
+  | "vp_snapshot"
+  | "cm_snapshot"
+  | "other";
+
+export interface BriefEvidence {
+  sourceId: string;
+  url: string;
+  title?: string;
+  excerpt: string;
+  startOffset?: number;
+  endOffset?: number;
+  contentHash?: string;
+  similarity?: number;
+}
+
+export interface BriefClaim {
+  id: string;
+  section: BriefClaimSection;
+  text: string;
+  status: BriefClaimStatus;
+  evidence: BriefEvidence[];
+  confidence?: VpConfidence;
+  notes?: string;
+}
+
+export interface BriefSource {
+  sourceId: string;
+  url: string;
+  title?: string;
+  publishedAt?: string;
+  retrievedAt?: string;
+}
+
+export type BriefSourceInput = BriefSource | string;
 
 export interface BriefPost {
   postId: string;
@@ -141,7 +190,8 @@ export interface BriefPost {
   publishedAt: string;
   summary?: string;
   bodyMarkdown: string;
-  sources: string[];
+  sources?: BriefSourceInput[];
+  claims?: BriefClaim[];
   
   /** The 3 selected articles with their briefs and exact source links */
   selectedArticles?: SelectedArticle[];

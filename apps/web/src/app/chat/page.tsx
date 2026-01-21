@@ -39,11 +39,12 @@ const focusChips = [
 
 type AgentSummary = {
   id: string;
+  region: string;
   portfolio: string;
   label: string;
   description?: string;
   articlesPerRun: number;
-  feedsByRegion: Record<string, AgentFeed[]>;
+  feeds?: AgentFeed[];
 };
 
 type AssistantStatus = {
@@ -52,11 +53,18 @@ type AssistantStatus = {
   runnerConfigured?: boolean;
 };
 
+type ChatCitation = {
+  sourceId: string;
+  url: string;
+  title?: string;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   sources?: string[];
+  citations?: ChatCitation[];
   status?: "loading" | "ready";
 };
 
@@ -73,7 +81,7 @@ const extractSources = (content: string) => {
 export default function ChatPage({
   searchParams
 }: {
-  searchParams?: { region?: string; portfolio?: string };
+  searchParams?: { region?: string; portfolio?: string; briefId?: string };
 }) {
   const initialRegion =
     searchParams?.region && REGION_LIST.some((r) => r.slug === searchParams.region)
@@ -86,6 +94,7 @@ export default function ChatPage({
 
   const [region, setRegion] = useState<string>(initialRegion);
   const [portfolio, setPortfolio] = useState<string>(initialPortfolio);
+  const briefId = searchParams?.briefId;
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -132,15 +141,20 @@ export default function ChatPage({
     loadStatus();
   }, []);
 
-  const activeAgent = agents.find((a) => a.portfolio === portfolio);
-  const regionFeeds = activeAgent?.feedsByRegion?.[region] ?? [];
+  const activeAgent = agents.find((a) => a.portfolio === portfolio && a.region === region);
+  const regionAgents = agents.filter((a) => a.region === region);
+  const regionFeeds = activeAgent?.feeds ?? [];
 
   const assistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === "assistant" && message.content),
     [messages]
   );
 
-  const displayedSources = assistantMessage?.sources ?? (assistantMessage ? extractSources(assistantMessage.content) : []);
+  const displayedSources =
+    assistantMessage?.citations?.length
+      ? assistantMessage.citations.map((c) => c.url)
+      : assistantMessage?.sources ?? (assistantMessage ? extractSources(assistantMessage.content) : []);
+  const displayedCitations = assistantMessage?.citations ?? [];
 
   const ask = async () => {
     const trimmed = question.trim();
@@ -170,15 +184,23 @@ export default function ChatPage({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: trimmed, region, portfolio, agentId: activeAgent?.id, messages: history })
+        body: JSON.stringify({
+          question: trimmed,
+          region,
+          portfolio,
+          agentId: activeAgent?.id,
+          briefId,
+          messages: history
+        })
       });
       const json = await res.json();
       const responseText = json.answer || json.error || "No response received";
       const sources = Array.isArray(json.sources) ? json.sources : extractSources(responseText);
+      const citations = Array.isArray(json.citations) ? json.citations : [];
       setMessages((prev) =>
         prev.map((message) =>
           message.id === assistantId
-            ? { ...message, content: responseText, sources, status: "ready" }
+            ? { ...message, content: responseText, sources, citations, status: "ready" }
             : message
         )
       );
@@ -243,6 +265,11 @@ export default function ChatPage({
                   </span>
                 )}
               </span>
+              {briefId && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                  Brief-scoped
+                </span>
+              )}
             </div>
             <p className="mt-1 text-muted-foreground">
               A domain expert built for category strategy, negotiation prep, and supplier intelligence.
@@ -306,16 +333,34 @@ export default function ChatPage({
                           <span>Building answer...</span>
                         </div>
                       ) : (
-                        <div className="prose max-w-none text-sm dark:prose-invert">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[
-                              rehypeSanitize,
-                              [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
-                            ]}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
+                        <div className="space-y-3">
+                          <div className="prose max-w-none text-sm dark:prose-invert">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              rehypePlugins={[
+                                rehypeSanitize,
+                                [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
+                              ]}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                          {message.citations && message.citations.length > 0 && (
+                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              {message.citations.map((citation) => (
+                                <a
+                                  key={citation.sourceId}
+                                  href={citation.url}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] text-foreground hover:border-primary/40 hover:text-primary"
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+                                  {citation.title ?? citation.url}
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )
                     ) : (
@@ -415,6 +460,25 @@ export default function ChatPage({
                   ))}
                 </select>
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Agent</label>
+                <select
+                  value={activeAgent?.id ?? ""}
+                  onChange={(e) => {
+                    const next = regionAgents.find((agent) => agent.id === e.target.value);
+                    if (next) {
+                      setPortfolio(next.portfolio);
+                    }
+                  }}
+                  className="w-full"
+                >
+                  {regionAgents.map((agent) => (
+                    <option key={`${agent.id}-${agent.region}`} value={agent.id}>
+                      {agent.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
               <div className="flex items-start justify-between gap-4">
@@ -475,7 +539,21 @@ export default function ChatPage({
 
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Latest citations</h3>
-            {displayedSources.length ? (
+            {displayedCitations.length ? (
+              <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                {displayedCitations.slice(0, 6).map((citation) => (
+                  <a
+                    key={citation.sourceId}
+                    href={citation.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="block rounded-lg border border-border bg-muted/20 px-3 py-2 text-foreground hover:border-primary/30 hover:text-primary"
+                  >
+                    <p className="truncate text-foreground">{citation.title ?? citation.url}</p>
+                  </a>
+                ))}
+              </div>
+            ) : displayedSources.length ? (
               <div className="mt-4 space-y-2 text-sm text-muted-foreground">
                 {displayedSources.slice(0, 6).map((source) => (
                   <div key={source} className="rounded-lg border border-border bg-muted/20 px-3 py-2">

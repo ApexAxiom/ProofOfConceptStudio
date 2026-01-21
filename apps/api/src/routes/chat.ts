@@ -1,6 +1,16 @@
 import { FastifyPluginAsync } from "fastify";
-import { AgentFeed, BriefPost, portfolioLabel } from "@proof/shared";
-import { getRegionPosts } from "../db/posts.js";
+import {
+  AgentFeed,
+  BriefPost,
+  BriefClaim,
+  BriefSource,
+  buildAgentSystemPrompt,
+  getAgentFramework,
+  keywordsForPortfolio,
+  normalizeBriefSources,
+  portfolioLabel
+} from "@proof/shared";
+import { getPost, getRegionPosts } from "../db/posts.js";
 import { OpenAI } from "openai";
 
 const DEFAULT_MODEL = "gpt-4o";
@@ -21,11 +31,13 @@ let cachedOpenAI: OpenAI | null = null;
 
 type AgentSummary = {
   id: string;
+  region?: string;
   portfolio: string;
   label: string;
   description?: string;
+  maxArticlesToConsider?: number;
   articlesPerRun: number;
-  feedsByRegion: Record<string, AgentFeed[]>;
+  feeds?: AgentFeed[];
 };
 
 type IncomingMessage = {
@@ -102,13 +114,108 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values)];
 }
 
-function getModelFallbacks() {
-  return uniqueStrings([getModel(), DEFAULT_MODEL, ...FALLBACK_MODELS]).filter(Boolean);
+const STOPWORDS = new Set([
+  "the","and","for","with","that","this","from","into","over","under","about","while","when","where","which","what",
+  "will","would","could","should","a","an","of","to","in","on","by","at","is","are","was","were","be","been","it",
+  "as","or","if","than","then","but","so","we","they","their","our","your","its","these","those"
+]);
+
+function tokenize(text: string): string[] {
+  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(
+    (token) => token.length > 2 && !STOPWORDS.has(token)
+  );
 }
 
-function extractUrlsFromText(text: string) {
-  const urlRegex = /https?:\/\/[^\s)]+/g;
-  return text.match(urlRegex) ?? [];
+function scoreClaim(claim: BriefClaim, questionTokens: string[], categoryTokens: string[]): number {
+  const evidenceText = (claim.evidence ?? []).map((e) => e.excerpt).join(" ");
+  const haystack = new Set(tokenize(`${claim.text} ${evidenceText}`));
+  const questionHits = questionTokens.filter((t) => haystack.has(t)).length;
+  const categoryHits = categoryTokens.filter((t) => haystack.has(t)).length;
+  return questionHits * 2 + categoryHits;
+}
+
+function selectRelevantClaims(
+  claims: BriefClaim[],
+  question: string,
+  categoryTokens: string[],
+  limit = 6
+): BriefClaim[] {
+  const questionTokens = tokenize(question);
+  const supported = claims.filter((claim) => claim.status === "supported" && claim.evidence?.length);
+  const pool = supported.length > 0 ? supported : claims;
+  return [...pool]
+    .map((claim) => ({ claim, score: scoreClaim(claim, questionTokens, categoryTokens) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.claim);
+}
+
+function getChatClaimLimit() {
+  const value = Number(process.env.CHAT_MAX_CLAIMS ?? 6);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 6;
+}
+
+function buildEvidenceContext(claims: BriefClaim[], sourcesById: Map<string, BriefSource>): { blocks: string[]; citations: BriefSource[] } {
+  const blocks: string[] = [];
+  const citations: BriefSource[] = [];
+  const seen = new Set<string>();
+
+  for (const claim of claims) {
+    const evidenceLines = (claim.evidence ?? [])
+      .map((evidence) => {
+        const source = sourcesById.get(evidence.sourceId);
+        if (source && !seen.has(source.sourceId)) {
+          seen.add(source.sourceId);
+          citations.push(source);
+        }
+        return `- ${evidence.excerpt} (sourceId: ${evidence.sourceId}, url: ${evidence.url})`;
+      })
+      .join("\n");
+    blocks.push(`Claim: ${claim.text}\nEvidence:\n${evidenceLines || "- [No evidence excerpt]"}`);
+  }
+
+  return { blocks, citations };
+}
+
+function renderFallbackAnswer(claims: BriefClaim[], sourcesById: Map<string, BriefSource>) {
+  if (claims.length === 0) {
+    return {
+      answer: "No evidence-backed claims were available for this brief. Please verify the underlying sources.",
+      citations: []
+    };
+  }
+
+  const lines = ["Here are the most relevant evidence-backed points:", ""];
+  const usedSources = new Map<string, BriefSource>();
+  for (const claim of claims) {
+    const evidence = claim.evidence?.[0];
+    const source = evidence ? sourcesById.get(evidence.sourceId) : undefined;
+    if (source) usedSources.set(source.sourceId, source);
+    const citationText = source ? ` ([Source](${source.url}))` : "";
+    lines.push(`- ${claim.text}${citationText}`);
+  }
+
+  return {
+    answer: lines.join("\n"),
+    citations: Array.from(usedSources.values())
+  };
+}
+
+function extractSourceIds(text: string): string[] {
+  const matches = Array.from(text.matchAll(/\[(src_[a-z0-9]+)\]/gi));
+  return matches.map((m) => m[1].toLowerCase());
+}
+
+function replaceSourceIdsWithLinks(text: string, sourcesById: Map<string, BriefSource>): string {
+  return text.replace(/\[(src_[a-z0-9]+)\]/gi, (match, id) => {
+    const source = sourcesById.get(id.toLowerCase());
+    if (!source) return match;
+    return `[Source](${source.url})`;
+  });
+}
+
+function getModelFallbacks() {
+  return uniqueStrings([getModel(), DEFAULT_MODEL, ...FALLBACK_MODELS]).filter(Boolean);
 }
 
 function summarizeContent(content: string, maxChars: number) {
@@ -266,6 +373,7 @@ function checkRateLimit(clientIp: string) {
 
 function buildLogContext(params: {
   conversationId?: string;
+  briefId?: string;
   region?: string;
   portfolio?: string;
   agentId?: string;
@@ -275,6 +383,7 @@ function buildLogContext(params: {
   return {
     route: "/chat",
     conversationId: params.conversationId,
+    briefId: params.briefId,
     region: params.region,
     portfolio: params.portfolio,
     agentId: params.agentId,
@@ -309,7 +418,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post("/", async (request, reply) => {
     const startMs = Date.now();
-    const { question, region, portfolio, agentId, messages, conversationId } = request.body as any;
+    const { question, region, portfolio, agentId, messages, conversationId, briefId } = request.body as any;
     const clientIp =
       request.ip ||
       request.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ||
@@ -350,6 +459,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
     const logContext = buildLogContext({
       conversationId,
+      briefId,
       region,
       portfolio,
       agentId,
@@ -358,80 +468,94 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     const agent = await findAgent(agentId, portfolio);
-    const regionPosts = await getRegionPosts(region);
-    const filtered = regionPosts.filter((p) => p.portfolio === portfolio);
-    const candidatePosts = filtered.length ? filtered : regionPosts;
-
-    const contextBlocks: string[] = [];
-    const selectedPosts: BriefPost[] = [];
-    let usedChars = 0;
-    for (const post of candidatePosts) {
-      const block = `${post.title}\n${post.bodyMarkdown}\nSources: ${(post.sources || []).join(", ")}`;
-      if (usedChars + block.length > MAX_CONTEXT_CHARS) break;
-      selectedPosts.push(post);
-      contextBlocks.push(block);
-      usedChars += block.length;
+    let targetBrief: BriefPost | null = null;
+    if (briefId) {
+      targetBrief = await getPost(briefId);
+    }
+    if (!targetBrief) {
+      const regionPosts = await getRegionPosts(region);
+      const filtered = regionPosts.filter((p) => p.portfolio === portfolio);
+      targetBrief = filtered[0] ?? regionPosts[0] ?? null;
     }
 
-    const proofContext = await buildProofOfConceptContext(effectiveQuestion);
-    const webContext = await buildWebSearchContext(effectiveQuestion, region, portfolio);
-    const allowedSources = new Set<string>([
-      ...selectedPosts.flatMap((p) => p.sources || []),
-      ...proofContext.urls,
-      ...webContext.urls
-    ]);
+    if (!targetBrief) {
+      reply.code(404).send({ error: "No brief found for this region/portfolio." });
+      return;
+    }
+
+    const effectiveLogContext = { ...logContext, briefId: briefId ?? targetBrief.postId };
+
+    const normalizedSources = normalizeBriefSources(targetBrief.sources);
+    const sourcesById = new Map<string, BriefSource>();
+    normalizedSources.forEach((source) => sourcesById.set(source.sourceId, source));
+    const claims = Array.isArray(targetBrief.claims) ? targetBrief.claims : [];
+    if (claims.length === 0) {
+      reply.code(200).send({
+        answer: "This brief was published before evidence tracking was enabled, so citations are unavailable. Please open the brief sources directly for verification.",
+        citations: [],
+        sources: []
+      });
+      return;
+    }
+    const categoryTokens = keywordsForPortfolio(portfolio);
+    const selectedClaims = selectRelevantClaims(claims, effectiveQuestion, categoryTokens, getChatClaimLimit());
+    const evidenceContext = buildEvidenceContext(selectedClaims, sourcesById);
+    const contextHeader = [
+      `Brief Title: ${targetBrief.title}`,
+      `Brief ID: ${targetBrief.postId}`,
+      `Region: ${region}`,
+      `Portfolio: ${portfolioLabel(targetBrief.portfolio)}`,
+      `Published: ${targetBrief.publishedAt}`
+    ].join("\n");
+    const contextBlocks = [contextHeader, ...evidenceContext.blocks];
     const context = contextBlocks.join("\n\n---\n\n");
-    const externalSections: string[] = [];
-    let externalChars = 0;
-    if (proofContext.blocks.length > 0) {
-      const section = `ProofOfConceptStudio.com context:\n${proofContext.blocks.join("\n\n")}`;
-      externalSections.push(section);
-      externalChars += section.length;
-    }
-    if (webContext.blocks.length > 0 && externalChars < MAX_WEB_CONTEXT_CHARS) {
-      const remaining = MAX_WEB_CONTEXT_CHARS - externalChars;
-      const section = `Web search context:\n${webContext.blocks.join("\n\n")}`;
-      externalSections.push(section.slice(0, remaining));
-      externalChars += section.length;
-    }
 
     const openai = getOpenAIClient();
     if (!openai) {
       const timingMs = Date.now() - startMs;
-      request.log.error(
-        { ...logContext, timingMs, result: "error" },
-        "Missing OPENAI_API_KEY; rejecting chat request."
+      const fallback = renderFallbackAnswer(selectedClaims, sourcesById);
+      request.log.warn(
+        { ...effectiveLogContext, timingMs, result: "fallback" },
+        "Missing OPENAI_API_KEY; returning evidence-only response."
       );
-      reply
-        .code(503)
-        .send({ error: "AI is temporarily unavailable due to configuration." });
+      reply.code(200).send({
+        answer: fallback.answer,
+        citations: fallback.citations,
+        sources: fallback.citations.map((source) => source.url)
+      });
       return;
     }
 
     const assistantIdentity = agent
       ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
       : `${portfolioLabel(portfolio)} category management advisor`;
+    const agentConfig = agent
+      ? { ...agent, maxArticlesToConsider: agent.maxArticlesToConsider ?? agent.articlesPerRun ?? 3 }
+      : undefined;
+    const agentPrompt = agentConfig ? buildAgentSystemPrompt(agentConfig as any, region) : assistantIdentity;
+    const framework = getAgentFramework(agentConfig?.id ?? portfolio);
     const systemMessage = [
       "You are ProofOfConceptStudio Chat Analyst.",
+      agentPrompt,
       "Be concise, factual, and do not invent provenance.",
-      "Reason from first principles: demand drivers, supply constraints, cost structure, and risk controls.",
-      "Prioritize sources in this order: ProofOfConceptStudio.com, then briefs, then web search context.",
-      "If the user asks about a specific brief id or URL and none is provided, ask for it.",
-      "If sources are missing, say so.",
-      "Use citations for claims that come from provided sources.",
-      "You may answer using general knowledge when sources are not available; say so explicitly.",
+      "Answer ONLY using the provided evidence excerpts; if evidence is missing, say so explicitly.",
+      "Cite sources with [sourceId] tokens that map to the allowed sources list.",
+      "Use the interpretation framework to explain why it matters and recommend actions:",
+      `Focus areas: ${framework.focusAreas.join(", ") || "N/A"}.`,
+      `Market drivers: ${framework.marketDrivers.join(", ") || "N/A"}.`,
+      `Procurement considerations: ${framework.procurementConsiderations.join(", ") || "N/A"}.`,
       `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
       "Use Markdown with bullet points and short paragraphs.",
       "Do not emit HTML."
     ].join(" ");
+    const allowedSourceList = normalizedSources.length
+      ? normalizedSources.map((source) => `${source.sourceId}: ${source.url}`).join("\n")
+      : "None";
     const promptSections = [
-      `Allowed URLs:\n${Array.from(allowedSources).join("\n")}`,
-      "Briefs:",
-      context || "No briefs available."
+      `Allowed sources (sourceId -> URL):\n${allowedSourceList}`,
+      "Evidence-backed claims and excerpts:",
+      context || "No evidence available."
     ];
-    if (externalSections.length > 0) {
-      promptSections.push(...externalSections);
-    }
     const prompt = `${promptSections.join("\n\n")}\n\nQuestion: ${effectiveQuestion}`;
     const requestChatCompletion = (modelOverride?: string) =>
       openai.chat.completions.create({
@@ -463,23 +587,28 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const { response, model } = await requestChatCompletionWithFallbacks(getModelFallbacks());
-      const answer = response.choices?.[0]?.message?.content ?? "";
-      const found = new Set<string>(extractUrlsFromText(answer));
+      const rawAnswer = response.choices?.[0]?.message?.content ?? "";
+      const foundSourceIds = extractSourceIds(rawAnswer);
+      const citations = foundSourceIds
+        .map((id) => sourcesById.get(id))
+        .filter((item): item is BriefSource => Boolean(item));
+      const answer = replaceSourceIdsWithLinks(rawAnswer, sourcesById);
 
       const timingMs = Date.now() - startMs;
       const debug = getDebugChatLogging();
       request.log.info(
         {
-          ...logContext,
+          ...effectiveLogContext,
           timingMs,
           openaiRequestId: response.id,
           result: "ok",
           model,
-          questionPreview: debug ? effectiveQuestion.slice(0, 300) : undefined
+          questionPreview: debug ? effectiveQuestion.slice(0, 300) : undefined,
+          citationsCount: citations.length
         },
         "Chat response generated"
       );
-      return { answer, sources: uniqueStrings([...found]) };
+      return { answer, citations, sources: citations.map((source) => source.url) };
     } catch (err) {
       const timingMs = Date.now() - startMs;
       const errorMessage = (err as Error)?.message ?? "Unknown error";
@@ -488,16 +617,24 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       const isAuthError = status === 401 || status === 403;
       const isNotFound = status === 404 || code === "model_not_found";
       request.log.error(
-        { err, status, code, ...logContext, timingMs, result: "error" },
+        { err, status, code, ...effectiveLogContext, timingMs, result: "error" },
         "AI call failed; rejecting chat request."
       );
       if (getDebugChatLogging()) {
-        request.log.info({ ...logContext, timingMs, result: "error", errorMessage }, "Chat error detail");
+        request.log.info({ ...effectiveLogContext, timingMs, result: "error", errorMessage }, "Chat error detail");
+      }
+      const fallback = renderFallbackAnswer(selectedClaims, sourcesById);
+      if (fallback.answer) {
+        reply.code(200).send({
+          answer: fallback.answer,
+          citations: fallback.citations,
+          sources: fallback.citations.map((source) => source.url),
+          error: isAuthError || isNotFound ? "AI unavailable; returned evidence-only response." : "AI error; returned evidence-only response."
+        });
+        return;
       }
       if (isAuthError || isNotFound) {
-        reply
-          .code(503)
-          .send({ error: "AI is temporarily unavailable due to configuration." });
+        reply.code(503).send({ error: "AI is temporarily unavailable due to configuration." });
         return;
       }
       reply.code(500).send({ error: "AI response failed to generate." });

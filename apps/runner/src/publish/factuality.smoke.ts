@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import { BriefPost } from "@proof/shared";
 import { validateNumericClaims } from "./factuality.js";
-import { ArticleInput } from "../llm/prompts.js";
+import type { ArticleInput } from "../llm/prompts.js";
 
 const articles: ArticleInput[] = [
   { title: "Alpha", url: "https://example.com/a", content: "Costs increased 8% year over year." },

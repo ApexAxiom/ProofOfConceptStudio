@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
+import { BriefPost, buildSourceId, normalizeBriefSources, portfolioLabel, regionLabel } from "@proof/shared";
 import { categoryForPortfolio, getCategoryBadgeClass, CATEGORY_META } from "@proof/shared";
 import { ProxiedImage } from "./ProxiedImage";
 import { extractValidUrl } from "../lib/url";
@@ -46,16 +46,25 @@ function TimeAgo({ date }: { date: string }) {
 
 export function BriefCard({ brief }: { brief: BriefPost }) {
   const summary = truncate(previewText(brief) || brief.title);
-  const primaryArticleUrl = 
-    extractValidUrl(brief.heroImageSourceUrl) ??
-    extractValidUrl(brief.selectedArticles?.[0]?.url) ??
-    extractValidUrl(brief.sources?.[0]);
+  const normalizedSources = normalizeBriefSources(brief.sources);
+  const hasEvidence = Array.isArray(brief.claims) && brief.claims.length > 0;
+  const allowedSourceIds = new Set(normalizedSources.map((source) => source.sourceId));
+  const pickAllowed = (url?: string) => {
+    const valid = extractValidUrl(url);
+    if (!valid || allowedSourceIds.size === 0) return valid;
+    return allowedSourceIds.has(buildSourceId(valid)) ? valid : undefined;
+  };
+  const primaryArticleUrl = hasEvidence
+    ? pickAllowed(brief.heroImageSourceUrl) ??
+      pickAllowed(brief.selectedArticles?.[0]?.url) ??
+      extractValidUrl(normalizedSources[0]?.url)
+    : undefined;
   const category = categoryForPortfolio(brief.portfolio);
   const categoryMeta = CATEGORY_META[category];
   const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
   const heroImageUrl = extractValidUrl(brief.heroImageUrl);
   const signals = inferSignals(brief);
-  const sourceCount = brief.selectedArticles?.length || brief.sources?.length || 0;
+  const sourceCount = hasEvidence ? normalizedSources.length : 0;
 
   // Get first article's key metrics if available
   const keyMetrics = brief.selectedArticles?.[0]?.keyMetrics?.slice(0, 2);

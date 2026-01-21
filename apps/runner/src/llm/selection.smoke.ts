@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import { parsePromptOutput } from "./prompts.js";
-import { ArticleInput } from "./openai.js";
+import type { ArticleInput } from "./openai.js";
 
 const articles: ArticleInput[] = [
   { title: "A1", url: "https://example.com/a1", content: "", ogImageUrl: "", sourceName: "S1" },

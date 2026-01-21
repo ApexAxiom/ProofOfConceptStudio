@@ -1,11 +1,18 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import client from "./dynamo.js";
-import { BriefPost, REGION_LIST, MOCK_POSTS } from "@proof/shared";
+import { BriefPost, REGION_LIST, MOCK_POSTS, normalizeBriefSources } from "@proof/shared";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
 
 function sortByPublished(posts: BriefPost[]): BriefPost[] {
   return [...posts].sort((a, b) => (a.publishedAt > b.publishedAt ? -1 : 1));
+}
+
+function normalizeBrief(post: BriefPost): BriefPost {
+  return {
+    ...post,
+    sources: normalizeBriefSources(post.sources)
+  };
 }
 
 async function fetchRegionFromDynamo(region: string): Promise<BriefPost[]> {
@@ -21,7 +28,7 @@ async function fetchRegionFromDynamo(region: string): Promise<BriefPost[]> {
   };
   const data = await client.send(new QueryCommand(params));
   const items = (data.Items ?? []) as BriefPost[];
-  return items.filter((i) => i.status === "published");
+  return items.filter((i) => i.status === "published").map(normalizeBrief);
 }
 
 /**
@@ -36,7 +43,7 @@ export async function getRegionPosts(region: string): Promise<BriefPost[]> {
   } catch (err) {
     console.warn("Falling back to mock posts for region", region, (err as Error).message);
   }
-  const mock = MOCK_POSTS.filter((p) => p.region === region && p.status === "published");
+  const mock = MOCK_POSTS.filter((p) => p.region === region && p.status === "published").map(normalizeBrief);
   return sortByPublished(mock);
 }
 
@@ -74,9 +81,10 @@ export async function getPost(postId: string): Promise<BriefPost | null> {
     };
     const data = await client.send(new QueryCommand(params));
     const found = (data.Items?.[0] as BriefPost) || null;
-    if (found) return found;
+    if (found) return normalizeBrief(found);
   } catch (err) {
     console.warn("Falling back to mock post", postId, (err as Error).message);
   }
-  return MOCK_POSTS.find((p) => p.postId === postId) ?? null;
+  const fallback = MOCK_POSTS.find((p) => p.postId === postId);
+  return fallback ? normalizeBrief(fallback) : null;
 }

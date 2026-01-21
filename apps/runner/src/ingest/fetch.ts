@@ -192,8 +192,29 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
     filteredByHistory.push(candidate);
   }
 
+  const normalizeDomain = (url: string) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      return "";
+    }
+  };
+
+  const allowDomains = agent.allowDomains?.map((d) => d.toLowerCase()) ?? [];
+  const denyDomains = agent.denyDomains?.map((d) => d.toLowerCase()) ?? [];
+
+  const domainFiltered = filteredByHistory.filter((candidate) => {
+    const domain = normalizeDomain(candidate.url);
+    if (!domain) return false;
+    if (denyDomains.length > 0 && denyDomains.some((d) => domain.includes(d))) return false;
+    if (allowDomains.length > 0 && !allowDomains.some((d) => domain.includes(d))) return false;
+    return true;
+  });
+
+  const filteredCandidates = domainFiltered.length > 0 ? domainFiltered : filteredByHistory;
+
   const minNeeded = Math.max(agent.articlesPerRun ?? 3, 1) * 2;
-  let dedupeSafeList = filteredByHistory;
+  let dedupeSafeList = filteredCandidates;
   
   // If not enough fresh articles, progressively relax the history filter
   if (dedupeSafeList.length < minNeeded) {

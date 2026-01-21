@@ -8,6 +8,7 @@ Internal procurement intelligence hub with regional agents generating citation-l
 
 ## Documentation
 - [Verified source directory](docs/sources/README.md) – reachability-checked source list for briefs.
+- [Engineering report](docs/engineering-report.md) – evidence-first pipeline, root causes, and validation steps.
 
 ## Setup
 1. Install pnpm (>=9)
@@ -19,7 +20,9 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - `pnpm run:apac` – trigger APAC run locally
 - `pnpm run:international` – trigger International run locally
 - `pnpm exec tsx scripts/smoke.ts` – quick end-to-end smoke (runner + api)
+- `pnpm --filter runner run evidence:smoke` – smoke-test evidence extraction
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
+- `pnpm --filter runner run validate:briefs` – validate recent briefs for evidence/source integrity
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
 
 ## Env Vars
@@ -79,6 +82,7 @@ API
 - `DEBUG_CHAT_LOGGING` (optional; `true` to log truncated chat content)
 - `CHAT_RATE_LIMIT_RPM` (optional; default 30)
 - `CHAT_RATE_LIMIT_BURST` (optional; default 10)
+- `CHAT_MAX_CLAIMS` (optional; default 6)
 - `RUNNER_BASE_URL` (optional but recommended; used to load agent catalog)
 
 Runner
@@ -86,6 +90,8 @@ Runner
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (default `gpt-4o`; prefer an explicit value for consistent briefs)
 - `CRON_SECRET`
+- `EVIDENCE_SIMILARITY_THRESHOLD` (optional; default 0.14)
+- `EVIDENCE_AUTO_MATCH_THRESHOLD` (optional; default 0.2)
 
 Web
 - `PORT=8080`
@@ -102,8 +108,9 @@ Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds.
 
 ## Chat API contract
 - `GET /chat/status` returns `{ enabled, model, runnerConfigured }`.
-- `POST /chat` accepts `{ question, region, portfolio, agentId }`.
+- `POST /chat` accepts `{ question, region, portfolio, agentId, briefId }`.
 - Optional: `messages[]` may be provided (last user message is used as the question).
+- Response includes `{ answer, citations, sources }` (citations map to brief sources).
 
 ## Chat smoke test
 Run a direct chat smoke test against the API:

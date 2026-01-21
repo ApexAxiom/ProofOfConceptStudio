@@ -9,13 +9,16 @@ import { InsightListCard } from "../../components/InsightListCard";
 import { ProxiedImage } from "../../components/ProxiedImage";
 import { RegionTabs } from "../../components/RegionTabs";
 import { CopyActionsButton } from "../../components/CopyActionsButton";
+import { BriefClaims } from "../../components/BriefClaims";
 import { inferSignals } from "../../lib/signals";
 import { extractValidUrl } from "../../lib/url";
 import {
   BriefPost,
   CATEGORY_META,
   REGIONS,
+  buildSourceId,
   categoryForPortfolio,
+  normalizeBriefSources,
   portfolioLabel,
   regionLabel
 } from "@proof/shared";
@@ -47,20 +50,38 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   const publishedDate = formatPublishDate(brief.publishedAt);
   const publishedTime = formatPublishTime(brief.publishedAt);
 
-  const primarySourceUrl = extractValidUrl(brief.heroImageSourceUrl) ||
-    extractValidUrl(brief.selectedArticles?.[0]?.url) ||
-    extractValidUrl(brief.sources?.[0]);
+  const normalizedSources = normalizeBriefSources(brief.sources);
+  const hasEvidence = Array.isArray(brief.claims) && brief.claims.length > 0;
+  const allowedSourceIds = new Set(normalizedSources.map((source) => source.sourceId));
 
-  const sources = (brief.sources ?? [])
-    .map((source) => extractValidUrl(source))
-    .filter((s): s is string => Boolean(s));
+  const sources = hasEvidence
+    ? normalizedSources
+        .map((source) => extractValidUrl(source.url))
+        .filter((s): s is string => Boolean(s))
+    : [];
 
   const category = categoryForPortfolio(brief.portfolio);
   const categoryMeta = CATEGORY_META[category];
   const heroImageUrl = extractValidUrl(brief.heroImageUrl);
-  const selectedArticles = brief.selectedArticles || [];
+  const selectedArticles =
+    allowedSourceIds.size === 0
+      ? brief.selectedArticles || []
+      : (brief.selectedArticles || []).filter((article) => {
+          const sourceId = article.sourceId ?? (article.url ? buildSourceId(article.url) : "");
+          return sourceId ? allowedSourceIds.has(sourceId) : true;
+        });
+  const pickAllowed = (url?: string) => {
+    const valid = extractValidUrl(url);
+    if (!valid || allowedSourceIds.size === 0) return valid;
+    return allowedSourceIds.has(buildSourceId(valid)) ? valid : undefined;
+  };
+  const primarySourceUrl = hasEvidence
+    ? pickAllowed(brief.heroImageSourceUrl) ||
+      pickAllowed(selectedArticles[0]?.url) ||
+      extractValidUrl(normalizedSources[0]?.url)
+    : undefined;
   const signals = inferSignals(brief);
-  const sourceCount = selectedArticles.length || sources.length || 0;
+  const sourceCount = hasEvidence ? sources.length : 0;
   const keyData = Array.from(
     new Set(selectedArticles.flatMap((article) => article.keyMetrics ?? []))
   ).slice(0, 3);
@@ -189,13 +210,16 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z" />
                 </svg>
                 <span className="font-mono">{sourceCount} sources</span>
+                {!hasEvidence && (
+                  <span className="text-xs text-amber-500">Evidence unavailable for legacy brief</span>
+                )}
               </div>
             </div>
 
             {/* Right: Actions */}
             <div className="flex gap-2">
               <Link
-                href="/chat"
+                href={`/chat?briefId=${encodeURIComponent(brief.postId)}&region=${encodeURIComponent(brief.region)}&portfolio=${encodeURIComponent(brief.portfolio)}`}
                 className="btn-secondary text-sm"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -228,6 +252,8 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
               </div>
             </div>
           )}
+
+          <BriefClaims claims={brief.claims} sources={brief.sources} />
 
           {keyData.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5">
@@ -288,17 +314,25 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
                       <li key={indicator.id} className="p-3 rounded-lg bg-secondary/50 border border-border">
                         <div className="font-medium text-foreground text-sm">{indicator.label}</div>
                         <div className="text-sm text-muted-foreground mt-1 leading-relaxed">{indicator.note}</div>
-                        <a
-                          href={indicator.url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="inline-flex items-center gap-1 text-primary text-xs mt-2 hover:underline"
-                        >
-                          View source
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                          </svg>
-                        </a>
+                        {(() => {
+                          const indicatorSourceId = indicator.sourceId ?? (indicator.url ? buildSourceId(indicator.url) : "");
+                          const isVerified = !indicatorSourceId || allowedSourceIds.size === 0 || allowedSourceIds.has(indicatorSourceId);
+                          return isVerified ? (
+                            <a
+                              href={indicator.url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 text-primary text-xs mt-2 hover:underline"
+                            >
+                              View source
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              </svg>
+                            </a>
+                          ) : (
+                            <p className="text-xs text-amber-500 mt-2">Verification needed for this indicator.</p>
+                          );
+                        })()}
                       </li>
                     ))}
                   </ul>
@@ -342,7 +376,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
                   Sources ({sources.length})
                 </summary>
                 <div className="px-5 pb-5 pt-2">
-                  <FooterSources sources={sources} />
+                  <FooterSources sources={brief.sources} />
                 </div>
               </details>
             </div>

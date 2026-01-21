@@ -1,5 +1,5 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { RegionSlug } from "@proof/shared";
+import { RegionSlug, normalizeBriefSources } from "@proof/shared";
 import { documentClient, tableName } from "./client.js";
 import { normalizeForDedupe } from "../ingest/url-normalize.js";
 
@@ -47,7 +47,7 @@ export async function getRecentlyUsedUrls({ portfolio, region, lookbackDays, lim
       const articleUrls: string[] = Array.isArray(item.selectedArticles)
         ? item.selectedArticles.map((a: any) => a?.url).filter(Boolean)
         : [];
-      const sourceUrls: string[] = Array.isArray(item.sources) ? item.sources.filter(Boolean) : [];
+      const sourceUrls: string[] = normalizeBriefSources(item.sources as any).map((source) => source.url);
 
       for (const url of [...articleUrls, ...sourceUrls]) {
         const normalized = normalizeForDedupe(url as string);

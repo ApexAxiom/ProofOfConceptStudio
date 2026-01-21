@@ -85,7 +85,7 @@ You are generating an **Oil & Gas / LNG Market Dashboard** for ${regionName} (${
   "procurementActions": ["action 1", "action 2"],
   "watchlist": ["item 1"],
   "selectedArticles": [
-    { "candidateIndex": 1, "whySelected": "1 sentence context", "imageAlt": "..." }
+    { "candidateIndex": 1, "whySelected": "1 sentence context (must end with a source tag or (analysis))", "imageAlt": "..." }
   ],
   "heroCandidateIndex": 1,
   "marketIndicators": [ { "indexId": "cme-wti", "note": "1 sentence" } ]
@@ -97,8 +97,9 @@ You are generating an **Oil & Gas / LNG Market Dashboard** for ${regionName} (${
 2. Select exactly ${requiredCount} unique candidateIndex values.
 3. heroCandidateIndex must be one of the selected candidateIndex values.
 4. Market indicators must reference indexId from the list below (no URLs in JSON).
-5. Any item that contains numeric tokens MUST end with "(source: candidateIndex N)" where N is a selected candidateIndex.
-6. If a statement is not directly supported by the candidate summaries, end it with "(analysis)" and include NO numeric tokens.
+5. Every sentence/bullet in summary, highlights, procurementActions, watchlist, and selectedArticles.whySelected MUST end with "(source: candidateIndex N)" or "(analysis)".
+6. Any item that contains numeric tokens MUST end with "(source: candidateIndex N)" where N is a selected candidateIndex.
+7. If a statement is not directly supported by the candidate summaries, end it with "(analysis)" and include NO numeric tokens.
 
 ## MARKET INDICES (select by indexId)
 ${indexList}

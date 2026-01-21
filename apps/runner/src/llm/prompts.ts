@@ -522,17 +522,17 @@ ${getImageInstructions()}
 ---
 
 ## EVIDENCE & FACT RULES (NON-NEGOTIABLE)
-- Any bullet or sentence that contains **any numeric token** (digits, %, $, dates, volumes) MUST end with **"(source: articleIndex N)"** where N is one of the selectedArticles.articleIndex values.
-- If a statement is not explicitly supported by the evidence excerpts, end it with **"(analysis)"** and include **NO numeric tokens**.
-- Do NOT use numbers from articles marked CONTENT_MISSING.
-- For highlights, procurementActions, watchlist, and deltaSinceLastRun:
-  - If the item contains any numeric token → it MUST end with "(source: articleIndex N)".
-  - If it is analysis → end with "(analysis)" and include no numbers.
-- For selectedArticles[].keyMetrics:
-  - Include ONLY metrics that appear verbatim in the evidence excerpts for that article.
-  - Each keyMetric string must end with "(source: articleIndex N)" where N is that articleIndex.
-- For selectedArticles[].briefContent and categoryImportance:
-  - If you include numbers, they must be present in the evidence excerpts and end with "(source: articleIndex N)".
+1. **All claims must be tagged**:
+   - Every sentence in summary, and every bullet in highlights, procurementActions, watchlist, deltaSinceLastRun, selectedArticles.briefContent, selectedArticles.categoryImportance **must end with** either:
+     - **"(source: articleIndex N)"** where N is one of the selectedArticles.articleIndex values, OR
+     - **"(analysis)"** if it is not directly supported by the evidence excerpts.
+2. **Numeric tokens require sources**:
+   - Any sentence/bullet containing **any numeric token** (digits, %, $, dates, volumes) MUST use **"(source: articleIndex N)"**.
+   - If a statement is tagged "(analysis)", it must contain **NO numeric tokens**.
+3. **Do NOT use numbers from articles marked CONTENT_MISSING.**
+4. **Key metrics rules**:
+   - selectedArticles[].keyMetrics must be verbatim from evidence excerpts.
+   - Each keyMetric string must end with "(source: articleIndex N)" where N matches that articleIndex.
 
 ## OUTPUT FORMAT
 
@@ -541,16 +541,16 @@ Return ONLY valid JSON with this exact structure:
 \`\`\`json
 {
   "title": "Attention-grabbing headline for Category Managers (max ${WRITING_GUIDE.wordLimits.headline} words)",
-  "summary": "Executive summary with key insight and procurement implications (max ${WRITING_GUIDE.wordLimits.summary} words)",
-  "highlights": ["Top 3 market shifts (1 sentence each)", "..."],
-  "procurementActions": ["Actionable step for category managers", "..."],
-  "watchlist": ["Supplier/market item to monitor", "..."],
-  "deltaSinceLastRun": ["What's changed vs. last run"],
+  "summary": "Executive summary (each sentence must end with a source tag or (analysis))",
+  "highlights": ["Top 3 market shifts (each bullet must end with a source tag or (analysis))", "..."],
+  "procurementActions": ["Actionable step for category managers (must end with a source tag or (analysis))", "..."],
+  "watchlist": ["Supplier/market item to monitor (must end with a source tag or (analysis))", "..."],
+  "deltaSinceLastRun": ["What's changed vs. last run (must end with a source tag or (analysis))"],
   "selectedArticles": [
     {
       "articleIndex": 1,
-      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief covering: key facts, supplier impact, and market context",
-      "categoryImportance": "1-2 sentence explanation of why this matters for category managers. Focus on actionable insight: 'This signals X for your supplier negotiations' or 'Monitor this because Y affects your contracts'",
+      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief covering: key facts, supplier impact, and market context (each sentence must end with a source tag or (analysis))",
+      "categoryImportance": "1-2 sentence explanation of why this matters for category managers (each sentence must end with a source tag or (analysis))",
       "keyMetrics": ["$72/bbl WTI (source: articleIndex 1)", "+15% YoY (source: articleIndex 1)", "Q2 2025 timeline (source: articleIndex 1)"],
       "imageAlt": "Descriptive alt text for the image"
     }

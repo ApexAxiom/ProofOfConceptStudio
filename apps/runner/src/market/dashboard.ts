@@ -7,6 +7,7 @@ import { MarketCandidate } from "../llm/market-prompts.js";
 import { publishBrief, logRunResult } from "../publish/dynamo.js";
 import { validateBrief } from "../publish/validate.js";
 import { validateMarketNumericClaims } from "../publish/factuality.js";
+import { attachEvidenceToMarketBrief } from "../publish/evidence.js";
 import { findBestImageFromSources, findImageFromPage } from "../images/image-scraper.js";
 import { IngestResult } from "../ingest/fetch.js";
 
@@ -136,12 +137,15 @@ export async function runMarketDashboard(
     const runValidation = (candidate: BriefPost) => {
       const issues: string[] = [];
       let validatedBrief: BriefPost | undefined;
+      const numericIssues = validateMarketNumericClaims(candidate, shortlisted);
+      const evidenceResult = attachEvidenceToMarketBrief({ brief: candidate, candidates: shortlisted });
       try {
-        validatedBrief = validateBrief(candidate, allowedUrls, indexUrls);
+        validatedBrief = validateBrief(evidenceResult.brief, allowedUrls, indexUrls);
       } catch (err) {
         issues.push(...parseIssues(err));
       }
-      issues.push(...validateMarketNumericClaims(candidate, shortlisted));
+      issues.push(...numericIssues);
+      issues.push(...evidenceResult.issues);
       return { validatedBrief, issues };
     };
 
@@ -175,8 +179,8 @@ export async function runMarketDashboard(
     if (issues.length > 0 || !validatedBrief) {
       const failedBrief = {
         ...brief,
-        status: "failed" as const,
-        bodyMarkdown: `Validation failed. Issues: ${issues.join("; ")}`,
+        status: "draft" as const,
+        bodyMarkdown: `Evidence validation failed. Needs review. Issues: ${issues.join("; ")}`,
         sources: [],
         qualityReport: { issues, decision: "block" as const }
       };

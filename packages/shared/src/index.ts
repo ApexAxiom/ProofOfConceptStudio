@@ -10,3 +10,5 @@ export * from "./category.js";
 export * from "./category-indices.js";
 export * from "./portfolio-sources.js";
 export * from "./bootstrap-secrets.js";
+export * from "./source-utils.js";
+export * from "./agent-registry.js";

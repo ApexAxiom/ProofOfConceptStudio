@@ -1,4 +1,4 @@
-import { BriefPost } from "@proof/shared";
+import { BriefPost, BriefSource, dedupeSources, normalizeBriefSources } from "@proof/shared";
 
 /**
  * Validation rules for brief sections
@@ -171,21 +171,19 @@ function validateHeroImage(brief: BriefPost, allowedUrls: Set<string>, issues: s
 /**
  * Validates the sources array
  */
-function validateSourcesArray(brief: BriefPost, allowedUrls: Set<string>, issues: string[]): void {
-  const sources = brief.sources || [];
-  
+function validateSourcesArray(sources: BriefSource[], allowedUrls: Set<string>, issues: string[]): void {
   if (sources.length === 0) {
     issues.push("Brief must have at least one source");
   }
   
   for (const source of sources) {
-    if (!isUrlAllowed(source, allowedUrls)) {
-      issues.push(`Source URL not in allowed list: ${source}`);
+    if (!isUrlAllowed(source.url, allowedUrls)) {
+      issues.push(`Source URL not in allowed list: ${source.url}`);
     }
   }
   
   // Check for duplicate sources
-  const uniqueSources = new Set(sources.map((s) => s.toLowerCase()));
+  const uniqueSources = new Set(sources.map((s) => s.url.toLowerCase()));
   if (uniqueSources.size !== sources.length) {
     issues.push("Duplicate sources detected");
   }
@@ -204,46 +202,47 @@ export function validateBrief(
   const issues: string[] = [];
   const safeIndexUrls = indexUrls || new Set<string>();
   const combinedUrls = new Set([...allowedUrls, ...safeIndexUrls]);
+  const normalizedSources = dedupeSources(normalizeBriefSources(brief.sources));
   
   // Run all validations
   validateTitleAndSummary(brief, issues);
   validateSelectedArticles(brief, allowedUrls, issues);
   validateMarkdownSources(brief, allowedUrls, safeIndexUrls, issues);
   validateHeroImage(brief, allowedUrls, issues);
-  validateSourcesArray(brief, combinedUrls, issues);
+  validateSourcesArray(normalizedSources, combinedUrls, issues);
+
+  if (brief.claims && brief.claims.length > 0) {
+    const evidenceUrls = new Set<string>();
+    for (const claim of brief.claims) {
+      if (claim.status !== "supported") continue;
+      for (const evidence of claim.evidence ?? []) {
+        if (evidence.url) evidenceUrls.add(evidence.url);
+      }
+    }
+    if (evidenceUrls.size > 0) {
+      for (const source of normalizedSources) {
+        if (!evidenceUrls.has(source.url)) {
+          issues.push(`Source not referenced by supported claims: ${source.url}`);
+        }
+      }
+      const sourceUrls = new Set(normalizedSources.map((source) => source.url));
+      for (const url of evidenceUrls) {
+        if (!sourceUrls.has(url)) {
+          issues.push(`Evidence source missing from sources list: ${url}`);
+        }
+      }
+    }
+  }
   
   // If there are issues, throw with details
   if (issues.length > 0) {
     throw new Error(JSON.stringify(issues));
   }
   
-  // Collect all referenced URLs for the sources array
-  const allSources = new Set<string>();
-  
-  // Add selected article URLs
-  for (const article of brief.selectedArticles || []) {
-    if (article.url) allSources.add(article.url);
-  }
-  
-  // Add any additional sources from markdown
-  const markdownUrls = extractMarkdownUrls(brief.bodyMarkdown || "");
-  for (const url of markdownUrls) {
-    if (combinedUrls.has(url)) {
-      allSources.add(url);
-    }
-  }
-
-  // Ensure referenced index URLs are captured
-  for (const url of safeIndexUrls) {
-    if (markdownUrls.has(url)) {
-      allSources.add(url);
-    }
-  }
-  
   return {
     ...brief,
     status: "published",
-    sources: Array.from(allSources)
+    sources: normalizedSources
   };
 }
 

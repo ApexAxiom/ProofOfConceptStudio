@@ -1,5 +1,5 @@
 import { BriefPost } from "@proof/shared";
-import { ArticleInput } from "../llm/prompts.js";
+import type { ArticleInput } from "../llm/prompts.js";
 import { MarketCandidate } from "../llm/market-prompts.js";
 
 type EvidenceTag =
@@ -18,8 +18,12 @@ const ANALYSIS_TAG_REGEX = /\(analysis\)\s*$/i;
 const NUMERIC_TOKEN_REGEX =
   /\bQ[1-4]\s?\d{4}\b|[$€£¥]\s?\d[\d,]*(?:\.\d+)?(?:\/[a-z]+)?|\d[\d,]*(?:\.\d+)?%|\b\d+(?:\.\d+)?\s?(?:million|billion|trillion|mbpd|kb\/d|bpd|mt|mmbtu|bbl|boe|tcf|bcf|tons?|tonnes?|kg|mw|gw|kb|mb|gb|tb)\b|\b\d[\d,]*(?:\.\d+)?\b/gi;
 
-function stripEvidenceTag(text: string): string {
-  return text.replace(SOURCE_TAG_REGEX, "").replace(ANALYSIS_TAG_REGEX, "").trim();
+export function stripEvidenceTag(text: string): string {
+  return text
+    .replace(SOURCE_TAG_REGEX, "")
+    .replace(MARKET_SOURCE_TAG_REGEX, "")
+    .replace(ANALYSIS_TAG_REGEX, "")
+    .trim();
 }
 
 /**
@@ -65,7 +69,7 @@ export function contentContainsAllTokens(tokens: string[], content: string): boo
   return tokens.every((token) => normalizedContent.includes(normalizeForMatch(token)));
 }
 
-function parseMarketEvidenceTag(text: string): MarketEvidenceTag {
+export function parseMarketEvidenceTag(text: string): MarketEvidenceTag {
   const analysisMatch = text.match(ANALYSIS_TAG_REGEX);
   if (analysisMatch) {
     return { kind: "analysis" };

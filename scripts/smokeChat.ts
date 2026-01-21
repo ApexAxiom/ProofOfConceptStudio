@@ -15,13 +15,20 @@ async function fetchStatus(): Promise<ChatStatus> {
 }
 
 async function postChat(question: string) {
+  const briefsRes = await fetch(`${API_BASE_URL}/posts/latest?region=au`);
+  if (!briefsRes.ok) {
+    throw new Error(`Briefs request failed: ${briefsRes.status}`);
+  }
+  const briefs = (await briefsRes.json()) as { postId?: string }[];
+  const briefId = briefs?.[0]?.postId;
   const res = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       question,
       region: "au",
-      portfolio: "drilling"
+      portfolio: "drilling-services",
+      briefId
     })
   });
   const json = await res.json();
@@ -33,33 +40,18 @@ async function main() {
   const status = await fetchStatus();
   console.log("Chat status:", status);
 
-  if (status.enabled) {
-    console.log("Running happy-path chat request...");
-    const { status: chatStatus, json } = await postChat(
-      "Summarize any recent supplier or market risks."
-    );
-    if (chatStatus !== 200 || typeof json.answer !== "string") {
-      throw new Error(`Happy path failed: ${chatStatus} ${JSON.stringify(json)}`);
-    }
-    console.log("Answer (first 200 chars):", json.answer.slice(0, 200));
-  } else {
-    console.log("Happy path skipped because AI is disabled on the API.");
+  console.log("Running chat request...");
+  const { status: chatStatus, json } = await postChat(
+    "Summarize any recent supplier or market risks."
+  );
+  if (chatStatus !== 200 || typeof json.answer !== "string") {
+    throw new Error(`Chat request failed: ${chatStatus} ${JSON.stringify(json)}`);
   }
-
-  if (!status.enabled) {
-    console.log("Running missing-API-key fallback check...");
-    const { status: chatStatus, json } = await postChat(
-      "What is the latest market update?"
-    );
-    if (chatStatus !== 200 || typeof json.answer !== "string") {
-      throw new Error(`Fallback check failed: ${chatStatus} ${JSON.stringify(json)}`);
-    }
-    console.log("Fallback response (first 200 chars):", json.answer.slice(0, 200));
-  } else {
-    console.log(
-      "Missing-API-key check skipped. Restart the API without OPENAI_API_KEY and re-run to validate fallback."
-    );
+  if (!Array.isArray(json.citations)) {
+    throw new Error(`Chat response missing citations array: ${JSON.stringify(json)}`);
   }
+  console.log("Answer (first 200 chars):", json.answer.slice(0, 200));
+  console.log(`Citations returned: ${json.citations.length}`);
 }
 
 main().catch((err) => {

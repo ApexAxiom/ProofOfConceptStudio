@@ -5,11 +5,25 @@ import { renderBriefMarkdown } from "./render.js";
 import { selectHeroArticle } from "./hero-selection.js";
 import { MarketPromptInput, MarketOutput, buildMarketPrompt, parseMarketOutput } from "./market-prompts.js";
 
-const openaiApiKey = process.env.OPENAI_API_KEY;
-const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-const model = process.env.OPENAI_MODEL || "gpt-4o";
+const DEFAULT_MODEL = "gpt-4o";
+let cachedKey: string | null = null;
+let cachedClient: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI | null {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  if (cachedClient && cachedKey === apiKey) return cachedClient;
+  cachedKey = apiKey;
+  cachedClient = new OpenAI({ apiKey });
+  return cachedClient;
+}
+
+function getModel() {
+  return process.env.OPENAI_MODEL || DEFAULT_MODEL;
+}
 
 export async function generateMarketBrief(input: MarketPromptInput): Promise<BriefPost> {
+  const client = getOpenAIClient();
   if (!client) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
@@ -19,7 +33,7 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
   const prompt = buildMarketPrompt({ ...input, agent: { ...input.agent, articlesPerRun: requiredCount } });
 
   const response = await client.chat.completions.create({
-    model,
+    model: getModel(),
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.25,
@@ -44,7 +58,7 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     if (!candidate) {
       throw new Error(`Invalid candidateIndex ${item.candidateIndex}`);
     }
-    const briefNote = item.whySelected ? `${candidate.briefContent} (${item.whySelected})` : candidate.briefContent;
+    const briefNote = item.whySelected ? `${candidate.briefContent} ${item.whySelected}` : candidate.briefContent;
     return {
       title: candidate.title,
       url: candidate.url,

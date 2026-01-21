@@ -1,0 +1,33 @@
+{
+  "CodeRepository": {
+    "RepositoryUrl": "https://github.com/ApexAxiom/ProofOfConceptStudio",
+    "SourceCodeVersion": {
+      "Type": "BRANCH",
+      "Value": "main"
+    },
+    "CodeConfiguration": {
+      "ConfigurationSource": "API",
+      "CodeConfigurationValues": {
+        "Runtime": "NODEJS_18",
+        "BuildCommand": "cd ../../packages/shared && npm install --include=dev --workspaces=false --install-links --no-audit --no-fund && npm run build && cd ../../apps/api && npm install --include=dev --workspaces=false --install-links --no-audit --no-fund && npm run build",
+        "StartCommand": "npm start",
+        "Port": "8080",
+        "RuntimeEnvironmentVariables": {
+          "ADMIN_TOKEN": "CHANGE-ME",
+          "AWS_REGION": "us-east-1",
+          "CORS_ORIGINS": "https://dqjea3w6uv.us-east-1.awsapprunner.com,https://proofofconceptstudio.com,https://www.proofofconceptstudio.com",
+          "CRON_SECRET": "CHANGE-ME",
+          "DDB_TABLE_NAME": "CMHub",
+          "OPENAI_API_KEY": "CHANGE-ME",
+          "OPENAI_MODEL": "gpt-4o-mini",
+          "RUNNER_BASE_URL": "https://pe8rz3uzip.us-east-1.awsapprunner.com"
+        }
+      }
+    },
+    "SourceDirectory": "apps/api"
+  },
+  "AutoDeploymentsEnabled": true,
+  "AuthenticationConfiguration": {
+    "ConnectionArn": "arn:aws:apprunner:us-east-1:405894865970:connection/apexaxiom-github-us-east-1/faa5a3cb54734892b29260d41c96cdb3"
+  }
+}

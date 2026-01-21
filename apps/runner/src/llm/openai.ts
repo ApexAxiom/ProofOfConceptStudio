@@ -1,27 +1,34 @@
 import crypto from "node:crypto";
 import { OpenAI } from "openai";
-import {
-  buildPrompt,
-  PromptInput,
-  ArticleInput,
-  BriefOutput,
-  parsePromptOutput,
-  requiredArticleCount
-} from "./prompts.js";
+import { buildPrompt, parsePromptOutput, requiredArticleCount } from "./prompts.js";
+import type { PromptInput, ArticleInput, BriefOutput } from "./prompts.js";
 import { BriefPost, SelectedArticle } from "@proof/shared";
 import { renderBriefMarkdown } from "./render.js";
 import { selectHeroArticle } from "./hero-selection.js";
 
-const openaiApiKey = process.env.OPENAI_API_KEY;
-const client = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-// Default to gpt-4o for quality; override via OPENAI_MODEL
-const model = process.env.OPENAI_MODEL || "gpt-4o";
+const DEFAULT_MODEL = "gpt-4o";
+let cachedKey: string | null = null;
+let cachedClient: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI | null {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  if (cachedClient && cachedKey === apiKey) return cachedClient;
+  cachedKey = apiKey;
+  cachedClient = new OpenAI({ apiKey });
+  return cachedClient;
+}
+
+function getModel() {
+  return process.env.OPENAI_MODEL || DEFAULT_MODEL;
+}
 
 /**
  * Generates a brief from the provided articles using OpenAI.
  * Ensures exact article URLs are preserved and linked.
  */
 export async function generateBrief(input: PromptInput): Promise<BriefPost> {
+  const client = getOpenAIClient();
   if (!client) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
@@ -30,7 +37,7 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
   const prompt = buildPrompt(input);
   
   const response = await client.chat.completions.create({
-    model,
+    model: getModel(),
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.25, // Lower temperature for more grounded outputs
@@ -125,4 +132,4 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
   };
 }
 
-export { PromptInput, ArticleInput };
+export type { PromptInput, ArticleInput };
