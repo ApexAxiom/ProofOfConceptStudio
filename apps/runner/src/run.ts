@@ -1,8 +1,9 @@
-import { RegionSlug, RunWindow, indicesForRegion } from "@proof/shared";
+import { BriefPost, RegionSlug, RunWindow, indicesForRegion } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { ingestAgent, ArticleDetail } from "./ingest/fetch.js";
 import { generateBrief, ArticleInput } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
+import { validateNumericClaims } from "./publish/factuality.js";
 import { publishBrief, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
 import { findImageFromPage, findBestImageFromSources } from "./images/image-scraper.js";
@@ -37,7 +38,8 @@ function toArticleInput(article: ArticleDetail): ArticleInput {
     content: article.content,
     ogImageUrl: article.ogImageUrl,
     sourceName: article.sourceName,
-    publishedAt: article.published
+    publishedAt: article.published,
+    contentStatus: article.contentStatus
   };
 }
 
@@ -184,22 +186,32 @@ export async function runAgent(
       previousBrief: previousBriefPrompt
     });
 
-    // Step 7: Validate the brief
-    let validated;
-    try {
-      validated = validateBrief(brief, allowedUrls, indexUrls);
-    } catch (err) {
-      // Parse validation issues
-      const issues = (() => {
-        try {
-          return JSON.parse((err as Error).message);
-        } catch {
-          return [(err as Error).message];
-        }
-      })();
-      
+    const parseIssues = (err: unknown): string[] => {
+      try {
+        return JSON.parse((err as Error).message);
+      } catch {
+        return [(err as Error).message];
+      }
+    };
+
+    const runValidation = (candidate: BriefPost) => {
+      const issues: string[] = [];
+      let validatedBrief: BriefPost | undefined;
+      try {
+        validatedBrief = validateBrief(candidate, allowedUrls, indexUrls);
+      } catch (err) {
+        issues.push(...parseIssues(err));
+      }
+      issues.push(...validateNumericClaims(candidate, articleInputs));
+      return { validatedBrief, issues };
+    };
+
+    // Step 7: Validate the brief (URLs + numeric factuality)
+    let { validatedBrief, issues } = runValidation(brief);
+
+    if (issues.length > 0) {
       console.log(`[${agentId}/${region}] Validation failed, retrying...`, issues);
-      
+
       // Step 8: Retry with repair instructions
       const retryBrief = await generateBrief({
         agent,
@@ -211,34 +223,30 @@ export async function runAgent(
         previousJson: JSON.stringify(brief),
         previousBrief: previousBriefPrompt
       });
-      
-      try {
-        validated = validateBrief(retryBrief, allowedUrls, indexUrls);
-      } catch (finalErr) {
-        // Final validation failed - publish as failed
-        const problem = (() => {
-          try {
-            return JSON.parse((finalErr as Error).message);
-          } catch {
-            return [(finalErr as Error).message];
-          }
-        })();
-        
-        console.error(`[${agentId}/${region}] Final validation failed:`, problem);
-        
-        const failedBrief = {
-          ...brief,
-          status: "failed" as const,
-          bodyMarkdown: `Validation failed. Issues: ${problem.join("; ")}`,
-          sources: [],
-          qualityReport: { issues: problem, decision: "block" as const }
-        };
-        
-        await publishBrief(failedBrief, ingestResult, runIdentifier);
-        await logRunResult(runIdentifier, agent.id, region, "failed", problem.join("; "));
-        return { agentId: agent.id, region, ok: false, error: problem.join("; ") };
-      }
+
+      const retryResult = runValidation(retryBrief);
+      validatedBrief = retryResult.validatedBrief;
+      issues = retryResult.issues;
+      brief = retryBrief;
     }
+
+    if (issues.length > 0 || !validatedBrief) {
+      console.error(`[${agentId}/${region}] Final validation failed:`, issues);
+
+      const failedBrief = {
+        ...brief,
+        status: "failed" as const,
+        bodyMarkdown: `Validation failed. Issues: ${issues.join("; ")}`,
+        sources: [],
+        qualityReport: { issues, decision: "block" as const }
+      };
+
+      await publishBrief(failedBrief, ingestResult, runIdentifier);
+      await logRunResult(runIdentifier, agent.id, region, "failed", issues.join("; "));
+      return { agentId: agent.id, region, ok: false, error: issues.join("; ") };
+    }
+
+    const validated = validatedBrief;
 
     // Step 8: Enrich images deterministically
     const enrichedArticles = await Promise.all(
@@ -288,4 +296,3 @@ export async function runAgent(
     return { agentId: agent.id, region, ok: false, error: (err as Error).message };
   }
 }
-

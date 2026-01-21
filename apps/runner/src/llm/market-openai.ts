@@ -22,7 +22,7 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     model,
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
-    temperature: 0.5,
+    temperature: 0.25,
     max_tokens: 3500
   });
 

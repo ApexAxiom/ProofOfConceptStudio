@@ -16,7 +16,12 @@ export interface ArticleCandidate {
 export interface ArticleDetail extends ArticleCandidate {
   content?: string;
   ogImageUrl?: string;
+  contentStatus?: "ok" | "thin";
 }
+
+const MIN_CONTENT_LEN = 400;
+const EMPTY_CONTENT_PENALTY = 5;
+const THIN_CONTENT_PENALTY = 2;
 
 function computeKeywordScore(text: string, categoryKeywords: string[], generalKeywords: string[]): number {
   if (!text) return 0;
@@ -267,15 +272,20 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
 
   const rankedByContent = articles
     .map((article, idx) => {
+      const contentLen = (article.content ?? "").trim().length;
       const contentScore = computeKeywordScore(article.content ?? "", categoryKeywords, generalKeywords);
       const baseScore = top[idx]?.score ?? 0;
-      return { article, combinedScore: baseScore + contentScore };
+      const penalty = contentLen === 0 ? EMPTY_CONTENT_PENALTY : contentLen < MIN_CONTENT_LEN ? THIN_CONTENT_PENALTY : 0;
+      return { article: { ...article, contentStatus: contentLen >= MIN_CONTENT_LEN ? "ok" : "thin" }, combinedScore: baseScore + contentScore - penalty };
     })
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .map((entry) => entry.article);
 
+  const contentQualified = rankedByContent.filter((article) => article.contentStatus === "ok");
+  const finalArticles = contentQualified.length > 0 ? contentQualified : rankedByContent;
+
   return {
-    articles: rankedByContent,
+    articles: finalArticles,
     scannedSources: Array.from(attemptedFeeds),
     metrics: {
       collectedCount: collected.length,

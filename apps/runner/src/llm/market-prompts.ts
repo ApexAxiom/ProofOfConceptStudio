@@ -97,6 +97,8 @@ You are generating an **Oil & Gas / LNG Market Dashboard** for ${regionName} (${
 2. Select exactly ${requiredCount} unique candidateIndex values.
 3. heroCandidateIndex must be one of the selected candidateIndex values.
 4. Market indicators must reference indexId from the list below (no URLs in JSON).
+5. Any item that contains numeric tokens MUST end with "(source: candidateIndex N)" where N is a selected candidateIndex.
+6. If a statement is not directly supported by the candidate summaries, end it with "(analysis)" and include NO numeric tokens.
 
 ## MARKET INDICES (select by indexId)
 ${indexList}
