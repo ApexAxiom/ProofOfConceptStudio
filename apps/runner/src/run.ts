@@ -28,10 +28,7 @@ async function runWithLimit<T>(tasks: (() => Promise<T>)[], limit = 3): Promise<
   return results;
 }
 
-type ArticleSource = Pick<
-  ArticleDetail,
-  "title" | "url" | "content" | "ogImageUrl" | "sourceName" | "published" | "contentStatus"
-> & {
+type ArticleSource = Omit<ArticleDetail, "contentStatus"> & {
   contentStatus?: string;
 };
 
@@ -134,7 +131,7 @@ export async function runAgent(
       return { agentId: agent.id, region, ok: false, error };
     }
     
-    const articles = ingestResult.articles ?? [];
+    const articles: ArticleSource[] = ingestResult.articles ?? [];
     
     // Minimum articles required - at least 1, but preferably the configured amount
     const minRequired = Math.max(1, Math.min(agent.articlesPerRun ?? 3, 2));
