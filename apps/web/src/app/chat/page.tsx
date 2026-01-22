@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { REGION_LIST, PORTFOLIOS, type AgentFeed } from "@proof/shared";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -70,6 +71,13 @@ type ChatMessage = {
   status?: "loading" | "ready";
 };
 
+type BriefSummary = {
+  postId: string;
+  title: string;
+  publishedAt: string;
+  region: string;
+};
+
 const buildMessageId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -104,6 +112,7 @@ export default function ChatPage({
   const [agentError, setAgentError] = useState<string | null>(null);
   const [assistantStatus, setAssistantStatus] = useState<AssistantStatus | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [latestBriefs, setLatestBriefs] = useState<BriefSummary[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const initialSelectionRef = useRef({ region: initialRegion, portfolio: initialPortfolio });
@@ -143,6 +152,31 @@ export default function ChatPage({
   }, []);
 
   useEffect(() => {
+    const loadBriefs = async () => {
+      try {
+        const query = new URLSearchParams({ region, portfolio, limit: "3" });
+        const res = await fetch(`/api/posts?${query.toString()}`);
+        if (res.ok) {
+          const briefs = await res.json();
+          setLatestBriefs(
+            briefs.slice(0, 3).map((b: { postId: string; title: string; publishedAt: string; region: string }) => ({
+              postId: b.postId,
+              title: b.title,
+              publishedAt: b.publishedAt,
+              region: b.region
+            }))
+          );
+        } else {
+          setLatestBriefs([]);
+        }
+      } catch {
+        setLatestBriefs([]);
+      }
+    };
+    loadBriefs();
+  }, [region, portfolio]);
+
+  useEffect(() => {
     const loadStatus = async () => {
       try {
         const res = await fetch("/api/chat", { method: "GET" });
@@ -162,7 +196,6 @@ export default function ChatPage({
   }, []);
 
   const activeAgent = agents.find((a) => a.portfolio === portfolio && a.region === region);
-  const regionAgents = agents.filter((a) => a.region === region);
   const regionFeeds = activeAgent?.feeds ?? [];
 
   useEffect(() => {
@@ -175,17 +208,6 @@ export default function ChatPage({
       }
     }
   }, [agents, region, portfolio]);
-
-  const assistantMessage = useMemo(
-    () => [...messages].reverse().find((message) => message.role === "assistant" && message.content),
-    [messages]
-  );
-
-  const displayedSources =
-    assistantMessage?.citations?.length
-      ? assistantMessage.citations.map((c) => c.url)
-      : assistantMessage?.sources ?? (assistantMessage ? extractSources(assistantMessage.content) : []);
-  const displayedCitations = assistantMessage?.citations ?? [];
 
   const ask = async () => {
     const trimmed = question.trim();
@@ -328,7 +350,7 @@ export default function ChatPage({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-card shadow-sm">
             <div className="border-b border-border px-5 py-4">
@@ -476,8 +498,8 @@ export default function ChatPage({
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
             <div className="mt-4 grid gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Region</label>
-                <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full">
+                <label htmlFor="region-select" className="text-sm font-medium text-foreground">Region</label>
+                <select id="region-select" value={region} onChange={(e) => setRegion(e.target.value)} className="w-full">
                   {REGION_LIST.map((r) => (
                     <option key={r.slug} value={r.slug}>
                       {r.label}
@@ -486,8 +508,8 @@ export default function ChatPage({
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Portfolio</label>
-                <select value={portfolio} onChange={(e) => setPortfolio(e.target.value)} className="w-full">
+                <label htmlFor="portfolio-select" className="text-sm font-medium text-foreground">Portfolio Agent</label>
+                <select id="portfolio-select" value={portfolio} onChange={(e) => setPortfolio(e.target.value)} className="w-full">
                   {PORTFOLIOS.map((p) => (
                     <option key={p.slug} value={p.slug}>
                       {p.label}
@@ -495,42 +517,27 @@ export default function ChatPage({
                   ))}
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Agent</label>
-                <select
-                  value={activeAgent?.id ?? ""}
-                  onChange={(e) => {
-                    const next = regionAgents.find((agent) => agent.id === e.target.value);
-                    if (next) {
-                      setPortfolio(next.portfolio);
-                    }
-                  }}
-                  className="w-full"
-                >
-                  {regionAgents.map((agent) => (
-                    <option key={`${agent.id}-${agent.region}`} value={agent.id}>
-                      {agent.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
             <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assigned agent</p>
-                  <p className="text-base font-semibold text-foreground">
-                    {activeAgent?.label ?? "Loading agent..."}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {activeAgent?.description ?? "Each portfolio uses a dedicated agent trained on that category."}
-                  </p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Latest Briefs</p>
+              {latestBriefs.length > 0 ? (
+                <div className="space-y-2">
+                  {latestBriefs.map((brief) => (
+                    <Link
+                      key={brief.postId}
+                      href={`/brief/${brief.postId}`}
+                      className="block rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/40 hover:bg-muted/30 transition-all"
+                    >
+                      <p className="text-sm font-medium text-foreground line-clamp-2">{brief.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {brief.region === "au" ? "APAC" : "INTL"} • {new Date(brief.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    </Link>
+                  ))}
                 </div>
-                <div className="rounded-lg bg-background px-3 py-2 text-center border border-border">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Articles/run</p>
-                  <p className="text-lg font-semibold text-foreground">{activeAgent?.articlesPerRun ?? 3}</p>
-                </div>
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No briefs available for this portfolio yet.</p>
+              )}
               {agentError && <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{agentError}</p>}
             </div>
             {regionFeeds.length > 0 && (
@@ -551,55 +558,6 @@ export default function ChatPage({
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Source ladder</h3>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <span className="font-medium text-foreground">ProofOfConceptStudio.com</span>
-                <span className="text-xs text-muted-foreground">Primary</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <span className="font-medium text-foreground">Daily briefs</span>
-                <span className="text-xs text-muted-foreground">Secondary</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <span className="font-medium text-foreground">Web search</span>
-                <span className="text-xs text-muted-foreground">Tertiary</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Latest citations</h3>
-            {displayedCitations.length ? (
-              <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                {displayedCitations.slice(0, 6).map((citation) => (
-                  <a
-                    key={citation.sourceId}
-                    href={citation.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="block rounded-lg border border-border bg-muted/20 px-3 py-2 text-foreground hover:border-primary/30 hover:text-primary"
-                  >
-                    <p className="truncate text-foreground">{citation.title ?? citation.url}</p>
-                  </a>
-                ))}
-              </div>
-            ) : displayedSources.length ? (
-              <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                {displayedSources.slice(0, 6).map((source) => (
-                  <div key={source} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                    <p className="truncate text-foreground">{source}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Citations will appear here once the assistant responds with sources.
-              </p>
             )}
           </div>
         </aside>
