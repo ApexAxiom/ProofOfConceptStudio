@@ -14,7 +14,7 @@ function LiveIndicator() {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
       </span>
-      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Live / Estimated</span>
+      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Live</span>
     </div>
   );
 }

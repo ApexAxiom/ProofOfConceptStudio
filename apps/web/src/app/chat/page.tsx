@@ -293,11 +293,6 @@ export default function ChatPage({
               >
                 <span className={`status-dot ${statusTone}`} />
                 <span>{statusLabel}</span>
-                {assistantStatus?.enabled && assistantStatus.model && (
-                  <span className="hidden sm:inline text-[10px] font-semibold uppercase tracking-wider">
-                    {assistantStatus.model}
-                  </span>
-                )}
               </span>
               {activeBriefId && (
                 <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
