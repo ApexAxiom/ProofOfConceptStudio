@@ -73,7 +73,8 @@ export async function handleCron(
     tasks.push(() => runAgent(agent.id, region, runWindow, runId));
   }
 
-  const results = await runWithLimit(tasks, 4);
+  // Run briefs with concurrency limit of 2 to prevent overload
+  const results = await runWithLimit(tasks, 2);
 
   // Run market dashboard agents after normal briefs are published
   const dashboardTargets = expandAgentsByRegion({ agents: dashboardAgents, regions: regionList });

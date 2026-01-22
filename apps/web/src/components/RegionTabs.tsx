@@ -22,7 +22,8 @@ function getTimezoneShort(slug: RegionSlug): string {
     "au": "AWST",
     "us-mx-la-lng": "CST"
   };
-  return zones[slug] || "UTC";
+  // Always return a known timezone, never UTC
+  return zones[slug] || "CST";
 }
 
 interface RegionTabsProps {

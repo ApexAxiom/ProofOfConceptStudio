@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getPortfolioIndices, PortfolioIndex } from "@proof/shared";
+import { formatTimestampWithTimezones } from "@/lib/format-time";
 
 interface PriceData {
   symbol: string;
@@ -198,7 +199,8 @@ export function PortfolioMarketTicker({
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 15 * 60 * 1000);
+    // Refresh hourly instead of every 15 minutes
+    const interval = setInterval(fetchData, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [portfolio]);
 
@@ -275,7 +277,7 @@ export function PortfolioMarketTicker({
             </div>
             {lastUpdated && (
               <span className="text-xs text-muted-foreground font-mono">
-                {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                Last update: {formatTimestampWithTimezones(lastUpdated)}
               </span>
             )}
           </div>
@@ -313,7 +315,7 @@ export function PortfolioMarketTicker({
         </div>
         {lastUpdated && (
           <span className="text-xs text-muted-foreground font-mono">
-            {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            Last update: {formatTimestampWithTimezones(lastUpdated)}
           </span>
         )}
       </div>

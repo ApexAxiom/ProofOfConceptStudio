@@ -93,7 +93,7 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: briefs-apac-daily
-      Description: Daily APAC brief run at 22:00 UTC
+      Description: Daily APAC brief run at 6:00 AM AWST
       ScheduleExpression: cron(0 22 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -107,7 +107,7 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: briefs-international-11utc
-      Description: Daily international brief run at 11:00 UTC
+      Description: Daily international brief run at 5:00 AM CST
       ScheduleExpression: cron(0 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -121,7 +121,7 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: briefs-international-12utc
-      Description: Daily international brief run at 12:00 UTC
+      Description: Daily international brief run at 6:00 AM CST
       ScheduleExpression: cron(0 12 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { formatTimestampWithTimezones } from "@/lib/format-time";
 
 interface CommodityPrice {
   symbol: string;
@@ -111,7 +112,8 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 15 * 60 * 1000);
+    // Refresh hourly instead of every 15 minutes
+    const interval = setInterval(fetchData, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -156,7 +158,7 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
           
           {lastUpdated && (
             <span className="text-[10px] font-mono text-muted-foreground">
-              Updated {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              Last update: {formatTimestampWithTimezones(lastUpdated)}
             </span>
           )}
         </div>

@@ -40,6 +40,6 @@ curl -X POST "https://your-runner.awsapprunner.com/cron" \
 ```
 
 ## Schedule Summary
-- **All Categories & Regions**: Daily at 11:00 UTC (5:00 AM CST)
+- **All Categories & Regions**: Daily at 5:00 AM CST / 11:00 PM AWST (prev day)
   - Runs all 14 category agents + 1 market dashboard for both APAC (au) and International (us-mx-la-lng) regions
   - Total: 30 briefs per scheduled run (14 categories × 2 regions + 2 market dashboards)

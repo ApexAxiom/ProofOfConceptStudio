@@ -33,7 +33,7 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: briefs-daily-all-categories
-      Description: Daily brief run for all categories and regions at 5:00 AM CST (11:00 UTC)
+      Description: Daily brief run for all categories and regions at 5:00 AM CST / 11:00 PM AWST (prev day)
       ScheduleExpression: cron(0 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:

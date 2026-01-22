@@ -7,7 +7,7 @@
 
 ## EventBridge
 - Create regional schedules:
-  - APAC: 06:00 Australia/Perth (22:00 UTC prior day) -> body `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`.
-  - International: 06:00 America/Chicago (11:00/12:00 UTC for DST coverage) -> body `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`.
+  - APAC: 06:00 AM AWST -> body `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`.
+  - International: 06:00 AM CST -> body `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`.
 - Target: HTTPS invocation of runner `/cron` with Authorization `Bearer $CRON_SECRET`.
 

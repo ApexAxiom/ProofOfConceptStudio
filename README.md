@@ -36,7 +36,7 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
 - Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge schedules to `runner` `/cron` with Bearer `CRON_SECRET`.
-  - All Categories & Regions: 05:00 America/Chicago (11:00 UTC) with body `{ "regions": ["au", "us-mx-la-lng"], "scheduled": true }`.
+  - All Categories & Regions: 05:00 AM CST / 11:00 PM AWST (prev day) with body `{ "regions": ["au", "us-mx-la-lng"], "scheduled": true }`.
 
 ### App Runner configuration files
 When creating App Runner services, choose **Use a configuration file**. Set the Source directory to the service folder so App Runner can find `apprunner.yaml`:

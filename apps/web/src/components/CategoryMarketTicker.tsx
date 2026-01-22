@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CategoryGroup, CATEGORY_INDICES, CategoryIndex } from "@proof/shared";
+import { formatTimestampWithTimezones } from "@/lib/format-time";
 
 interface PriceData {
   symbol: string;
@@ -130,7 +131,8 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 15 * 60 * 1000);
+    // Refresh hourly instead of every 15 minutes
+    const interval = setInterval(fetchData, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [category]);
 
@@ -163,7 +165,7 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
         </div>
         {lastUpdated && (
           <span className="text-xs text-muted-foreground font-mono">
-            {new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            Last update: {formatTimestampWithTimezones(lastUpdated)}
           </span>
         )}
       </div>
