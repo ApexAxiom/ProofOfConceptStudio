@@ -7,10 +7,41 @@ import {
   VpSnapshot,
   VpConfidence,
   VpHorizon,
-  VpSignalType
+  VpSignalType,
+  REGIONS
 } from "@proof/shared";
 import { getWritingInstructions, getCitationInstructions, getImageInstructions, WRITING_GUIDE } from "./writing-guide.js";
 import { getCategoryManagerPersona, getCategorySelectionGuidance, getCategoryBriefStructure } from "./category-manager-prompt.js";
+
+/**
+ * Formats a date string to region-specific timezone (CST for us-mx-la-lng, AWST for au)
+ */
+function formatDateForRegion(dateStr: string, region: RegionSlug): string {
+  const date = new Date(dateStr);
+  const timeZone = REGIONS[region].timeZone;
+  const timeZoneLabel = region === "au" ? "AWST" : "CST";
+  
+  return date.toLocaleString("en-US", {
+    timeZone,
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: true
+  }) + ` ${timeZoneLabel}`;
+}
+
+/**
+ * Formats a date string to region-specific timezone for article dates (date only)
+ */
+function formatArticleDateForRegion(dateStr: string, region: RegionSlug): string {
+  const date = new Date(dateStr);
+  const timeZone = REGIONS[region].timeZone;
+  const timeZoneLabel = region === "au" ? "AWST" : "CST";
+  
+  return date.toLocaleDateString("en-US", {
+    timeZone,
+    dateStyle: "medium"
+  }) + ` ${timeZoneLabel}`;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -441,7 +472,7 @@ export function buildPrompt({
     .map((a, idx) => {
       const imageInfo = a.ogImageUrl ? `\nImage: ${a.ogImageUrl}` : "";
       const sourceInfo = a.sourceName ? ` (${a.sourceName})` : "";
-      const dateInfo = a.publishedAt ? ` [${new Date(a.publishedAt).toLocaleDateString()}]` : "";
+      const dateInfo = a.publishedAt ? ` [${formatArticleDateForRegion(a.publishedAt, region)}]` : "";
       const contentNote =
         a.contentStatus === "thin"
           ? "\n**CONTENT_MISSING:** This article has limited or missing text. Do NOT use numbers from it."
@@ -466,7 +497,7 @@ ${extractEvidenceExcerpts(a.content ?? "")}${contentNote}
 ## PREVIOUS BRIEF CONTEXT (for deltaSinceLastRun)
 
 - Title: ${previousBrief.title}
-- Published: ${new Date(previousBrief.publishedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+- Published: ${formatDateForRegion(previousBrief.publishedAt, region)}
 ${previousBrief.highlights?.length ? `- Top Highlights:\n${previousBrief.highlights.map((h) => `  - ${h}`).join("\n")}` : ""}
 ${previousBrief.procurementActions?.length ? `- Procurement Actions:\n${previousBrief.procurementActions.map((a) => `  - ${a}`).join("\n")}` : ""}
 ${previousBrief.watchlist?.length ? `- Watchlist:\n${previousBrief.watchlist.map((w) => `  - ${w}`).join("\n")}` : ""}

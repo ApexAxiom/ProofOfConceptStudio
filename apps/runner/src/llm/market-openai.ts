@@ -92,7 +92,8 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     procurementActions: parsed.procurementActions,
     watchlist: parsed.watchlist,
     topStoriesTitle: "## 📚 Top Source Articles",
-    marketIndicators
+    marketIndicators,
+    region: input.region
   });
 
   const sources = new Set<string>([

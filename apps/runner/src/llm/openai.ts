@@ -99,7 +99,8 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     procurementActions: parsed.procurementActions,
     watchlist: parsed.watchlist,
     deltaSinceLastRun: parsed.deltaSinceLastRun,
-    marketIndicators
+    marketIndicators,
+    region: input.region
   });
 
   const sourceUrls = new Set<string>([

@@ -1,4 +1,4 @@
-import { BriefMarketIndicator, SelectedArticle } from "@proof/shared";
+import { BriefMarketIndicator, SelectedArticle, RegionSlug, REGIONS } from "@proof/shared";
 
 interface RenderParams {
   title: string;
@@ -14,6 +14,23 @@ interface RenderParams {
   watchlist?: string[];
   deltaSinceLastRun?: string[];
   topStoriesTitle?: string;
+  region: RegionSlug;
+}
+
+/**
+ * Formats a date string to region-specific timezone (CST for us-mx-la-lng, AWST for au)
+ */
+function formatDateForRegion(dateStr: string, region: RegionSlug): string {
+  const date = new Date(dateStr);
+  const timeZone = REGIONS[region].timeZone;
+  const timeZoneLabel = region === "au" ? "AWST" : "CST";
+  
+  return date.toLocaleString("en-US", {
+    timeZone,
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: true
+  }) + ` ${timeZoneLabel}`;
 }
 
 /**
@@ -32,9 +49,10 @@ export function renderBriefMarkdown({
   procurementActions = [],
   watchlist = [],
   deltaSinceLastRun = [],
-  topStoriesTitle = "## 📰 Top Stories"
+  topStoriesTitle = "## 📰 Top Stories",
+  region
 }: RenderParams): string {
-  const publishedAt = new Date(publishedAtISO).toISOString();
+  const publishedAt = formatDateForRegion(publishedAtISO, region);
   const lines: string[] = [];
 
   lines.push(`# ${title}`);
@@ -67,6 +85,12 @@ export function renderBriefMarkdown({
 
   selectedArticles.forEach((article, idx) => {
     lines.push("", `### ${idx + 1}. ${article.title}`);
+    
+    // Article published date with timezone
+    if (article.publishedAt) {
+      const articleDate = formatDateForRegion(article.publishedAt, region);
+      lines.push("", `📅 **Published:** ${articleDate}`);
+    }
     
     // Key metrics if available
     if (article.keyMetrics && article.keyMetrics.length > 0) {
