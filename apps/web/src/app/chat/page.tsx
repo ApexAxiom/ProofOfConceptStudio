@@ -541,16 +541,16 @@ export default function ChatPage({
               {agentError && <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{agentError}</p>}
             </div>
             {regionFeeds.length > 0 && (
-              <div className="mt-4 text-sm text-muted-foreground">
+              <div className="mt-4 text-sm text-muted-foreground overflow-hidden">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Daily sources ({regionFeeds.length})</p>
                 <div className="grid gap-2">
                   {regionFeeds.slice(0, 5).map((feed) => (
                     <div
                       key={`${feed.url}-${feed.name}`}
-                      className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 border border-border"
+                      className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 border border-border overflow-hidden"
                     >
-                      <span className="text-muted-foreground">•</span>
-                      <div className="min-w-0">
+                      <span className="text-muted-foreground flex-shrink-0">•</span>
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium text-foreground truncate">{feed.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{feed.url}</p>
                       </div>
