@@ -75,7 +75,7 @@ Your daily intelligence brief must follow this structure:
 - Must answer: What happened? Why does it matter? What's next?
 - Include a key number only if evidence-backed; otherwise write without numbers
 
-### 3. Article Briefs (3 articles, ~100 words each)
+### 3. Article Briefs (1-3 articles, ~100 words each)
 For each selected article, provide:
 
 **briefContent** (100 words):

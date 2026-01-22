@@ -667,7 +667,7 @@ ${previousBriefSection}
 
 ## ARTICLES TO ANALYZE
 
-Select the ${requiredCount} most relevant articles for ${agent.label} category managers:
+Select 1 to ${requiredCount} most relevant articles for ${agent.label} category managers (select fewer if only 1-2 articles are truly relevant):
 
 ${articleList}
 
@@ -681,7 +681,7 @@ Before submitting, verify:
 - [ ] Each article brief connects news to sourcing implications
 - [ ] Market indicators include procurement context
 - [ ] No filler phrases or generic statements
-- [ ] Exactly ${requiredCount} unique articles selected
+- [ ] 1 to ${requiredCount} unique articles selected (quality over quantity)
 - [ ] JSON is valid and complete
 `;
 }
@@ -719,8 +719,11 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     indices.add(idx);
   }
 
-  if (selected.length !== requiredCount) {
-    issues.push(`Must return exactly ${requiredCount} selectedArticles entries`);
+  if (selected.length < 1) {
+    issues.push(`Must return at least 1 selectedArticles entry`);
+  }
+  if (selected.length > requiredCount) {
+    issues.push(`Must return at most ${requiredCount} selectedArticles entries`);
   }
 
   if (indices.size !== selected.length) {
