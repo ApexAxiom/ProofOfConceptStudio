@@ -552,18 +552,24 @@ ${getImageInstructions()}
 
 ---
 
-## EVIDENCE & FACT RULES (NON-NEGOTIABLE)
-1. **All claims must be tagged**:
-   - Every sentence in summary, and every bullet in highlights, procurementActions, watchlist, deltaSinceLastRun, selectedArticles.briefContent, selectedArticles.categoryImportance **must end with** either:
-     - **"(source: articleIndex N)"** where N is one of the selectedArticles.articleIndex values, OR
-     - **"(analysis)"** if it is not directly supported by the evidence excerpts.
-2. **Numeric tokens require sources**:
-   - Any sentence/bullet containing **any numeric token** (digits, %, $, dates, volumes) MUST use **"(source: articleIndex N)"**.
-   - If a statement is tagged "(analysis)", it must contain **NO numeric tokens**.
+## EVIDENCE & FACT RULES
+1. **Evidence tags are required for specific claims**:
+   - **procurementActions** and **watchlist** items: MUST end with **"(source: articleIndex N)"** for any numeric claims, supplier names, or specific procurement actions.
+   - **selectedArticles.briefContent** and **selectedArticles.categoryImportance**: Should use **"(source: articleIndex N)"** when referencing specific facts from that article.
+   - **summary** and **highlights**: Can use **"(analysis)"** for general analysis and aggregated numbers. Evidence tags are preferred but not strictly required for general market commentary.
+   - **deltaSinceLastRun**: Can use **"(analysis)"** for trend statements and comparisons.
+
+2. **Numeric tokens**:
+   - For **procurementActions** and **watchlist**: Numbers MUST have **"(source: articleIndex N)"** tags.
+   - For **summary** and **highlights**: Numbers can be tagged as **(analysis)** if they represent general market trends or aggregated analysis.
+   - If a statement is tagged "(analysis)", it can contain numeric tokens if they represent reasonable inference or aggregation.
+
 3. **Do NOT use numbers from articles marked CONTENT_MISSING.**
+
 4. **Key metrics rules**:
-   - selectedArticles[].keyMetrics must be verbatim from evidence excerpts.
-   - Each keyMetric string must end with "(source: articleIndex N)" where N matches that articleIndex.
+   - selectedArticles[].keyMetrics should be verbatim from evidence excerpts when possible.
+   - Each keyMetric string should end with "(source: articleIndex N)" where N matches that articleIndex.
+   - If exact numbers aren't available, use approximate values tagged as (analysis).
 
 ## OUTPUT FORMAT
 

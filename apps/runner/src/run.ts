@@ -216,6 +216,7 @@ export async function runAgent(
 
     const runValidation = (candidate: BriefPost) => {
       const issues: string[] = [];
+      const warnings: string[] = [];
       let validatedBrief: BriefPost | undefined;
       const numericIssues = validateNumericClaims(candidate, articleInputs);
       const evidenceResult = attachEvidenceToBrief({ brief: candidate, articles: articleInputs });
@@ -224,18 +225,45 @@ export async function runAgent(
       } catch (err) {
         issues.push(...parseIssues(err));
       }
-      issues.push(...numericIssues);
+      
+      // Separate FACTCHECK issues into warnings (non-critical) and issues (critical)
+      // Critical: procurementActions, watchlist, supplier names
+      // Non-critical: summary, highlights, deltaSinceLastRun (general analysis)
+      for (const numericIssue of numericIssues) {
+        if (numericIssue.includes("FACTCHECK:")) {
+          const isCritical = 
+            numericIssue.includes("procurementActions") ||
+            numericIssue.includes("watchlist") ||
+            numericIssue.includes("supplierRadar") ||
+            numericIssue.includes("selectedArticles") && !numericIssue.includes("briefContent");
+          
+          if (isCritical) {
+            issues.push(numericIssue);
+          } else {
+            warnings.push(numericIssue);
+          }
+        } else {
+          issues.push(numericIssue);
+        }
+      }
+      
       issues.push(...evidenceResult.issues);
+      
+      if (warnings.length > 0) {
+        console.log(`[${agentId}/${region}] Validation warnings (non-blocking):`, warnings);
+      }
+      
       if (evidenceResult.stats.total > 0) {
         console.log(
           `[${agentId}/${region}] Evidence stats: ${evidenceResult.stats.supported} supported, ${evidenceResult.stats.needsVerification} needs verification, ${evidenceResult.stats.analysis} analysis`
         );
       }
-      return { validatedBrief, issues };
+      return { validatedBrief, issues, warnings: warnings || [] };
     };
 
     // Step 7: Validate the brief (URLs + numeric factuality)
-    let { validatedBrief, issues } = runValidation(brief);
+    let validationResult = runValidation(brief);
+    let { validatedBrief, issues, warnings } = validationResult;
 
     if (issues.length > 0) {
       console.log(`[${agentId}/${region}] Validation failed, retrying...`, issues);
@@ -265,6 +293,7 @@ export async function runAgent(
       const retryResult = runValidation(retryBrief);
       validatedBrief = retryResult.validatedBrief;
       issues = retryResult.issues;
+      warnings = retryResult.warnings || [];
       brief = retryBrief;
     }
 

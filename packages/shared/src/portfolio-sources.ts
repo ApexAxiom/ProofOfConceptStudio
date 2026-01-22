@@ -3,6 +3,8 @@
  * Each portfolio has dedicated sources from the verified README.
  */
 
+import { keywordsForPortfolio } from "./keywords.js";
+
 export interface PortfolioSource {
   name: string;
   url: string;
@@ -360,5 +362,88 @@ export function getPortfolioSources(portfolioSlug: string, region?: "apac" | "in
 
 export function getPortfolioIndices(portfolioSlug: string): PortfolioIndex[] {
   return PORTFOLIO_CONFIGS[portfolioSlug]?.indices ?? [];
+}
+
+/**
+ * Generates Google News RSS feed URLs for a portfolio and region.
+ * Creates 3-5 dynamic queries based on category keywords and region-specific terms.
+ */
+export function getGoogleNewsFeeds(
+  portfolioSlug: string,
+  region: "apac" | "intl"
+): PortfolioSource[] {
+  // Get keywords from keywords.ts
+  const keywords = keywordsForPortfolio(portfolioSlug);
+  if (keywords.length === 0) return [];
+  
+  // Select top keywords for search queries (prefer multi-word terms)
+  const searchKeywords = keywords
+    .filter(k => k.includes(" ") || k.length > 4) // Prefer phrases and longer terms
+    .slice(0, 5)
+    .concat(keywords.slice(0, 3)); // Add some single-word terms
+  const uniqueKeywords = Array.from(new Set(searchKeywords)).slice(0, 5);
+
+  // Region-specific modifiers
+  const regionModifiers: Record<"apac" | "intl", string[]> = {
+    apac: ["Australia", "APAC", "Perth", "Asia Pacific"],
+    intl: ["US", "United States", "Mexico", "LNG", "Gulf of Mexico"]
+  };
+
+  const modifiers = regionModifiers[region];
+  const feeds: PortfolioSource[] = [];
+
+  // Generate 3-5 Google News RSS queries
+  // Strategy: Combine 1-2 keywords with region modifiers
+  const queries: string[] = [];
+
+  // Query 1: Primary keyword + region
+  if (uniqueKeywords.length > 0 && modifiers.length > 0) {
+    queries.push(`${uniqueKeywords[0]} ${modifiers[0]}`);
+  }
+
+  // Query 2: Primary keyword + alternative region term
+  if (uniqueKeywords.length > 0 && modifiers.length > 1) {
+    queries.push(`${uniqueKeywords[0]} ${modifiers[1]}`);
+  }
+
+  // Query 3: Secondary keyword + region
+  if (uniqueKeywords.length > 1 && modifiers.length > 0) {
+    queries.push(`${uniqueKeywords[1]} ${modifiers[0]}`);
+  }
+
+  // Query 4: Combined keywords with OR
+  if (uniqueKeywords.length >= 2) {
+    const keywordPair = uniqueKeywords.slice(0, 2).join(" OR ");
+    queries.push(`${keywordPair} ${modifiers[0] || ""}`);
+  }
+
+  // Query 5: Category-specific terms with OR
+  if (uniqueKeywords.length >= 3) {
+    queries.push(`${uniqueKeywords.slice(0, 3).join(" OR ")} ${modifiers[0] || ""}`);
+  }
+
+  // Limit to 5 queries max
+  const selectedQueries = queries.slice(0, 5);
+
+  // Generate Google News RSS URLs
+  for (let i = 0; i < selectedQueries.length; i++) {
+    const query = selectedQueries[i];
+    const encodedQuery = encodeURIComponent(query);
+    
+    // Google News RSS format
+    const countryCode = region === "apac" ? "AU" : "US";
+    const ceid = region === "apac" ? "AU:en" : "US:en";
+    
+    const rssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=en-US&gl=${countryCode}&ceid=${ceid}&when=1d`;
+    
+    feeds.push({
+      name: `Google News: ${query}`,
+      url: rssUrl,
+      region: region,
+      rssUrl: rssUrl
+    });
+  }
+
+  return feeds;
 }
 
