@@ -20,6 +20,7 @@ const markdown = renderBriefMarkdown({
     { id: "idx-1", label: "Index One", url: "https://index.test/one", note: "Context" },
     { id: "idx-2", label: "Index Two", url: "https://index.test/two", note: "Context" }
   ],
+  region: "au",
   highlights: ["Highlight A"],
   procurementActions: ["Action A"],
   watchlist: ["Watch A"],
