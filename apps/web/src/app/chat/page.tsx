@@ -94,7 +94,8 @@ export default function ChatPage({
 
   const [region, setRegion] = useState<string>(initialRegion);
   const [portfolio, setPortfolio] = useState<string>(initialPortfolio);
-  const briefId = searchParams?.briefId;
+  const initialBriefId = searchParams?.briefId;
+  const [activeBriefId, setActiveBriefId] = useState<string | undefined>(initialBriefId);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -103,12 +104,27 @@ export default function ChatPage({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const initialSelectionRef = useRef({ region: initialRegion, portfolio: initialPortfolio });
 
   useEffect(() => {
     if (threadRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!initialBriefId) return;
+    const initialSelection = initialSelectionRef.current;
+    if (region !== initialSelection.region || portfolio !== initialSelection.portfolio) {
+      if (activeBriefId !== undefined) {
+        setActiveBriefId(undefined);
+      }
+      return;
+    }
+    if (activeBriefId !== initialBriefId) {
+      setActiveBriefId(initialBriefId);
+    }
+  }, [region, portfolio, initialBriefId, activeBriefId]);
 
   useEffect(() => {
     const loadAgents = async () => {
@@ -144,6 +160,17 @@ export default function ChatPage({
   const activeAgent = agents.find((a) => a.portfolio === portfolio && a.region === region);
   const regionAgents = agents.filter((a) => a.region === region);
   const regionFeeds = activeAgent?.feeds ?? [];
+
+  useEffect(() => {
+    if (!agents.length) return;
+    const match = agents.find((agent) => agent.region === region && agent.portfolio === portfolio);
+    if (!match) {
+      const fallback = agents.find((agent) => agent.region === region);
+      if (fallback) {
+        setPortfolio(fallback.portfolio);
+      }
+    }
+  }, [agents, region, portfolio]);
 
   const assistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === "assistant" && message.content),
@@ -189,7 +216,7 @@ export default function ChatPage({
           region,
           portfolio,
           agentId: activeAgent?.id,
-          briefId,
+          briefId: activeBriefId,
           messages: history
         })
       });
@@ -265,7 +292,7 @@ export default function ChatPage({
                   </span>
                 )}
               </span>
-              {briefId && (
+              {activeBriefId && (
                 <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                   Brief-scoped
                 </span>

@@ -194,6 +194,7 @@ export default async function Dashboard({
         action: action.action,
         ownerRole: action.ownerRole,
         dueInDays: action.dueInDays,
+        publishedAt: brief.publishedAt,
         href: cmEvidenceLink(brief, action.evidenceArticleIndex)
       })) ?? []
     )
@@ -300,7 +301,7 @@ export default async function Dashboard({
       <section className="space-y-4">
         <SectionHeader
           icon="✅"
-          title="Top 5 actions"
+          title="Top 5 opportunities"
           subtitle="Cross-portfolio priorities to execute"
           action={
             <Link href={`/actions/${REGION_LIST[0].slug}`} className="btn-ghost text-xs">
@@ -320,7 +321,7 @@ export default async function Dashboard({
                       <span className="rounded-full bg-muted px-2 py-0.5 font-semibold text-foreground">{entry.ownerRole}</span>
                       <span>{portfolioLabel(entry.portfolio)}</span>
                       <span className="text-border">•</span>
-                      <span>Due in {entry.dueInDays} days</span>
+                      <span>{new Date(entry.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                     </div>
                     <p className="text-sm font-medium text-foreground">{entry.action}</p>
                   </div>
@@ -334,13 +335,12 @@ export default async function Dashboard({
         </div>
       </section>
 
-      {/* News stream accordion */}
+      {/* Latest News */}
       <section className="dashboard-section">
-        <details className="rounded-xl border border-border bg-card">
-          <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center justify-between">
-            <span>News & Sources ({totalArticles} items)</span>
-            <span className="text-xs text-muted-foreground">Expand</span>
-          </summary>
+        <div className="rounded-xl border border-border bg-card">
+          <div className="px-5 py-4 text-sm font-semibold text-foreground">
+            <span>Latest News ({totalArticles} items)</span>
+          </div>
           <div className="space-y-8 px-5 pb-5 pt-2">
             <div>
               <SectionHeader
@@ -385,7 +385,7 @@ export default async function Dashboard({
               </div>
             </div>
           </div>
-        </details>
+        </div>
       </section>
 
       {/* CTA Section */}

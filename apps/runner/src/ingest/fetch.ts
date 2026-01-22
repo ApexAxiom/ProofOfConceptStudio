@@ -59,23 +59,36 @@ const FREIGHT_FALLBACK: AgentFeed[] = [
 const CYBER_FALLBACK: AgentFeed[] = [
   { name: "KrebsOnSecurity", url: "https://krebsonsecurity.com/feed/", type: "rss" },
   { name: "Dark Reading", url: "https://www.darkreading.com/rss.xml", type: "rss" },
-  { name: "Ars Technica Security", url: "https://feeds.arstechnica.com/arstechnica/security", type: "rss" }
+  { name: "Ars Technica Security", url: "https://feeds.arstechnica.com/arstechnica/security", type: "rss" },
+  { name: "BleepingComputer", url: "https://www.bleepingcomputer.com/feed/", type: "rss" },
+  { name: "The Hacker News", url: "https://feeds.feedburner.com/TheHackersNews", type: "rss" },
+  { name: "CSO Online", url: "https://www.csoonline.com/feed/", type: "rss" },
+  { name: "Cybersecurity Dive", url: "https://www.cybersecuritydive.com/feeds/news/", type: "rss" },
+  { name: "Industrial Cyber", url: "https://industrialcyber.co/feed/", type: "rss" }
 ];
 
 const STEEL_FALLBACK: AgentFeed[] = [
   { name: "Mining Weekly", url: "https://www.miningweekly.com/page/rss", type: "rss" },
   { name: "MetalMiner", url: "https://agmetalminer.com/metal-prices/feed/", type: "rss" },
-  { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" }
+  { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" },
+  { name: "American Iron and Steel Institute", url: "https://www.steel.org/news/", type: "web" },
+  { name: "World Oil", url: "https://www.worldoil.com/rss/news", type: "rss" }
 ];
 
 const SERVICES_FALLBACK: AgentFeed[] = [
   { name: "Consultancy.org", url: "https://www.consultancy.org/news/rss", type: "rss" },
-  { name: "Harvard Business Review", url: "https://hbr.org/feed", type: "rss" }
+  { name: "Harvard Business Review", url: "https://hbr.org/feed", type: "rss" },
+  { name: "HR Dive", url: "https://www.hrdive.com/feeds/news/", type: "rss" },
+  { name: "SHRM News", url: "https://www.shrm.org/rss/pages/rss.aspx", type: "rss" },
+  { name: "Accounting Today", url: "https://www.accountingtoday.com/feed", type: "rss" }
 ];
 
 const FACILITY_FALLBACK: AgentFeed[] = [
   { name: "FacilitiesNet", url: "https://www.facilitiesnet.com/rss/maintenancenews.aspx", type: "rss" },
-  { name: "Buildings.com", url: "https://www.buildings.com/rss.xml", type: "rss" }
+  { name: "Buildings.com", url: "https://www.buildings.com/rss.xml", type: "rss" },
+  { name: "Facility Executive", url: "https://facilityexecutive.com/feed/", type: "rss" },
+  { name: "Waste360", url: "https://www.waste360.com/rss.xml", type: "rss" },
+  { name: "EHS Today", url: "https://www.ehstoday.com/rss", type: "rss" }
 ];
 
 function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
@@ -166,12 +179,17 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   const deduped = dedupeArticles(collected);
 
   // Remove articles used in recent runs to keep briefs fresh
-  const lookbackDays = agent.lookbackDays ?? 7;
+  // Reduced from 7 to 3 days to allow more article reuse across categories
+  // NOTE: Duplicate filtering is category-specific (by portfolio). The same article
+  // can be used by different categories, as each category's AI agent analyzes news
+  // from their own domain perspective. This prevents duplicates within a category
+  // while allowing cross-category article reuse.
+  const lookbackDays = agent.lookbackDays ?? 3;
   let usedUrls: Set<string>;
   
   try {
     usedUrls = await getRecentlyUsedUrls({
-      portfolio: agent.portfolio,
+      portfolio: agent.portfolio, // Category-specific filtering
       region,
       lookbackDays,
       limit: 200
@@ -186,6 +204,8 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   for (const candidate of deduped) {
     const normalized = normalizeForDedupe(candidate.url);
     if (normalized) {
+      // Skip only if this URL was used in THIS category (portfolio) recently
+      // Same URL can be used by other categories
       if (usedUrls.has(normalized)) continue;
       seenNormalized.add(normalized);
     }

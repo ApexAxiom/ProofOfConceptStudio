@@ -4,7 +4,7 @@
   description: Category management expert for rigs and integrated drilling in oil & gas, delivering negotiation-ready sourcing plans, supplier risk views, and market intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
@@ -28,7 +28,7 @@
   description: Category management expert for drilling services, mud logging, and support vendors, guiding sourcing strategy, negotiations, and regional insights for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
@@ -51,7 +51,7 @@
   description: Category management expert for casing, tubing, and well materials, providing supply chain plans, supplier negotiations, and market analysis for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: American Iron and Steel Institute, url: https://www.steel.org/news/, type: web }
@@ -73,7 +73,7 @@
   description: Category management expert for completions equipment, stimulation, and intervention, shaping sourcing strategies, contract playbooks, and regional guidance for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
@@ -98,7 +98,7 @@
   description: Category management expert for plug & abandonment and decommissioning, offering sourcing levers, negotiation support, and regional decom intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
@@ -120,7 +120,7 @@
   description: Category management expert for offshore construction, subsea hardware, and SURF packages, supplying market research, contracting tactics, and regional supplier views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
@@ -142,7 +142,7 @@
   description: Category management expert for major projects, EPC/EPCM, and construction, crafting sourcing strategies, negotiation guidance, and regional market reads for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Hydrocarbon Engineering, url: https://www.hydrocarbonengineering.com/feed/, type: rss }
@@ -166,7 +166,7 @@
   description: Category management expert for rotating equipment, compressors, turbines, and LTSAs, providing supplier strategies, contract structures, and regional intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Turbomachinery Magazine, url: https://www.turbomachinerymag.com/feed/, type: rss }
@@ -189,7 +189,7 @@
   description: Category management expert for inspection, reliability, and maintenance services, supporting negotiation, supplier performance, and regional nuances for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Reliabilityweb, url: https://reliabilityweb.com/feed, type: rss }
@@ -213,7 +213,7 @@
   description: Category management expert for valves, consumables, and MRO, enabling sourcing optimization, stocking strategies, and regional supply risk views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Supply Chain Dive, url: https://www.supplychaindive.com/feeds/news/, type: rss }
@@ -237,7 +237,7 @@
   description: Category management expert for marine, aviation, and freight logistics, delivering supplier playbooks, rate negotiation guidance, and regional trade flow insights for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Maritime Executive, url: https://www.maritime-executive.com/rss, type: rss }
@@ -260,7 +260,7 @@
   description: Category management expert for facilities management, waste, and safety services, providing sourcing strategies, vendor negotiations, and regional compliance views for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: FacilitiesNet, url: https://www.facilitiesnet.com/rss/fn_all.xml, type: rss }
@@ -285,7 +285,7 @@
   description: Category management expert for cyber, telecom, and IT sourcing, advising on supplier resilience, contract posture, and regional threat context for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: Dark Reading, url: https://www.darkreading.com/rss.xml, type: rss }
@@ -312,7 +312,7 @@
   description: Category management expert for HR, consulting, and professional services, offering sourcing strategies, negotiation playbooks, and regional labor-market intelligence for US/MX/LatAm LNG and Australia.
   maxArticlesToConsider: 40
   articlesPerRun: 3
-  lookbackDays: 7
+  lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
       - { name: HR Dive, url: https://www.hrdive.com/feeds/news/, type: rss }
@@ -336,7 +336,7 @@
   # Max allowed is 5 (agent config validation); keep broad coverage within cap.
   articlesPerRun: 5
   # Use a longer lookback so less-frequent categories (e.g. cyber/services) still appear daily when possible
-  lookbackDays: 7
+  lookbackDays: 3
   mode: market-dashboard
   feedsByRegion:
     au: []

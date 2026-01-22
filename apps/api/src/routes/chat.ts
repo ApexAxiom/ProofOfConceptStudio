@@ -5,10 +5,13 @@ import {
   BriefClaim,
   BriefSource,
   buildAgentSystemPrompt,
+  buildSourceId,
+  dedupeSources,
   getAgentFramework,
   keywordsForPortfolio,
   normalizeBriefSources,
-  portfolioLabel
+  portfolioLabel,
+  regionLabel
 } from "@proof/shared";
 import { getPost, getRegionPosts } from "../db/posts.js";
 import { OpenAI } from "openai";
@@ -223,6 +226,101 @@ function summarizeContent(content: string, maxChars: number) {
   return `${content.slice(0, maxChars).trim()}…`;
 }
 
+function buildBriefSummaryContext(brief: BriefPost): { blocks: string[]; sources: BriefSource[] } {
+  const blocks: string[] = [];
+  const sources: BriefSource[] = [];
+
+  if (brief.summary?.trim()) {
+    blocks.push(`Summary: ${brief.summary.trim()}`);
+  }
+
+  if (brief.highlights?.length) {
+    blocks.push(`Highlights:\n${brief.highlights.slice(0, 6).map((item) => `- ${item}`).join("\n")}`);
+  }
+
+  if (brief.procurementActions?.length) {
+    blocks.push(
+      `Procurement actions:\n${brief.procurementActions.slice(0, 6).map((item) => `- ${item}`).join("\n")}`
+    );
+  }
+
+  if (brief.watchlist?.length) {
+    blocks.push(`Watchlist:\n${brief.watchlist.slice(0, 6).map((item) => `- ${item}`).join("\n")}`);
+  }
+
+  if (brief.deltaSinceLastRun?.length) {
+    blocks.push(
+      `Delta since last run:\n${brief.deltaSinceLastRun.slice(0, 6).map((item) => `- ${item}`).join("\n")}`
+    );
+  }
+
+  if (brief.marketIndicators?.length) {
+    const indicatorLines = brief.marketIndicators.slice(0, 6).map((indicator) => {
+      const label = indicator.label ?? "Indicator";
+      const note = indicator.note ? `: ${indicator.note}` : "";
+      if (indicator.url) {
+        const sourceId = buildSourceId(indicator.url);
+        sources.push({ sourceId, url: indicator.url, title: label });
+        return `- [${sourceId}] ${label}${note}`;
+      }
+      return `- ${label}${note}`;
+    });
+    if (indicatorLines.length) {
+      blocks.push(`Market indicators:\n${indicatorLines.join("\n")}`);
+    }
+  }
+
+  if (brief.selectedArticles?.length) {
+    const articleBlocks = brief.selectedArticles.slice(0, 4).map((article, index) => {
+      const title = article.title?.trim() || "Untitled article";
+      const url = article.url?.trim();
+      let header = `Article ${index + 1}: ${title}`;
+      if (url) {
+        const sourceId = buildSourceId(url);
+        sources.push({ sourceId, url, title, publishedAt: article.publishedAt });
+        header = `Article ${index + 1} [${sourceId}]: ${title}`;
+      }
+      const lines = [header];
+      if (article.sourceName) lines.push(`Source: ${article.sourceName}`);
+      if (article.publishedAt) lines.push(`Published: ${article.publishedAt}`);
+      if (article.briefContent) lines.push(`Summary: ${article.briefContent}`);
+      if (article.categoryImportance) lines.push(`Category importance: ${article.categoryImportance}`);
+      if (article.keyMetrics?.length) lines.push(`Key metrics: ${article.keyMetrics.join("; ")}`);
+      return lines.join("\n");
+    });
+    blocks.push(`Selected articles:\n${articleBlocks.join("\n\n")}`);
+  }
+
+  if (!blocks.length && brief.bodyMarkdown?.trim()) {
+    const cleaned = brief.bodyMarkdown.replace(/\s+/g, " ").trim();
+    if (cleaned) {
+      blocks.push(`Brief excerpt: ${summarizeContent(cleaned, 1600)}`);
+    }
+  }
+
+  return { blocks, sources: dedupeSources(sources) };
+}
+
+function buildConversationHistory(messages: IncomingMessage[], question: string) {
+  const cleaned = messages
+    .filter(
+      (message): message is { role: "user" | "assistant"; content: string } =>
+        (message?.role === "user" || message?.role === "assistant") &&
+        typeof message.content === "string" &&
+        message.content.trim().length > 0
+    )
+    .map((message) => ({ role: message.role, content: message.content.trim() }));
+
+  if (!cleaned.length) return [];
+
+  const trimmedQuestion = question.trim();
+  const last = cleaned[cleaned.length - 1];
+  const trimmed =
+    last?.role === "user" && last.content.trim() === trimmedQuestion ? cleaned.slice(0, -1) : cleaned;
+
+  return trimmed.slice(-10);
+}
+
 function keywordTokens(question: string) {
   const tokens = question.toLowerCase().match(/[a-z0-9]+/g) ?? [];
   const filtered = tokens.filter((token) => token.length > 3);
@@ -326,7 +424,9 @@ async function buildWebSearchContext(
   if (!isWebSearchEnabled()) {
     return { blocks: [], urls: [] };
   }
-  const query = `${question} ${portfolioLabel(portfolio)} ${region}`;
+  const regionDescriptor =
+    region === "au" || region === "us-mx-la-lng" ? regionLabel(region as "au" | "us-mx-la-lng") : region;
+  const query = `${question} ${portfolioLabel(portfolio)} ${regionDescriptor}`;
   try {
     const results = await fetchDuckDuckGoResults(query);
     const filtered = results.filter((url) => !url.includes("proofofconceptstudio.com")).slice(0, MAX_WEB_DOCS);
@@ -392,14 +492,23 @@ function buildLogContext(params: {
   };
 }
 
-async function findAgent(agentId?: string, portfolio?: string) {
+async function findAgent(agentId?: string, portfolio?: string, region?: string) {
   if (!agentId && !portfolio) return undefined;
   const runnerBaseUrl = getRunnerBaseUrl();
   try {
     const res = await fetch(`${runnerBaseUrl}/agents`);
     if (!res.ok) return undefined;
     const payload = (await res.json()) as { agents?: AgentSummary[] };
-    return payload.agents?.find((a) => a.id === agentId || a.portfolio === portfolio);
+    const agents = payload.agents ?? [];
+    const byIdAndRegion =
+      agentId && region ? agents.find((agent) => agent.id === agentId && agent.region === region) : undefined;
+    const byId = agentId ? agents.find((agent) => agent.id === agentId) : undefined;
+    const byPortfolioAndRegion =
+      portfolio && region
+        ? agents.find((agent) => agent.portfolio === portfolio && agent.region === region)
+        : undefined;
+    const byPortfolio = portfolio ? agents.find((agent) => agent.portfolio === portfolio) : undefined;
+    return byIdAndRegion ?? byId ?? byPortfolioAndRegion ?? byPortfolio;
   } catch (err) {
     console.warn("Unable to load agent catalog", (err as Error).message);
     return undefined;
@@ -467,64 +576,154 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       questionLength: effectiveQuestion.length
     });
 
-    const agent = await findAgent(agentId, portfolio);
+    const agent = await findAgent(agentId, portfolio, region);
     let targetBrief: BriefPost | null = null;
     if (briefId) {
       targetBrief = await getPost(briefId);
+      if (targetBrief && (targetBrief.region !== region || targetBrief.portfolio !== portfolio)) {
+        request.log.warn(
+          {
+            ...logContext,
+            briefId,
+            briefRegion: targetBrief.region,
+            briefPortfolio: targetBrief.portfolio
+          },
+          "Brief context does not match selected region/portfolio; ignoring briefId."
+        );
+        targetBrief = null;
+      }
     }
     if (!targetBrief) {
       const regionPosts = await getRegionPosts(region);
-      const filtered = regionPosts.filter((p) => p.portfolio === portfolio);
-      targetBrief = filtered[0] ?? regionPosts[0] ?? null;
+      const filtered = regionPosts.filter((post) => post.portfolio === portfolio);
+      targetBrief = filtered[0] ?? null;
     }
 
     if (!targetBrief) {
-      reply.code(404).send({ error: "No brief found for this region/portfolio." });
-      return;
+      request.log.warn({ ...logContext }, "No brief found for region/portfolio; using external context only.");
     }
 
-    const effectiveLogContext = { ...logContext, briefId: briefId ?? targetBrief.postId };
+    const effectiveLogContext = { ...logContext, briefId: targetBrief?.postId ?? briefId };
 
-    const normalizedSources = normalizeBriefSources(targetBrief.sources);
+    const normalizedSources = targetBrief ? normalizeBriefSources(targetBrief.sources) : [];
+    const claims = Array.isArray(targetBrief?.claims) ? (targetBrief?.claims as BriefClaim[]) : [];
+    const categoryTokens = keywordsForPortfolio(portfolio);
+    const selectedClaims = claims.length
+      ? selectRelevantClaims(claims, effectiveQuestion, categoryTokens, getChatClaimLimit())
+      : [];
+    const briefSummaryContext = targetBrief ? buildBriefSummaryContext(targetBrief) : { blocks: [], sources: [] };
+
     const sourcesById = new Map<string, BriefSource>();
-    normalizedSources.forEach((source) => sourcesById.set(source.sourceId, source));
-    const claims = Array.isArray(targetBrief.claims) ? targetBrief.claims : [];
-    if (claims.length === 0) {
+    dedupeSources([...normalizedSources, ...briefSummaryContext.sources]).forEach((source) =>
+      sourcesById.set(source.sourceId, source)
+    );
+    for (const claim of claims) {
+      for (const evidence of claim.evidence ?? []) {
+        if (!evidence.url) continue;
+        const sourceId = evidence.sourceId || buildSourceId(evidence.url);
+        if (!sourcesById.has(sourceId)) {
+          sourcesById.set(sourceId, { sourceId, url: evidence.url, title: evidence.title });
+        }
+      }
+    }
+
+    const evidenceContext = selectedClaims.length
+      ? buildEvidenceContext(selectedClaims, sourcesById)
+      : { blocks: [], citations: [] };
+    const hasEvidence = selectedClaims.some((claim) => (claim.evidence ?? []).length > 0);
+
+    const openai = getOpenAIClient();
+    if (!openai) {
+      const timingMs = Date.now() - startMs;
+      if (selectedClaims.length > 0) {
+        const fallback = renderFallbackAnswer(selectedClaims, sourcesById);
+        request.log.warn(
+          { ...effectiveLogContext, timingMs, result: "fallback" },
+          "Missing OPENAI_API_KEY; returning evidence-only response."
+        );
+        reply.code(200).send({
+          answer: fallback.answer,
+          citations: fallback.citations,
+          sources: fallback.citations.map((source) => source.url)
+        });
+        return;
+      }
+      const summaryFallback = briefSummaryContext.blocks.length
+        ? ["AI is unavailable; returning the latest brief summary context:", ...briefSummaryContext.blocks].join("\n\n")
+        : "AI is unavailable and no brief context is available for this selection.";
+      request.log.warn(
+        { ...effectiveLogContext, timingMs, result: "fallback" },
+        "Missing OPENAI_API_KEY; returning summary-only response."
+      );
       reply.code(200).send({
-        answer: "This brief was published before evidence tracking was enabled, so citations are unavailable. Please open the brief sources directly for verification.",
+        answer: summaryFallback,
         citations: [],
         sources: []
       });
       return;
     }
-    const categoryTokens = keywordsForPortfolio(portfolio);
-    const selectedClaims = selectRelevantClaims(claims, effectiveQuestion, categoryTokens, getChatClaimLimit());
-    const evidenceContext = buildEvidenceContext(selectedClaims, sourcesById);
-    const contextHeader = [
-      `Brief Title: ${targetBrief.title}`,
-      `Brief ID: ${targetBrief.postId}`,
-      `Region: ${region}`,
-      `Portfolio: ${portfolioLabel(targetBrief.portfolio)}`,
-      `Published: ${targetBrief.publishedAt}`
-    ].join("\n");
-    const contextBlocks = [contextHeader, ...evidenceContext.blocks];
-    const context = contextBlocks.join("\n\n---\n\n");
 
-    const openai = getOpenAIClient();
-    if (!openai) {
-      const timingMs = Date.now() - startMs;
-      const fallback = renderFallbackAnswer(selectedClaims, sourcesById);
-      request.log.warn(
-        { ...effectiveLogContext, timingMs, result: "fallback" },
-        "Missing OPENAI_API_KEY; returning evidence-only response."
-      );
-      reply.code(200).send({
-        answer: fallback.answer,
-        citations: fallback.citations,
-        sources: fallback.citations.map((source) => source.url)
-      });
-      return;
+    const [proofContext, webContext] = await Promise.all([
+      buildProofOfConceptContext(effectiveQuestion),
+      buildWebSearchContext(effectiveQuestion, region, portfolio)
+    ]);
+
+    const proofSources = proofContext.urls.map((url) => ({ sourceId: buildSourceId(url), url }));
+    const proofBlocks = proofContext.blocks.map((block, index) => {
+      const source = proofSources[index];
+      return source ? `Source [${source.sourceId}]\n${block}` : block;
+    });
+    const webSources = webContext.urls.map((url) => ({ sourceId: buildSourceId(url), url }));
+    const webBlocks = webContext.blocks.map((block, index) => {
+      const source = webSources[index];
+      return source ? `Source [${source.sourceId}]\n${block}` : block;
+    });
+
+    dedupeSources([...proofSources, ...webSources]).forEach((source) => {
+      if (!sourcesById.has(source.sourceId)) {
+        sourcesById.set(source.sourceId, source);
+      }
+    });
+
+    const contextHeader = targetBrief
+      ? [
+          `Brief Title: ${targetBrief.title}`,
+          `Brief ID: ${targetBrief.postId}`,
+          `Region: ${region}`,
+          `Portfolio: ${portfolioLabel(targetBrief.portfolio)}`,
+          `Published: ${targetBrief.publishedAt}`
+        ].join("\n")
+      : ["Brief Title: Not available", `Region: ${region}`, `Portfolio: ${portfolioLabel(portfolio)}`].join("\n");
+
+    const allowedSourceList = sourcesById.size
+      ? Array.from(sourcesById.values())
+          .map((source) => `${source.sourceId}: ${source.url}`)
+          .join("\n")
+      : "None";
+
+    const promptSections = [
+      `Allowed sources (sourceId -> URL):\n${allowedSourceList}`,
+      `Brief context:\n${contextHeader}`
+    ];
+
+    if (evidenceContext.blocks.length) {
+      promptSections.push(`Evidence-backed claims and excerpts:\n${evidenceContext.blocks.join("\n\n")}`);
     }
+
+    if (briefSummaryContext.blocks.length) {
+      promptSections.push(`Brief summary context (not evidence):\n${briefSummaryContext.blocks.join("\n\n")}`);
+    }
+
+    if (proofBlocks.length) {
+      promptSections.push(`ProofOfConceptStudio.com context:\n${proofBlocks.join("\n\n")}`);
+    }
+
+    if (webBlocks.length) {
+      promptSections.push(`Web search context:\n${webBlocks.join("\n\n")}`);
+    }
+
+    const context = summarizeContent(promptSections.join("\n\n"), MAX_CONTEXT_CHARS);
+    const prompt = `${context}\n\nQuestion: ${effectiveQuestion}`;
 
     const assistantIdentity = agent
       ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
@@ -534,12 +733,16 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       : undefined;
     const agentPrompt = agentConfig ? buildAgentSystemPrompt(agentConfig as any, region) : assistantIdentity;
     const framework = getAgentFramework(agentConfig?.id ?? portfolio);
+    const evidenceInstruction = hasEvidence
+      ? "Prioritize ProofOfConceptStudio.com context and brief evidence; use web excerpts only when needed. If you make an inference beyond sources, label it as (analysis)."
+      : "Use ProofOfConceptStudio.com context first, then brief summaries, then web excerpts. If a statement is not supported by sources, label it as (analysis) and keep it high-level.";
     const systemMessage = [
       "You are ProofOfConceptStudio Chat Analyst.",
       agentPrompt,
       "Be concise, factual, and do not invent provenance.",
-      "Answer ONLY using the provided evidence excerpts; if evidence is missing, say so explicitly.",
-      "Cite sources with [sourceId] tokens that map to the allowed sources list.",
+      evidenceInstruction,
+      "Cite sources with [sourceId] tokens that map to the allowed sources list whenever you use sourced information.",
+      "If no sources apply, say so explicitly before providing analysis.",
       "Use the interpretation framework to explain why it matters and recommend actions:",
       `Focus areas: ${framework.focusAreas.join(", ") || "N/A"}.`,
       `Market drivers: ${framework.marketDrivers.join(", ") || "N/A"}.`,
@@ -548,21 +751,14 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       "Use Markdown with bullet points and short paragraphs.",
       "Do not emit HTML."
     ].join(" ");
-    const allowedSourceList = normalizedSources.length
-      ? normalizedSources.map((source) => `${source.sourceId}: ${source.url}`).join("\n")
-      : "None";
-    const promptSections = [
-      `Allowed sources (sourceId -> URL):\n${allowedSourceList}`,
-      "Evidence-backed claims and excerpts:",
-      context || "No evidence available."
-    ];
-    const prompt = `${promptSections.join("\n\n")}\n\nQuestion: ${effectiveQuestion}`;
+    const historyMessages = buildConversationHistory(incomingMessages, effectiveQuestion);
     const requestChatCompletion = (modelOverride?: string) =>
       openai.chat.completions.create({
         model: modelOverride ?? getModel(),
         max_tokens: getMaxOutputTokens(),
         messages: [
           { role: "system", content: systemMessage },
+          ...historyMessages,
           { role: "user", content: prompt }
         ]
       });
@@ -623,13 +819,25 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       if (getDebugChatLogging()) {
         request.log.info({ ...effectiveLogContext, timingMs, result: "error", errorMessage }, "Chat error detail");
       }
-      const fallback = renderFallbackAnswer(selectedClaims, sourcesById);
-      if (fallback.answer) {
+      const fallback = selectedClaims.length > 0 ? renderFallbackAnswer(selectedClaims, sourcesById) : null;
+      if (fallback?.answer) {
         reply.code(200).send({
           answer: fallback.answer,
           citations: fallback.citations,
           sources: fallback.citations.map((source) => source.url),
-          error: isAuthError || isNotFound ? "AI unavailable; returned evidence-only response." : "AI error; returned evidence-only response."
+          error:
+            isAuthError || isNotFound
+              ? "AI unavailable; returned evidence-only response."
+              : "AI error; returned evidence-only response."
+        });
+        return;
+      }
+      if (briefSummaryContext.blocks.length) {
+        reply.code(200).send({
+          answer: ["AI error; returning brief summary context:", ...briefSummaryContext.blocks].join("\n\n"),
+          citations: [],
+          sources: [],
+          error: "AI error; returned brief summary context."
         });
         return;
       }

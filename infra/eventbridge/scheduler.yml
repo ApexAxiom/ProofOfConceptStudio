@@ -29,29 +29,11 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SecretArn
 
-  APACSchedule:
+  DailyBriefSchedule:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-apac-daily
-      Description: Daily APAC brief run at 22:00 UTC
-      ScheduleExpression: cron(0 22 * * ? *)
-      ScheduleExpressionTimezone: UTC
-      FlexibleTimeWindow:
-        Mode: 'OFF'
-      Target:
-        Arn: !Sub "${RunnerBaseUrl}/cron"
-        RoleArn: !GetAtt SchedulerRole.Arn
-        HttpParameters:
-          HeaderParameters:
-            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
-            Content-Type: application/json
-        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true}'
-
-  InternationalSchedule1:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      Name: briefs-international-11utc
-      Description: Daily international brief run at 11:00 UTC
+      Name: briefs-daily-all-categories
+      Description: Daily brief run for all categories and regions at 5:00 AM CST (11:00 UTC)
       ScheduleExpression: cron(0 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -63,22 +45,4 @@ Resources:
           HeaderParameters:
             Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
             Content-Type: application/json
-        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
-
-  InternationalSchedule2:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      Name: briefs-international-12utc
-      Description: Daily international brief run at 12:00 UTC
-      ScheduleExpression: cron(0 12 * * ? *)
-      ScheduleExpressionTimezone: UTC
-      FlexibleTimeWindow:
-        Mode: 'OFF'
-      Target:
-        Arn: !Sub "${RunnerBaseUrl}/cron"
-        RoleArn: !GetAtt SchedulerRole.Arn
-        HttpParameters:
-          HeaderParameters:
-            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
-            Content-Type: application/json
-        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true}'

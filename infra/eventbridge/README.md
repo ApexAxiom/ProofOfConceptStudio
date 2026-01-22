@@ -26,19 +26,20 @@ Your AWS Secrets Manager secret should include:
 Test the endpoints manually:
 
 ```bash
-# APAC run
+# All categories and regions run
+curl -X POST "https://your-runner.awsapprunner.com/cron" \
+  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"regions":["au","us-mx-la-lng"],"scheduled":true}'
+
+# Single region run (for testing)
 curl -X POST "https://your-runner.awsapprunner.com/cron" \
   -H "Authorization: Bearer YOUR_CRON_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"runWindow":"apac","regions":["au"],"scheduled":true}'
-
-# International run
-curl -X POST "https://your-runner.awsapprunner.com/cron" \
-  -H "Authorization: Bearer YOUR_CRON_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
 ```
 
 ## Schedule Summary
-- **APAC**: Daily at 22:00 UTC (6:00 AM AEST)
-- **International**: Daily at 11:00 UTC and 12:00 UTC (6:00 AM and 7:00 AM CDT)
+- **All Categories & Regions**: Daily at 11:00 UTC (5:00 AM CST)
+  - Runs all 14 category agents + 1 market dashboard for both APAC (au) and International (us-mx-la-lng) regions
+  - Total: 30 briefs per scheduled run (14 categories × 2 regions + 2 market dashboards)

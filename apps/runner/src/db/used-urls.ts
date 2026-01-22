@@ -12,6 +12,11 @@ interface Params {
 
 /**
  * Fetches recently used URLs for a portfolio/region combination to avoid reusing articles.
+ * 
+ * IMPORTANT: This is category-specific (filters by portfolio). The same article CAN be used
+ * across different categories, as each category's AI agent analyzes news from their own
+ * domain perspective. This allows cross-category article reuse while preventing duplicates
+ * within the same category.
  */
 export async function getRecentlyUsedUrls({ portfolio, region, lookbackDays, limit }: Params): Promise<Set<string>> {
   const since = new Date();
