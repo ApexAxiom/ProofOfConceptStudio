@@ -14,6 +14,10 @@ const baseClient = new DynamoDBClient(
     : { region: tableRegion }
 );
 
-export const documentClient = DynamoDBDocumentClient.from(baseClient);
+export const documentClient = DynamoDBDocumentClient.from(baseClient, {
+  marshallOptions: {
+    removeUndefinedValues: true
+  }
+});
 
 export const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";

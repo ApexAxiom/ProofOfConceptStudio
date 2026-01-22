@@ -30,19 +30,22 @@ export function buildDynamoItem(
     ...brief,
 
     // Ensure selectedArticles is properly stored
-    selectedArticles: brief.selectedArticles?.map((article) => ({
-      title: article.title,
-      url: article.url,
-      briefContent: article.briefContent,
-      categoryImportance: article.categoryImportance,
-      keyMetrics: article.keyMetrics,
-      imageUrl: article.imageUrl,
-      imageAlt: article.imageAlt,
-      sourceName: article.sourceName,
-      publishedAt: article.publishedAt,
-      sourceIndex: article.sourceIndex,
-      sourceId: article.sourceId
-    })),
+    selectedArticles: brief.selectedArticles?.map((article) => {
+      const mapped: Record<string, any> = {
+        title: article.title,
+        url: article.url
+      };
+      if (article.briefContent) mapped.briefContent = article.briefContent;
+      if (article.categoryImportance) mapped.categoryImportance = article.categoryImportance;
+      if (article.keyMetrics) mapped.keyMetrics = article.keyMetrics;
+      if (article.imageUrl) mapped.imageUrl = article.imageUrl;
+      if (article.imageAlt) mapped.imageAlt = article.imageAlt;
+      if (article.sourceName) mapped.sourceName = article.sourceName;
+      if (article.publishedAt) mapped.publishedAt = article.publishedAt;
+      if (article.sourceIndex !== undefined) mapped.sourceIndex = article.sourceIndex;
+      if (article.sourceId) mapped.sourceId = article.sourceId;
+      return mapped;
+    }),
 
     // Ingestion metadata
     scannedSources: ingestResult.scannedSources,
@@ -83,16 +86,19 @@ export async function logRunResult(
   error?: string
 ) {
   const now = new Date().toISOString();
-  const item = {
+  const item: Record<string, any> = {
     PK: `RUN#${runId}`,
     SK: `AGENT#${agentId}#REGION#${region}`,
     runId,
     agentId,
     region,
     status,
-    error,
     finishedAt: now
   };
+  
+  if (error) {
+    item.error = error;
+  }
   
   await client.send(new PutCommand({ TableName: tableName, Item: item }));
 }
