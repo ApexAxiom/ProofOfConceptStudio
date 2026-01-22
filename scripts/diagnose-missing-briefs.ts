@@ -181,7 +181,7 @@ async function checkDraftBriefs() {
           ":prefix": "POST#",
           ":start": START_DATE,
           ":end": END_DATE,
-          ":status": "draft",
+          ":draft": "draft",
           ":failed": "failed"
         }
       })

@@ -13,24 +13,47 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post("/run", async (request) => {
+  fastify.post("/run", async (request, reply) => {
     const body = request.body as any;
+    const agentId = body.agentId;
+    const force = body.force === true;
+
+    if (agentId) {
+      const region = (body.region as RegionSlug) ?? "us-mx-la-lng";
+      const runWindow = body.runWindow || runWindowForRegion(region);
+      const res = await fetch(`${RUNNER_BASE_URL}/run/${agentId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getCronSecret()}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ runWindow, region })
+      });
+      const json = await res.json();
+      return reply.status(res.status).send(json);
+    }
+
+    const regions = Array.isArray(body.regions) ? body.regions : undefined;
     const region = (body.region as RegionSlug) ?? "us-mx-la-lng";
     const runWindow = body.runWindow || runWindowForRegion(region);
-    const agentId = body.agentId;
-    const url = agentId
-      ? `${RUNNER_BASE_URL}/run/${agentId}`
-      : `${RUNNER_BASE_URL}/cron`;
-    const res = await fetch(url, {
+    const payload: Record<string, unknown> = { force };
+    if (regions?.length) {
+      payload.regions = regions;
+    } else {
+      payload.region = region;
+      payload.runWindow = runWindow;
+    }
+
+    const res = await fetch(`${RUNNER_BASE_URL}/cron`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${getCronSecret()}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ runWindow, region })
+      body: JSON.stringify(payload)
     });
     const json = await res.json();
-    return json;
+    return reply.status(res.status).send(json);
   });
 };
 

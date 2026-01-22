@@ -8,6 +8,7 @@
     "lint": "pnpm -r lint",
     "build": "pnpm -r build",
     "run:apac": "pnpm --filter runner run cron:apac",
-    "run:international": "pnpm --filter runner run cron:international"
+    "run:international": "pnpm --filter runner run cron:international",
+    "run-briefs": "pnpm --filter runner run run-briefs"
   }
 }

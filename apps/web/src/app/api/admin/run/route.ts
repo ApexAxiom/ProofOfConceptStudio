@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       runWindow: body.runWindow,
       region: body.region,
+      regions: body.regions,
       agentId: body.agentId,
       scheduled: body.scheduled,
       force: body.force

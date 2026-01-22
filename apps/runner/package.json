@@ -14,6 +14,7 @@
     "render:smoke": "tsx src/llm/render.smoke.ts",
     "cron:apac": "tsx src/cli.ts apac",
     "cron:international": "tsx src/cli.ts international",
+    "run-briefs": "tsx ../../scripts/run-briefs.ts",
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {

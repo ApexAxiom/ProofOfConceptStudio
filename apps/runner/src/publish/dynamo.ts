@@ -4,6 +4,26 @@ import { IngestResult } from "../ingest/fetch.js";
 import { documentClient as client, tableName } from "../db/client.js";
 
 /**
+ * Recursively remove undefined values from objects/arrays so DynamoDB Put never receives them.
+ */
+function stripUndefined<T>(value: T): T {
+  if (value === undefined) return value;
+  if (value === null) return value;
+  if (Array.isArray(value)) {
+    return value.map((v) => (v === undefined ? null : stripUndefined(v))) as T;
+  }
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const stripped = stripUndefined(v);
+      if (stripped !== undefined) out[k] = stripped;
+    }
+    return out as T;
+  }
+  return value;
+}
+
+/**
  * Builds the DynamoDB item for a brief while preserving article metadata.
  */
 export function buildDynamoItem(
@@ -72,7 +92,8 @@ export async function publishBrief(
   runId: string
 ) {
   const item = buildDynamoItem(brief, ingestResult, runId);
-  await client.send(new PutCommand({ TableName: tableName, Item: item }));
+  const clean = stripUndefined(item) as Record<string, unknown>;
+  await client.send(new PutCommand({ TableName: tableName, Item: clean }));
 }
 
 /**
@@ -99,6 +120,7 @@ export async function logRunResult(
   if (error) {
     item.error = error;
   }
-  
-  await client.send(new PutCommand({ TableName: tableName, Item: item }));
+
+  const clean = stripUndefined(item) as Record<string, unknown>;
+  await client.send(new PutCommand({ TableName: tableName, Item: clean }));
 }
