@@ -2,7 +2,9 @@
 
 ## OpenAI Model Configuration
 
-**Current Model: `gpt-4o`** (default across all services)
+**Recommended Model for App Runner: `gpt-4o-mini`** (set via `OPENAI_MODEL`)
+
+Default in code remains `gpt-4o` if `OPENAI_MODEL` is not set.
 
 The model can be overridden via the `OPENAI_MODEL` environment variable, but currently defaults to **gpt-4o** in:
 
@@ -21,7 +23,7 @@ The model can be overridden via the `OPENAI_MODEL` environment variable, but cur
    - Max tokens: 3500
 
 3. **Chat API** (`apps/api/src/routes/chat.ts`)
-   - Default: `gpt-4o`
+   - Default: `gpt-4o` (override with `OPENAI_MODEL=gpt-4o-mini`)
    - Fallback models: `["gpt-4o-mini"]`
    - Used for: Interactive Q&A with briefs
    - Max output tokens: 1000 (configurable via `OPENAI_MAX_OUTPUT_TOKENS`)

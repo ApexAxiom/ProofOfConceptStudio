@@ -28,9 +28,13 @@ const MAX_WEB_DOC_CHARS = 2200;
 const MAX_WEB_CONTEXT_CHARS = 8000;
 const SEARCH_TIMEOUT_MS = 5000;
 const FALLBACK_MODELS = ["gpt-4o-mini"];
+const STATUS_CHECK_TTL_MS = Number(process.env.CHAT_STATUS_CACHE_MS ?? 60000);
+const STATUS_VERIFY_ENABLED = process.env.CHAT_STATUS_VERIFY === "true";
+const FALLBACK_CONTEXT_ENABLED = process.env.CHAT_FALLBACK_CONTEXT === "true";
 const RATE_LIMIT_STATE = new Map<string, { tokens: number; lastRefillMs: number }>();
 let cachedOpenAIKey: string | null = null;
 let cachedOpenAI: OpenAI | null = null;
+let cachedStatus: { ok: boolean; error?: string; checkedAt: number } | null = null;
 
 type AgentSummary = {
   id: string;
@@ -62,7 +66,10 @@ function getOpenAIClient(): OpenAI | null {
   if (!apiKey) return null;
   if (cachedOpenAI && cachedOpenAIKey === apiKey) return cachedOpenAI;
   cachedOpenAIKey = apiKey;
-  cachedOpenAI = new OpenAI({ apiKey });
+  cachedOpenAI = new OpenAI({
+    apiKey,
+    baseURL: process.env.OPENAI_BASE_URL || undefined
+  });
   return cachedOpenAI;
 }
 
@@ -76,6 +83,32 @@ function getMaxOutputTokens() {
     return Math.floor(value);
   }
   return DEFAULT_MAX_COMPLETION_TOKENS;
+}
+
+async function checkOpenAIAvailability(): Promise<{ ok: boolean; error?: string }> {
+  const now = Date.now();
+  if (cachedStatus && now - cachedStatus.checkedAt < STATUS_CHECK_TTL_MS) {
+    return { ok: cachedStatus.ok, error: cachedStatus.error };
+  }
+
+  const openai = getOpenAIClient();
+  if (!openai) {
+    cachedStatus = { ok: false, error: "missing_api_key", checkedAt: now };
+    return { ok: false, error: "missing_api_key" };
+  }
+
+  try {
+    await openai.models.list();
+    cachedStatus = { ok: true, checkedAt: now };
+    return { ok: true };
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    const code = (err as { code?: string })?.code;
+    const message = (err as Error)?.message ?? "openai_unavailable";
+    const error = status ? `http_${status}` : code || message;
+    cachedStatus = { ok: false, error, checkedAt: now };
+    return { ok: false, error };
+  }
 }
 
 function getDebugChatLogging() {
@@ -519,11 +552,23 @@ async function findAgent(agentId?: string, portfolio?: string, region?: string) 
  * Chat routes for AI responses and status.
  */
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get("/status", async () => ({
-    enabled: Boolean(process.env.OPENAI_API_KEY),
-    model: process.env.OPENAI_API_KEY ? getModel() : null,
-    runnerConfigured: Boolean(process.env.RUNNER_BASE_URL)
-  }));
+  fastify.get("/status", async () => {
+    const enabled = Boolean(process.env.OPENAI_API_KEY);
+    let reachable: boolean | undefined = undefined;
+    let error: string | undefined = undefined;
+    if (enabled && STATUS_VERIFY_ENABLED) {
+      const status = await checkOpenAIAvailability();
+      reachable = status.ok;
+      error = status.error;
+    }
+    return {
+      enabled,
+      model: enabled ? getModel() : null,
+      runnerConfigured: Boolean(process.env.RUNNER_BASE_URL),
+      reachable,
+      error
+    };
+  });
 
   fastify.post("/", async (request, reply) => {
     const startMs = Date.now();
@@ -635,31 +680,11 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const openai = getOpenAIClient();
     if (!openai) {
       const timingMs = Date.now() - startMs;
-      if (selectedClaims.length > 0) {
-        const fallback = renderFallbackAnswer(selectedClaims, sourcesById);
-        request.log.warn(
-          { ...effectiveLogContext, timingMs, result: "fallback" },
-          "Missing OPENAI_API_KEY; returning evidence-only response."
-        );
-        reply.code(200).send({
-          answer: fallback.answer,
-          citations: fallback.citations,
-          sources: fallback.citations.map((source) => source.url)
-        });
-        return;
-      }
-      const summaryFallback = briefSummaryContext.blocks.length
-        ? ["AI is unavailable; returning the latest brief summary context:", ...briefSummaryContext.blocks].join("\n\n")
-        : "AI is unavailable and no brief context is available for this selection.";
       request.log.warn(
-        { ...effectiveLogContext, timingMs, result: "fallback" },
-        "Missing OPENAI_API_KEY; returning summary-only response."
+        { ...effectiveLogContext, timingMs, result: "missing_key" },
+        "Missing OPENAI_API_KEY; chat unavailable."
       );
-      reply.code(200).send({
-        answer: summaryFallback,
-        citations: [],
-        sources: []
-      });
+      reply.code(503).send({ error: "AI is offline. Configure OPENAI_API_KEY to enable chat." });
       return;
     }
 
@@ -741,6 +766,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       agentPrompt,
       "Be concise, factual, and do not invent provenance.",
       evidenceInstruction,
+      "Answer the user's question directly. Do not dump briefs or article lists unless explicitly asked.",
+      "If the request is vague or a quick test, respond briefly and ask a clarifying question.",
       "Cite sources with [sourceId] tokens that map to the allowed sources list whenever you use sourced information.",
       "If no sources apply, say so explicitly before providing analysis.",
       "Use the interpretation framework to explain why it matters and recommend actions:",
@@ -819,33 +846,35 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       if (getDebugChatLogging()) {
         request.log.info({ ...effectiveLogContext, timingMs, result: "error", errorMessage }, "Chat error detail");
       }
-      const fallback = selectedClaims.length > 0 ? renderFallbackAnswer(selectedClaims, sourcesById) : null;
-      if (fallback?.answer) {
-        reply.code(200).send({
-          answer: fallback.answer,
-          citations: fallback.citations,
-          sources: fallback.citations.map((source) => source.url),
-          error:
-            isAuthError || isNotFound
-              ? "AI unavailable; returned evidence-only response."
-              : "AI error; returned evidence-only response."
-        });
-        return;
-      }
-      if (briefSummaryContext.blocks.length) {
-        reply.code(200).send({
-          answer: ["AI error; returning brief summary context:", ...briefSummaryContext.blocks].join("\n\n"),
-          citations: [],
-          sources: [],
-          error: "AI error; returned brief summary context."
-        });
-        return;
+      if (FALLBACK_CONTEXT_ENABLED) {
+        const fallback = selectedClaims.length > 0 ? renderFallbackAnswer(selectedClaims, sourcesById) : null;
+        if (fallback?.answer) {
+          reply.code(200).send({
+            answer: fallback.answer,
+            citations: fallback.citations,
+            sources: fallback.citations.map((source) => source.url),
+            error:
+              isAuthError || isNotFound
+                ? "AI unavailable; returned evidence-only response."
+                : "AI error; returned evidence-only response."
+          });
+          return;
+        }
+        if (briefSummaryContext.blocks.length) {
+          reply.code(200).send({
+            answer: ["AI error; returning brief summary context:", ...briefSummaryContext.blocks].join("\n\n"),
+            citations: [],
+            sources: [],
+            error: "AI error; returned brief summary context."
+          });
+          return;
+        }
       }
       if (isAuthError || isNotFound) {
-        reply.code(503).send({ error: "AI is temporarily unavailable due to configuration." });
+        reply.code(503).send({ error: "AI is unavailable due to configuration. Check OPENAI_API_KEY/model access." });
         return;
       }
-      reply.code(500).send({ error: "AI response failed to generate." });
+      reply.code(503).send({ error: "AI request failed. Please try again shortly." });
       return;
     }
   });

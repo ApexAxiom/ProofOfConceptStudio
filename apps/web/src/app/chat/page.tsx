@@ -51,6 +51,8 @@ type AssistantStatus = {
   enabled: boolean;
   model?: string | null;
   runnerConfigured?: boolean;
+  reachable?: boolean;
+  error?: string | null;
 };
 
 type ChatCitation = {
@@ -148,10 +150,12 @@ export default function ChatPage({
         setAssistantStatus({
           enabled: Boolean(json.enabled),
           model: json.model ?? null,
-          runnerConfigured: json.runnerConfigured ?? false
+          runnerConfigured: json.runnerConfigured ?? false,
+          reachable: typeof json.reachable === "boolean" ? json.reachable : undefined,
+          error: json.error ?? null
         });
       } catch (err) {
-        setAssistantStatus({ enabled: false, model: null, runnerConfigured: false });
+        setAssistantStatus({ enabled: false, model: null, runnerConfigured: false, reachable: false, error: "unavailable" });
       }
     };
     loadStatus();
@@ -259,14 +263,17 @@ export default function ChatPage({
     inputRef.current?.focus();
   };
 
-  const statusTone = assistantStatus ? (assistantStatus.enabled ? "live" : "offline") : "pending";
+  const isLive = Boolean(assistantStatus?.enabled) && assistantStatus?.reachable !== false;
+  const statusTone = assistantStatus ? (isLive ? "live" : "offline") : "pending";
   const statusLabel = assistantStatus
     ? assistantStatus.enabled
-      ? "AI online"
+      ? assistantStatus.reachable === false
+        ? "AI offline"
+        : "AI online"
       : "Briefs-only"
     : "Checking AI";
   const statusBadgeClass = assistantStatus
-    ? assistantStatus.enabled
+    ? isLive
       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
       : "border-amber-500/30 bg-amber-500/10 text-amber-400"
     : "border-border bg-secondary text-muted-foreground";
@@ -304,6 +311,12 @@ export default function ChatPage({
             {assistantStatus && !assistantStatus.enabled && (
               <p className="mt-2 text-xs text-amber-500">
                 Set OPENAI_API_KEY (and optional OPENAI_MODEL) on the API service to enable AI responses.
+              </p>
+            )}
+            {assistantStatus && assistantStatus.enabled && assistantStatus.reachable === false && (
+              <p className="mt-2 text-xs text-amber-500">
+                AI connection check failed. Verify OPENAI_API_KEY/model access and outbound internet for the API service.
+                {assistantStatus.error ? ` (${assistantStatus.error})` : ""}
               </p>
             )}
             {assistantStatus && assistantStatus.runnerConfigured === false && (

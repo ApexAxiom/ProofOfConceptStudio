@@ -13,7 +13,9 @@ Internal procurement intelligence hub with regional agents generating citation-l
 ## Setup
 1. Install pnpm (>=9)
 2. `pnpm install`
-3. Copy `.env.example` to `.env` and set values
+3. Copy `.env.example` to `.env` and set values (local dev only)
+
+> Production: Do **not** store secrets in `.env` or source control. Use App Runner environment variables or AWS Secrets Manager.
 
 ## Scripts
 - `pnpm dev` – run web, api, runner
@@ -61,8 +63,8 @@ Each service directory must include its own `apprunner.yaml`, and the App Runner
   - API: `/health`
   - Runner: `/healthz`
 - Environment variables to set in the console or via Secrets Manager:
-  - API service: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ADMIN_TOKEN`
-  - Runner: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `CRON_SECRET`
+  - API service: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4o-mini`, `ADMIN_TOKEN`
+  - Runner: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4o-mini`, `CRON_SECRET`
   - Web: `API_BASE_URL` (set after the API is deployed)
 
 ### Environment Variables
@@ -74,20 +76,24 @@ Shared
 API
 - `PORT=8080`
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default `gpt-4o`; set explicitly for production quality)
+- `OPENAI_MODEL` (recommended: `gpt-4o-mini` for App Runner)
 - `OPENAI_MAX_OUTPUT_TOKENS` (optional; default 1000)
+- `OPENAI_BASE_URL` (optional; only if using an OpenAI-compatible proxy)
 - `ADMIN_TOKEN`
 - `CORS_ORIGINS` (optional)
 - `DEBUG_CHAT_LOGGING` (optional; `true` to log truncated chat content)
 - `CHAT_RATE_LIMIT_RPM` (optional; default 30)
 - `CHAT_RATE_LIMIT_BURST` (optional; default 10)
 - `CHAT_MAX_CLAIMS` (optional; default 6)
+- `CHAT_STATUS_VERIFY` (optional; `true` to verify OpenAI connectivity in `/chat/status`)
+- `CHAT_STATUS_CACHE_MS` (optional; cache TTL for status checks)
+- `CHAT_FALLBACK_CONTEXT` (optional; `true` to return brief-only fallbacks if OpenAI fails; default is off)
 - `RUNNER_BASE_URL` (optional but recommended; used to load agent catalog)
 
 Runner
 - `PORT=8080`
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default `gpt-4o`; prefer an explicit value for consistent briefs)
+- `OPENAI_MODEL` (recommended: `gpt-4o-mini` for App Runner)
 - `CRON_SECRET`
 - `EVIDENCE_SIMILARITY_THRESHOLD` (optional; default 0.14)
 - `EVIDENCE_AUTO_MATCH_THRESHOLD` (optional; default 0.2)
@@ -106,7 +112,7 @@ Use EventBridge Scheduler with region-specific times. POST to runner `/cron` wit
 Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds. Dockerfiles will use `--frozen-lockfile` when the lockfile is present.
 
 ## Chat API contract
-- `GET /chat/status` returns `{ enabled, model, runnerConfigured }`.
+- `GET /chat/status` returns `{ enabled, model, runnerConfigured, reachable?, error? }`.
 - `POST /chat` accepts `{ question, region, portfolio, agentId, briefId }`.
 - Optional: `messages[]` may be provided (last user message is used as the question).
 - Response includes `{ answer, citations, sources }` (citations map to brief sources).
@@ -182,5 +188,6 @@ The App Runner instance role needs permission to read the secret:
 
 ## Security
 - Admin and runner endpoints require tokens.
-- No secrets committed; use env vars or AWS Secrets Manager references in App Runner. Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.
+- No secrets committed; use App Runner environment variables or AWS Secrets Manager. `.env` is local‑dev only and must not be committed.
+- Admin token is entered at runtime in the UI; do not expose via `NEXT_PUBLIC` envs.
 - Upgrade Next.js promptly when security advisories are published and move to patched 15.0.x releases as needed.
