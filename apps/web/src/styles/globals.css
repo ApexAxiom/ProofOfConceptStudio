@@ -910,6 +910,16 @@ tr:hover td {
   }
 }
 
+@media (max-width: 640px) {
+  .statusbar-content {
+    @apply flex-col items-stretch;
+  }
+
+  .statusbar-controls {
+    @apply w-full justify-between;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    DASHBOARD SECTIONS - Editorial layout
    ═══════════════════════════════════════════════════════════════════════════ */

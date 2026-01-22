@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { REGION_LIST } from "@proof/shared";
@@ -27,11 +27,15 @@ function MenuIcon() {
   );
 }
 
+/** Renders the main status bar with mobile navigation toggle. */
 export function StatusBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const handleCloseMenu = useCallback(() => {
+    setIsMenuOpen(false);
+  }, []);
 
   const selectedRegion = useMemo(() => {
     const match = REGION_LIST.find((region) => pathname?.startsWith(`/${region.slug}`));
@@ -135,7 +139,7 @@ export function StatusBar() {
         </div>
       </header>
 
-      <MobileNav isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <MobileNav isOpen={isMenuOpen} onClose={handleCloseMenu} />
     </>
   );
 }
