@@ -78,15 +78,14 @@ API
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (recommended: `gpt-4o-mini` for App Runner)
 - `OPENAI_MAX_OUTPUT_TOKENS` (optional; default 1000)
-- `OPENAI_BASE_URL` (optional; only if using an OpenAI-compatible proxy)
 - `ADMIN_TOKEN`
 - `CORS_ORIGINS` (optional)
 - `DEBUG_CHAT_LOGGING` (optional; `true` to log truncated chat content)
 - `CHAT_RATE_LIMIT_RPM` (optional; default 30)
 - `CHAT_RATE_LIMIT_BURST` (optional; default 10)
 - `CHAT_MAX_CLAIMS` (optional; default 6)
-- `CHAT_STATUS_VERIFY` (optional; `true` to verify OpenAI connectivity in `/chat/status`)
-- `CHAT_STATUS_CACHE_MS` (optional; cache TTL for status checks)
+ - `CHAT_STATUS_VERIFY` (optional; `true` to verify OpenAI connectivity in `/chat/status`)
+ - `CHAT_STATUS_CACHE_MS` (optional; cache TTL for status checks)
 - `CHAT_FALLBACK_CONTEXT` (optional; `true` to return brief-only fallbacks if OpenAI fails; default is off)
 - `RUNNER_BASE_URL` (optional but recommended; used to load agent catalog)
 
