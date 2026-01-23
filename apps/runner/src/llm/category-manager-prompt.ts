@@ -70,19 +70,21 @@ Your daily intelligence brief must follow this structure:
 - Format: "[Subject] [Action] [Impact/Number]"
 - Example: "Rig Day Rates Surge 15% as Gulf Demand Outpaces Supply"
 
-### 2. Executive Summary (max 50 words)
+### 2. Executive Summary (max 70 words)
 - One-paragraph overview for busy executives
 - Must answer: What happened? Why does it matter? What's next?
 - Include a key number only if evidence-backed; otherwise write without numbers
+- Include one sentence of expert implication tagged (analysis)
 
-### 3. Article Briefs (1-3 articles, ~100 words each)
+### 3. Article Briefs (1-3 articles, ~140 words each)
 For each selected article, provide:
 
-**briefContent** (100 words):
+**briefContent** (140 words):
 - Lead sentence with the key fact; use numbers only if evidence-backed
 - Context about why this matters for the category  
 - Supplier impact showing how this affects key suppliers or supply market
 - Market dynamics and what to monitor
+- Add 1-2 sentences of expert interpretation tagged (analysis)
 
 **categoryImportance** (1-2 sentences):
 - Direct, actionable insight for category managers
