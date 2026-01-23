@@ -586,7 +586,7 @@ Return ONLY valid JSON with this exact structure:
   "selectedArticles": [
     {
       "articleIndex": 1,
-      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief covering: key facts, supplier impact, and market context (each sentence must end with a source tag or (analysis))",
+      "briefContent": "Your ${WRITING_GUIDE.wordLimits.perArticleBrief}-word analyst brief covering: key facts, supplier impact, market context, and 1-2 expert insight sentences (analysis). Each sentence must end with a source tag or (analysis).",
       "categoryImportance": "1-2 sentence explanation of why this matters for category managers (each sentence must end with a source tag or (analysis))",
       "keyMetrics": ["$72/bbl WTI (source: articleIndex 1)", "+15% YoY (source: articleIndex 1)", "Q2 2025 timeline (source: articleIndex 1)"],
       "imageAlt": "Descriptive alt text for the image"

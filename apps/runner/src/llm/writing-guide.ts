@@ -61,9 +61,10 @@ export const WRITING_GUIDE = {
         "Maximum 2 sentences",
         "Lead with the most actionable insight",
         "Include a specific data point only if evidence-backed",
-        "End with relevance to procurement/category managers"
+        "End with relevance to procurement/category managers",
+        "Add one sentence of expert implication tagged (analysis) when evidence allows"
       ],
-      maxWords: 50
+      maxWords: 70
     },
     articleBriefs: {
       rules: [
@@ -71,9 +72,11 @@ export const WRITING_GUIDE = {
         "Lead with the key insight, not the source",
         "Include numbers and dates only when explicitly present in evidence excerpts",
         "Explain 'so what' for category managers",
+        "Add 1-2 sentences of expert interpretation tagged (analysis)",
+        "Cover supplier impact, pricing/cost exposure, and near-term sourcing implications when relevant",
         "End with exact source article link"
       ],
-      maxWordsPerArticle: 100
+      maxWordsPerArticle: 140
     }
   },
 
@@ -82,9 +85,9 @@ export const WRITING_GUIDE = {
   // ============================================
   wordLimits: {
     headline: 12,
-    summary: 50,
-    perArticleBrief: 100,
-    totalBrief: 400,
+    summary: 70,
+    perArticleBrief: 140,
+    totalBrief: 550,
     bulletPoint: 25
   },
 
