@@ -1,6 +1,7 @@
 import {
   AgentConfig,
   CmSnapshot,
+  DecisionSummary,
   MarketIndex,
   RegionSlug,
   RunWindow,
@@ -130,12 +131,7 @@ export interface BriefOutput {
   procurementActions?: string[];
   watchlist?: string[];
   deltaSinceLastRun?: string[];
-  decisionSummary?: {
-    topMove: string;
-    whatChanged?: string[];
-    doNext?: string[];
-    watchThisWeek?: string[];
-  };
+  decisionSummary?: DecisionSummary;
   selectedArticles: Array<{
     articleIndex: number;
     briefContent: string;
@@ -157,7 +153,7 @@ function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
     .slice(0, maxItems);
 }
 
-function sanitizeDecisionSummary(raw: any): BriefOutput["decisionSummary"] {
+function sanitizeDecisionSummary(raw: any): DecisionSummary | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const topMove = typeof raw.topMove === "string" ? raw.topMove.trim() : "";
   const whatChanged = sanitizeStringArray(raw.whatChanged, 3);
