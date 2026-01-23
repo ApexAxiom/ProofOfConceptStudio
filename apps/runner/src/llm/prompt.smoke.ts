@@ -50,6 +50,12 @@ const parsed = parsePromptOutput(
     procurementActions: ["a1"],
     watchlist: ["w1"],
     deltaSinceLastRun: ["d1", "d2"],
+    decisionSummary: {
+      topMove: "Lock in price",
+      whatChanged: ["Shift"],
+      doNext: ["Do it"],
+      watchThisWeek: ["Watch it"]
+    },
     selectedArticles: [{ articleIndex: 1, briefContent: "", categoryImportance: "" }],
     heroSelection: { articleIndex: 1 },
     marketIndicators: [{ indexId: "idx-1", note: "note" }],
@@ -128,4 +134,5 @@ assert.deepStrictEqual(parsed.deltaSinceLastRun, ["d1", "d2"]);
 assert.strictEqual(parsed.selectedArticles.length, 1);
 assert.strictEqual(parsed.vpSnapshot?.topSignals.length, 1);
 assert.strictEqual(parsed.cmSnapshot?.todayPriorities.length, 1);
+assert.strictEqual(parsed.decisionSummary?.doNext?.length, 1);
 console.log("prompt.smoke passed");

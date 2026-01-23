@@ -76,7 +76,16 @@ Your daily intelligence brief must follow this structure:
 - Include a key number only if evidence-backed; otherwise write without numbers
 - Include one sentence of expert implication tagged (analysis)
 
-### 3. Article Briefs (1-3 articles, ~140 words each)
+### 3. Decision Summary (required)
+- Provide the decisionSummary JSON with topMove, whatChanged, doNext, and watchThisWeek
+- Actions must be concrete and executable without internal systems
+- Avoid hedging unless followed by a clear mechanism ("because ...")
+
+### 4. CM & VP Snapshots (required)
+- cmSnapshot: supplier radar with next steps, negotiation levers with the commercial mechanism, and priorities with dueInDays
+- vpSnapshot: health scores, top signals, recommended actions with ownerRole, and risk register with triggers/mitigations
+
+### 5. Article Briefs (1-3 articles, ~140 words each)
 For each selected article, provide:
 
 **briefContent** (140 words):
@@ -97,7 +106,7 @@ For each selected article, provide:
 - Extract numbers only when explicitly present in evidence excerpts
 - Format as concise strings: "$72/bbl", "+15% YoY", "Q2 2025", "3.2M barrels"
 
-### 4. Market Indicators
+### 6. Market Indicators
 - Select 2-3 most relevant indices for this category
 - Add one-sentence context for each: "WTI at $72/bbl supports drilling activity, positive for rig demand"
 `.trim();

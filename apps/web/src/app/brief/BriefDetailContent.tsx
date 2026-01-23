@@ -5,11 +5,13 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { FooterSources } from "../../components/FooterSources";
 import { ArticleList } from "../../components/ArticleCard";
-import { InsightListCard } from "../../components/InsightListCard";
 import { ProxiedImage } from "../../components/ProxiedImage";
 import { RegionTabs } from "../../components/RegionTabs";
 import { CopyActionsButton } from "../../components/CopyActionsButton";
 import { BriefClaims } from "../../components/BriefClaims";
+import { MarketSnapshotTiles } from "../../components/MarketSnapshotTiles";
+import { CmSnapshotPanel } from "../../components/cm/CmSnapshotPanel";
+import { VpSnapshotPanel } from "../../components/vp/VpSnapshotPanel";
 import { inferSignals } from "../../lib/signals";
 import { extractValidUrl } from "../../lib/url";
 import {
@@ -85,12 +87,30 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   const keyData = Array.from(
     new Set(selectedArticles.flatMap((article) => article.keyMetrics ?? []))
   ).slice(0, 3);
-  const actionableSections = [
-    { title: "Market Highlights", items: brief.highlights, icon: "⚡" },
-    { title: "Procurement Actions", items: brief.procurementActions, icon: "🛠️" },
-    { title: "Watchlist", items: brief.watchlist, icon: "👀" },
-    { title: "Changes Since Last Brief", items: brief.deltaSinceLastRun, icon: "🔄" }
-  ].filter((section) => (section.items?.length ?? 0) > 0);
+  const decisionSummary = brief.decisionSummary;
+  const doNextActions = [
+    ...(decisionSummary?.doNext ?? []),
+    ...(decisionSummary?.doNext?.length ? [] : (brief.procurementActions ?? [])),
+    ...(decisionSummary?.doNext?.length
+      ? []
+      : (brief.vpSnapshot?.recommendedActions ?? []).map(
+          (action) => `${action.action} (${action.ownerRole}, ${action.dueInDays}d)`
+        ))
+  ].filter(Boolean);
+  const whatChanged = decisionSummary?.whatChanged?.length
+    ? decisionSummary.whatChanged
+    : brief.deltaSinceLastRun ?? [];
+  const watchThisWeek = decisionSummary?.watchThisWeek?.length
+    ? decisionSummary.watchThisWeek
+    : brief.watchlist ?? [];
+  const evidenceStats = (brief.claims ?? []).reduce(
+    (acc, claim) => {
+      if (claim.status === "supported") acc.supported += 1;
+      if (claim.status === "analysis") acc.analysis += 1;
+      return acc;
+    },
+    { supported: 0, analysis: 0 }
+  );
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -117,7 +137,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 {portfolioLabel(brief.portfolio)} • {regionLabel(brief.region)}
               </p>
-              <h1 className="text-lg font-semibold text-foreground">{brief.title}</h1>
+              <p className="text-sm font-semibold text-foreground">Daily Brief</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Published {publishedDate} · {publishedTime}
               </p>
@@ -233,6 +253,127 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
         {/* Brief Content */}
         <div className="space-y-8 p-6 md:p-8">
+          <section className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">1-minute decision panel</p>
+                <h2 className="text-lg font-semibold text-foreground">Category Manager Decision Brief</h2>
+              </div>
+              {decisionSummary?.topMove && (
+                <div className="hidden md:block rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                  Top move: {decisionSummary.topMove}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">What changed</h3>
+                {(whatChanged.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">No deltas captured yet.</p>
+                ) : (
+                  <ul className="space-y-2 text-sm text-foreground">
+                    {whatChanged.slice(0, 3).map((item, idx) => (
+                      <li key={`${item}-${idx}`} className="flex gap-2">
+                        <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Do next</h3>
+                {doNextActions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No actions yet. Check the next run.</p>
+                ) : (
+                  <ul className="space-y-2 text-sm text-foreground">
+                    {doNextActions.slice(0, 5).map((item, idx) => (
+                      <li key={`${item}-${idx}`} className="flex gap-2">
+                        <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Supplier radar</h3>
+                {(brief.cmSnapshot?.supplierRadar ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No supplier signals logged.</p>
+                ) : (
+                  <ul className="space-y-2 text-sm text-foreground">
+                    {brief.cmSnapshot?.supplierRadar.slice(0, 4).map((item, idx) => (
+                      <li key={`${item.supplier}-${idx}`} className="space-y-1">
+                        <p className="font-semibold">{item.supplier}</p>
+                        <p className="text-muted-foreground">{item.signal}</p>
+                        <p className="text-xs text-muted-foreground">Next: {item.nextStep}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Negotiation levers</h3>
+                {(brief.cmSnapshot?.negotiationLevers ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No levers captured.</p>
+                ) : (
+                  <ul className="space-y-2 text-sm text-foreground">
+                    {brief.cmSnapshot?.negotiationLevers.slice(0, 4).map((item, idx) => (
+                      <li key={`${item.lever}-${idx}`}>
+                        <p className="font-semibold">{item.lever}</p>
+                        <p className="text-xs text-muted-foreground">{item.whenToUse}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-lg border border-border bg-background p-4 space-y-2 lg:col-span-2">
+                <h3 className="text-sm font-semibold text-foreground">Risk & triggers</h3>
+                {(brief.vpSnapshot?.riskRegister ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No risks captured.</p>
+                ) : (
+                  <ul className="grid gap-3 md:grid-cols-2 text-sm text-foreground">
+                    {brief.vpSnapshot?.riskRegister.slice(0, 4).map((risk, idx) => (
+                      <li key={`${risk.risk}-${idx}`} className="rounded-md border border-border bg-muted/40 p-3">
+                        <p className="font-semibold">{risk.risk}</p>
+                        <p className="text-xs text-muted-foreground">Trigger: {risk.trigger}</p>
+                        <p className="text-xs text-muted-foreground">Mitigation: {risk.mitigation}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {watchThisWeek.length > 0 && (
+                <div className="rounded-lg border border-border bg-background p-4 space-y-2 lg:col-span-2">
+                  <h3 className="text-sm font-semibold text-foreground">Watch this week</h3>
+                  <ul className="grid gap-2 md:grid-cols-2 text-sm text-foreground">
+                    {watchThisWeek.slice(0, 4).map((item, idx) => (
+                      <li key={`${item}-${idx}`} className="flex gap-2">
+                        <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {brief.marketSnapshot && brief.marketSnapshot.length > 0 && (
+            <MarketSnapshotTiles items={brief.marketSnapshot} />
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+            {hasEvidence ? (
+              <span>Evidence-backed: {evidenceStats.supported} | Analysis: {evidenceStats.analysis}</span>
+            ) : (
+              <span>Evidence unavailable for legacy brief.</span>
+            )}
+            <a href="#evidence-audit" className="text-primary hover:underline">
+              View evidence & sources
+            </a>
+          </div>
+
           {/* Executive Summary Section - Premium card */}
           {brief.summary && (
             <div className="relative rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-6 overflow-hidden">
@@ -253,8 +394,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             </div>
           )}
 
-          <BriefClaims claims={brief.claims} sources={brief.sources} />
-
           {keyData.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-3">
@@ -269,23 +408,13 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             </div>
           )}
 
-          {actionableSections.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {actionableSections.map((section) => (
-                <InsightListCard
-                  key={section.title}
-                  title={section.title}
-                  items={section.items}
-                  icon={<span>{section.icon}</span>}
-                />
-              ))}
-            </div>
-          )}
+          {brief.cmSnapshot && <CmSnapshotPanel brief={brief} />}
+          {brief.vpSnapshot && <VpSnapshotPanel brief={brief} />}
 
           {/* Selected Articles with Enhanced Cards */}
           {selectedArticles.length > 0 && (
             <div className="rounded-xl border border-border bg-secondary/20">
-              <details className="group" open={false}>
+              <details className="group" open>
                 <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center gap-2">
                   <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -301,7 +430,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
 
           {brief.marketIndicators && brief.marketIndicators.length > 0 && (
             <div className="rounded-xl border border-border bg-card">
-              <details className="group">
+              <details className="group" open={false}>
                 <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center gap-2">
                   <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -365,18 +494,23 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             </div>
           )}
 
-          {/* Sources Footer */}
-          {sources.length > 0 && (
-            <div className="rounded-xl border border-border bg-card">
+          {/* Evidence & Sources (Audit) */}
+          {(hasEvidence || sources.length > 0) && (
+            <div className="rounded-xl border border-border bg-card" id="evidence-audit">
               <details className="group">
                 <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground flex items-center gap-2">
                   <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
-                  Sources ({sources.length})
+                  Evidence &amp; Sources (Audit)
                 </summary>
-                <div className="px-5 pb-5 pt-2">
-                  <FooterSources sources={brief.sources} />
+                <div className="space-y-6 px-5 pb-5">
+                  {hasEvidence && <BriefClaims claims={brief.claims} sources={brief.sources} />}
+                  {sources.length > 0 && (
+                    <div className="pt-2">
+                      <FooterSources sources={brief.sources} />
+                    </div>
+                  )}
                 </div>
               </details>
             </div>

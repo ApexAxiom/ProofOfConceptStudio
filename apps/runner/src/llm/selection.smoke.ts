@@ -15,6 +15,12 @@ const raw = JSON.stringify({
   procurementActions: ["Do this"],
   watchlist: ["Monitor X"],
   deltaSinceLastRun: ["Changed"],
+  decisionSummary: {
+    topMove: "Top",
+    whatChanged: ["Changed"],
+    doNext: ["Do it"],
+    watchThisWeek: ["Watch"]
+  },
   selectedArticles: [
     { articleIndex: 2, briefContent: "Brief 2" },
     { articleIndex: 1, briefContent: "Brief 1" },

@@ -39,6 +39,13 @@ export interface CmSnapshot {
   talkingPoints?: string[];
 }
 
+export interface DecisionSummary {
+  topMove: string;
+  whatChanged: string[];
+  doNext: string[];
+  watchThisWeek: string[];
+}
+
 export interface VpHealthScore {
   overall: number;
   costPressure: number;
@@ -132,6 +139,18 @@ export interface BriefMarketIndicator {
   url: string;
   note: string;
   sourceId?: string;
+}
+
+export interface BriefMarketSnapshotItem {
+  symbol: string;
+  name: string;
+  unit: string;
+  latest: number;
+  change: number;
+  changePercent: number;
+  asOf: string;
+  sourceUrl: string;
+  isFallback?: boolean;
 }
 
 export type BriefClaimStatus = "supported" | "analysis" | "needs_verification";
@@ -230,6 +249,8 @@ export interface BriefPost {
   };
   vpSnapshot?: VpSnapshot;
   cmSnapshot?: CmSnapshot;
+  decisionSummary?: DecisionSummary;
+  marketSnapshot?: BriefMarketSnapshotItem[];
 }
 
 export interface RunLog {

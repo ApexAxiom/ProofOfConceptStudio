@@ -119,6 +119,10 @@ function buildClaimId(section: BriefClaimSection, text: string, index: number): 
   return `claim_${hashExcerpt(seed).slice(0, 10)}`;
 }
 
+function isNumericClaim(text: string): boolean {
+  return /(\d|\$|%|€|£|¥)/.test(text);
+}
+
 function selectedIndicesFromArticles(articles?: SelectedArticle[]): Set<number> {
   const indices = new Set<number>();
   (articles ?? []).forEach((article) => {
@@ -275,6 +279,16 @@ function cleanCmSnapshot(snapshot?: BriefPost["cmSnapshot"]): BriefPost["cmSnaps
   };
 }
 
+function cleanDecisionSummary(summary?: BriefPost["decisionSummary"]): BriefPost["decisionSummary"] {
+  if (!summary) return summary;
+  return {
+    topMove: stripTags(summary.topMove),
+    whatChanged: cleanTextArray(summary.whatChanged),
+    doNext: cleanTextArray(summary.doNext),
+    watchThisWeek: cleanTextArray(summary.watchThisWeek)
+  };
+}
+
 function buildSourceCatalog(params: {
   selectedArticles?: SelectedArticle[];
   marketIndicators?: BriefMarketIndicator[];
@@ -349,6 +363,7 @@ function buildClaims(params: {
   let analysis = 0;
   let needsVerification = 0;
   let claimIndex = 0;
+  const autoAnalysisSections = new Set<BriefClaimSection>(["summary", "highlight", "delta"]);
 
   const addClaim = (section: BriefClaimSection, rawText: string, fallbackIndex?: number) => {
     const cleaned = stripTags(rawText);
@@ -390,6 +405,10 @@ function buildClaims(params: {
       } else {
         status = "needs_verification";
       }
+    }
+
+    if (status === "needs_verification" && tag.kind === "none" && autoAnalysisSections.has(section)) {
+      status = "analysis";
     }
 
     const claimId = buildClaimId(section, cleaned, claimIndex++);
@@ -465,17 +484,12 @@ function buildClaims(params: {
     (brief.cmSnapshot.talkingPoints ?? []).forEach((item) => addClaim("cm_snapshot", item));
   }
 
-  const criticalSections = new Set<BriefClaimSection>([
-    "summary",
-    "highlight",
-    "procurement_action",
-    "watchlist",
-    "delta",
-    "top_story"
-  ]);
-
   claims.forEach((claim) => {
-    if (claim.status === "needs_verification" && criticalSections.has(claim.section)) {
+    const isStrictSection =
+      claim.section === "procurement_action" ||
+      claim.section === "watchlist" ||
+      (claim.section === "top_story" && isNumericClaim(claim.text));
+    if (claim.status === "needs_verification" && isStrictSection) {
       issues.push(`Claim needs verification: ${claim.section} "${claim.text.slice(0, 120)}"`);
     }
   });
@@ -500,6 +514,7 @@ function buildClaims(params: {
     marketIndicators: cleanIndicators(brief.marketIndicators),
     vpSnapshot: cleanVpSnapshot(brief.vpSnapshot),
     cmSnapshot: cleanCmSnapshot(brief.cmSnapshot),
+    decisionSummary: cleanDecisionSummary(brief.decisionSummary),
     claims,
     sources
   };
