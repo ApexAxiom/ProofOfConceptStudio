@@ -1,4 +1,4 @@
-import { AgentConfig, AgentFeed, RegionSlug, keywordsForPortfolio, categoryForPortfolio } from "@proof/shared";
+import { AgentConfig, AgentFeed, RegionSlug, keywordsForPortfolio, categoryForPortfolio, getGoogleNewsFeeds } from "@proof/shared";
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
@@ -91,6 +91,59 @@ const FACILITY_FALLBACK: AgentFeed[] = [
   { name: "EHS Today", url: "https://www.ehstoday.com/rss", type: "rss" }
 ];
 
+const BASE_REGULATORY_PACK: Record<RegionSlug, AgentFeed[]> = {
+  "us-mx-la-lng": [
+    { name: "Federal Register (Energy)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=energy", type: "rss" },
+    { name: "Federal Register (Oil & Gas)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=oil%20gas", type: "rss" },
+    { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
+    { name: "BSEE Newsroom", url: "https://www.bsee.gov/newsroom", type: "web" },
+    { name: "BOEM Newsroom", url: "https://www.boem.gov/newsroom", type: "web" },
+    { name: "OSHA News Releases", url: "https://www.osha.gov/news/newsreleases", type: "web" },
+    { name: "EPA News Releases", url: "https://www.epa.gov/newsreleases", type: "web" },
+    { name: "FERC News", url: "https://www.ferc.gov/news-events/news", type: "web" }
+  ],
+  "au": [
+    { name: "DISR News", url: "https://www.industry.gov.au/news", type: "web" },
+    { name: "WA Government Announcements", url: "https://www.wa.gov.au/government/announcements", type: "web" },
+    { name: "NOPSEMA News", url: "https://www.nopsema.gov.au/media/latest-news", type: "web" },
+    { name: "NOPTA News", url: "https://www.nopta.gov.au/news", type: "web" },
+    { name: "AMSA Safety Updates", url: "https://www.amsa.gov.au/news-community/safety-and-environmental-updates", type: "web" },
+    { name: "AEMO Newsroom", url: "https://www.aemo.com.au/newsroom", type: "web" }
+  ]
+};
+
+function normalizeFeedUrl(url: string): string {
+  try {
+    return new URL(url).toString();
+  } catch {
+    return url;
+  }
+}
+
+function dedupeFeeds(feeds: AgentFeed[]): AgentFeed[] {
+  const seen = new Set<string>();
+  return feeds.filter((feed) => {
+    const key = normalizeFeedUrl(feed.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getBaseRegulatoryFeeds(region: RegionSlug): AgentFeed[] {
+  return BASE_REGULATORY_PACK[region] ?? [];
+}
+
+function getGoogleNewsFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
+  const mappedRegion = region === "au" ? "apac" : "intl";
+  const sources = getGoogleNewsFeeds(portfolioSlug, mappedRegion);
+  return sources.map((source) => ({
+    name: source.name,
+    url: source.rssUrl ?? source.url,
+    type: "rss"
+  }));
+}
+
 function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
   const category = categoryForPortfolio(portfolioSlug);
   if (category === "energy") {
@@ -151,7 +204,10 @@ async function fetchFromFeeds(
  * Includes fallback feeds when primary feeds don't provide enough articles.
  */
 export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
-  const feeds = agent.feedsByRegion[region] ?? [];
+  const feeds = dedupeFeeds([
+    ...(agent.feedsByRegion[region] ?? []),
+    ...getBaseRegulatoryFeeds(region)
+  ]);
   const minArticlesNeeded = Math.max(agent.articlesPerRun ?? 3, 3) * 2; // Need at least 2x required articles
   
   // Step 1: Fetch from primary feeds
@@ -162,7 +218,10 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   // Step 2: If not enough articles, use fallback feeds
   if (collected.length < minArticlesNeeded) {
     console.log(`[${agent.id}/${region}] Not enough articles (${collected.length}), trying fallback feeds...`);
-    const fallbackFeeds = getFallbackFeeds(region, agent.portfolio);
+    const fallbackFeeds = dedupeFeeds([
+      ...getFallbackFeeds(region, agent.portfolio),
+      ...getGoogleNewsFallbackFeeds(region, agent.portfolio)
+    ]);
     
     // Filter out feeds we already tried
     const primaryUrls = new Set(feeds.map((f) => f.url));

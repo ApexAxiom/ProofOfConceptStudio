@@ -11,6 +11,7 @@ import crypto from "node:crypto";
 import { findImageFromPage, findBestImageFromSources } from "./images/image-scraper.js";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
+import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
 
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; error?: string };
 
@@ -207,6 +208,14 @@ export async function runAgent(
       indices,
       previousBrief: previousBriefPrompt
     });
+    try {
+      const marketSnapshot = await fetchPortfolioSnapshot(agent.portfolio);
+      if (marketSnapshot.length > 0) {
+        brief = { ...brief, marketSnapshot };
+      }
+    } catch (error) {
+      console.warn(`[${agentId}/${region}] Market snapshot unavailable:`, error);
+    }
 
     const parseIssues = (err: unknown): string[] => {
       try {

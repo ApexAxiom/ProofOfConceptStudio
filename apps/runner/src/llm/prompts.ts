@@ -130,6 +130,12 @@ export interface BriefOutput {
   procurementActions?: string[];
   watchlist?: string[];
   deltaSinceLastRun?: string[];
+  decisionSummary?: {
+    topMove: string;
+    whatChanged?: string[];
+    doNext?: string[];
+    watchThisWeek?: string[];
+  };
   selectedArticles: Array<{
     articleIndex: number;
     briefContent: string;
@@ -151,6 +157,24 @@ function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
     .slice(0, maxItems);
 }
 
+function sanitizeDecisionSummary(raw: any): BriefOutput["decisionSummary"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const topMove = typeof raw.topMove === "string" ? raw.topMove.trim() : "";
+  const whatChanged = sanitizeStringArray(raw.whatChanged, 3);
+  const doNext = sanitizeStringArray(raw.doNext, 5);
+  const watchThisWeek = sanitizeStringArray(raw.watchThisWeek, 4);
+
+  if (!topMove && whatChanged.length === 0 && doNext.length === 0 && watchThisWeek.length === 0) {
+    return undefined;
+  }
+
+  return {
+    topMove,
+    whatChanged,
+    doNext,
+    watchThisWeek
+  };
+}
 function clampScore(value: unknown): number | undefined {
   const num = Number(value);
   if (!Number.isFinite(num)) return undefined;
@@ -583,6 +607,9 @@ ${getImageInstructions()}
    - Each keyMetric string should end with "(source: articleIndex N)" where N matches that articleIndex.
    - If exact numbers aren't available, use approximate values tagged as (analysis).
 
+5. **Market snapshot numbers**:
+   - Do NOT invent live price/benchmark numbers. The market snapshot tiles are added separately from trusted indices.
+
 ## OUTPUT FORMAT
 
 Return ONLY valid JSON with this exact structure:
@@ -595,6 +622,12 @@ Return ONLY valid JSON with this exact structure:
   "procurementActions": ["Actionable step for category managers (must end with a source tag or (analysis))", "..."],
   "watchlist": ["Supplier/market item to monitor (must end with a source tag or (analysis))", "..."],
   "deltaSinceLastRun": ["What's changed vs. last run (must end with a source tag or (analysis))"],
+  "decisionSummary": {
+    "topMove": "1 sentence on the most important move today (end with a source tag or (analysis))",
+    "whatChanged": ["1-3 bullets on what changed (end with a source tag or (analysis))"],
+    "doNext": ["2-5 concrete actions (end with a source tag or (analysis))"],
+    "watchThisWeek": ["2-4 triggers to monitor (end with a source tag or (analysis))"]
+  },
   "selectedArticles": [
     {
       "articleIndex": 1,
@@ -696,7 +729,7 @@ Rules for cmSnapshot output:
 
 1. **CATEGORY MANAGER FOCUS**: Every insight must connect to sourcing implications for ${agent.label}
 2. **NO URL OUTPUT**: Do NOT output any URLs. Only reference articles by \`articleIndex\`
-3. **SELECT ${requiredCount} ARTICLES**: Choose exactly ${requiredCount} UNIQUE articleIndex values from 1..${articles.length}
+3. **SELECT 1–${requiredCount} ARTICLES**: Choose up to ${requiredCount} UNIQUE articleIndex values from 1..${articles.length}. Prefer 2 if relevant; never add filler.
 4. **HERO MUST BE SELECTED**: heroSelection.articleIndex must match one of the selectedArticles entries
 5. **MARKET INDICATORS BY ID**: For marketIndicators, pick by indexId from the list below (no URLs in JSON)
 6. **ANALYST TONE**: Write like a procurement analyst, not a journalist. Facts and implications, no filler.
@@ -708,6 +741,10 @@ Rules for cmSnapshot output:
 12. **CM SNAPSHOT ACTIONABILITY**: cmSnapshot.todayPriorities, supplierRadar, and negotiationLevers should each target 3-6 items when possible. dueInDays must be 1..30. confidence must be low|medium|high. evidenceArticleIndex MUST match a selectedArticles.articleIndex value. No URLs in cmSnapshot. Every item must include a concrete next step that a category manager can execute without internal systems; prefer naming key suppliers from the agent context where relevant.
 13. **DEPTH REQUIREMENT**: Use the extensive evidence excerpts provided. Reference specific details, numbers, suppliers, contracts, and market conditions from the articles. Avoid generic summaries. Provide category management insights that demonstrate deep understanding of the news and its procurement implications.
 14. **EVIDENCE UTILIZATION**: The evidence excerpts contain rich detail. Use them fully. Extract specific facts, not just general themes. Reference actual company names, contract values, dates, locations, and market data when present in the evidence.
+15. **DECISION BRIEF FIRST**: decisionSummary, cmSnapshot, and vpSnapshot must be the primary decision artifact. Prioritize concrete actions, supplier implications, negotiation levers, and risks before narrative.
+16. **NO FLUFF**: Avoid phrases like "may impact" or "could affect" unless immediately followed by "because ..." with a concrete mechanism. Replace hedging with precise cause/effect.
+17. **NEGOTIATION LEVERS**: Each cmSnapshot.negotiationLevers item must mention the commercial mechanism (indexation, caps/collars, extension option, dual sourcing, minimum volume, standby retainer, LDs, substitution clauses, etc).
+18. **SUPPLIER RADAR NEXT STEPS**: Each cmSnapshot.supplierRadar.nextStep must be a tangible action the CM can take without internal systems (email ask, RFQ refresh, schedule supplier call, clause review, etc).
 
 ## MARKET INDICES
 
@@ -769,6 +806,7 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   const procurementActions = sanitizeStringArray(parsed.procurementActions, 5);
   const watchlist = sanitizeStringArray(parsed.watchlist, 5);
   const deltaSinceLastRun = sanitizeStringArray(parsed.deltaSinceLastRun, 3);
+  const decisionSummary = sanitizeDecisionSummary(parsed.decisionSummary);
 
   const issues: string[] = [];
   const indices = new Set<number>();
@@ -811,6 +849,7 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     procurementActions,
     watchlist,
     deltaSinceLastRun,
+    decisionSummary,
     selectedArticles: selected.map((article: any) => ({
       articleIndex: Number(article.articleIndex),
       briefContent: article.briefContent || "",
