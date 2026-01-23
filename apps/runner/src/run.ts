@@ -197,7 +197,8 @@ export async function runAgent(
       : undefined;
 
     // Step 6: Generate brief using LLM
-    console.log(`[${agentId}/${region}] Generating brief...`);
+    console.log(`[${agentId}/${region}] Generating brief with ${articleInputs.length} articles...`);
+    console.log(`[${agentId}/${region}] Article content lengths: ${articleInputs.map(a => (a.content?.length ?? 0)).join(", ")}`);
     let brief = await generateBrief({
       agent,
       region,

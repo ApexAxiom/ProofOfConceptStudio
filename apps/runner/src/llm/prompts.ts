@@ -59,19 +59,31 @@ function extractEvidenceExcerpts(content: string): string {
     const trimmed = sentence.trim();
     if (!trimmed || seen.has(trimmed)) return;
     seen.add(trimmed);
-    const clipped = trimmed.length > 240 ? `${trimmed.slice(0, 237)}...` : trimmed;
+    const clipped = trimmed.length > 300 ? `${trimmed.slice(0, 297)}...` : trimmed;
     excerpts.push(`- ${clipped}`);
   };
 
-  sentences.slice(0, 3).forEach(addSentence);
+  // Extract first 8 sentences (increased from 3 for more context)
+  sentences.slice(0, 8).forEach(addSentence);
 
-  const numericRegex = /(\d|%|\$|€|£|¥|million|billion|kb\/d|bpd|mbpd|mmbtu|tcf|bcf)/i;
+  // Extract ALL sentences with numeric data (critical for category management insights)
+  const numericRegex = /(\d|%|\$|€|£|¥|million|billion|kb\/d|bpd|mbpd|mmbtu|tcf|bcf|contract|price|cost|rate|capacity|production|reserve)/i;
   sentences.filter((s) => numericRegex.test(s)).forEach(addSentence);
 
-  const supplierRegex = /\b(Inc|Ltd|LLC|Corp|Corporation|Company|Co\.|Group|Holdings|Energy|Oil|Gas)\b/;
-  sentences.filter((s) => supplierRegex.test(s)).slice(0, 2).forEach(addSentence);
+  // Extract ALL sentences mentioning suppliers/companies (critical for procurement insights)
+  const supplierRegex = /\b(Inc|Ltd|LLC|Corp|Corporation|Company|Co\.|Group|Holdings|Energy|Oil|Gas|Services|Technologies|International|Global|Partners|Solutions|Systems)\b/i;
+  sentences.filter((s) => supplierRegex.test(s)).forEach(addSentence);
 
-  return excerpts.slice(0, 10).join("\n");
+  // Extract sentences with key procurement/category terms
+  const categoryTermsRegex = /\b(contract|award|deal|agreement|procurement|sourcing|supplier|vendor|negotiation|tender|bid|RFP|RFQ|purchase|acquisition|merger|partnership|joint venture|collaboration)\b/i;
+  sentences.filter((s) => categoryTermsRegex.test(s)).slice(0, 10).forEach(addSentence);
+
+  // Extract sentences with market/industry impact terms
+  const impactTermsRegex = /\b(market|demand|supply|shortage|surplus|capacity|expansion|growth|decline|increase|decrease|surge|plunge|spike|drop|rise|fall|trend|forecast|outlook|projection)\b/i;
+  sentences.filter((s) => impactTermsRegex.test(s)).slice(0, 8).forEach(addSentence);
+
+  // Return up to 40 excerpts (increased from 10 for much richer context)
+  return excerpts.slice(0, 40).join("\n");
 }
 
 export function requiredArticleCount(agent: AgentConfig): number {
@@ -694,6 +706,8 @@ Rules for cmSnapshot output:
 10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
 11. **VP SNAPSHOT DATA ONLY**: vpSnapshot.health.* must be integers 0..100. topSignals/recommendedActions/riskRegister should have 3-5 items each when possible (never empty unless no signal). evidenceArticleIndex must match one of the selectedArticles.articleIndex values. ownerRole must be one of: Category Manager, SRM, Contracts, Legal, Engineering, Logistics, Finance, HSE, Digital/IT. dueInDays must be 1..60. Do NOT include any URLs anywhere in vpSnapshot.
 12. **CM SNAPSHOT ACTIONABILITY**: cmSnapshot.todayPriorities, supplierRadar, and negotiationLevers should each target 3-6 items when possible. dueInDays must be 1..30. confidence must be low|medium|high. evidenceArticleIndex MUST match a selectedArticles.articleIndex value. No URLs in cmSnapshot. Every item must include a concrete next step that a category manager can execute without internal systems; prefer naming key suppliers from the agent context where relevant.
+13. **DEPTH REQUIREMENT**: Use the extensive evidence excerpts provided. Reference specific details, numbers, suppliers, contracts, and market conditions from the articles. Avoid generic summaries. Provide category management insights that demonstrate deep understanding of the news and its procurement implications.
+14. **EVIDENCE UTILIZATION**: The evidence excerpts contain rich detail. Use them fully. Extract specific facts, not just general themes. Reference actual company names, contract values, dates, locations, and market data when present in the evidence.
 
 ## MARKET INDICES
 
@@ -710,16 +724,28 @@ ${articleList}
 
 ${repairSection}
 
+## EVIDENCE USAGE INSTRUCTIONS
+
+**CRITICAL**: The EVIDENCE EXCERPTS above contain extensive detail from each article. You MUST:
+1. **Use specific facts** from the evidence excerpts - reference actual numbers, company names, contract details, dates, and locations
+2. **Avoid generic summaries** - if the evidence mentions "Baker Hughes secured a $50M contract", say exactly that, not "a major contract was awarded"
+3. **Extract procurement insights** - identify supplier names, contract values, pricing trends, capacity changes, and market shifts
+4. **Connect to category management** - explain how each specific fact impacts sourcing, negotiations, risk, or budget planning
+5. **Reference evidence directly** - when you mention a number or fact, it should be traceable to the evidence excerpts provided
+
+The evidence excerpts are your primary source material. Use them fully to create deep, actionable intelligence briefs.
+
 ## FINAL CHECKLIST
 
 Before submitting, verify:
 - [ ] Headline leads with impact (use numbers only if supported by evidence)
-- [ ] Summary explains "so what" for category managers
-- [ ] Each article brief connects news to sourcing implications
+- [ ] Summary explains "so what" for category managers with specific details
+- [ ] Each article brief connects news to sourcing implications using specific facts from evidence
 - [ ] Market indicators include procurement context
 - [ ] No filler phrases or generic statements
 - [ ] 1 to ${requiredCount} unique articles selected (quality over quantity)
 - [ ] JSON is valid and complete
+- [ ] Evidence excerpts have been fully utilized - briefs reference specific details, not just general themes
 `;
 }
 

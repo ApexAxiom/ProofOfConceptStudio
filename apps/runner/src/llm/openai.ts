@@ -41,7 +41,7 @@ export async function generateBrief(input: PromptInput): Promise<BriefPost> {
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.25, // Lower temperature for more grounded outputs
-    max_tokens: 3000
+    max_tokens: 4000 // Increased from 3000 to allow more comprehensive briefs with vpSnapshot and cmSnapshot
   });
   
   const raw = response.choices?.[0]?.message?.content ?? "{}";

@@ -85,11 +85,13 @@ For each selected article, provide:
 - Supplier impact showing how this affects key suppliers or supply market
 - Market dynamics and what to monitor
 - Add 1-2 sentences of expert interpretation tagged (analysis)
+- **CRITICAL**: Provide deep, actionable insights. Avoid generic statements. Connect news directly to procurement decisions, supplier negotiations, cost implications, and risk management. Use specific details from the evidence excerpts.
 
 **categoryImportance** (1-2 sentences):
 - Direct, actionable insight for category managers
 - Start with "This signals..." or "Monitor this because..." or "Consider..."
 - Connect the news directly to procurement decisions or supplier negotiations
+- **CRITICAL**: Be specific. Reference actual suppliers, contracts, prices, or market conditions from the evidence. Avoid vague statements like "may impact" or "could affect". State concrete implications.
 
 **keyMetrics** (2-4 data points):
 - Extract numbers only when explicitly present in evidence excerpts

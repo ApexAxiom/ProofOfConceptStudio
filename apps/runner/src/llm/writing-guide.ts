@@ -74,7 +74,8 @@ export const WRITING_GUIDE = {
         "Explain 'so what' for category managers",
         "Add 1-2 sentences of expert interpretation tagged (analysis)",
         "Cover supplier impact, pricing/cost exposure, and near-term sourcing implications when relevant",
-        "End with exact source article link"
+        "End with exact source article link",
+        "**CRITICAL**: Use specific details from evidence excerpts. Reference actual suppliers, contracts, prices, dates, and market conditions. Avoid generic statements. Provide actionable intelligence that demonstrates deep analysis of the source material."
       ],
       maxWordsPerArticle: 140
     }

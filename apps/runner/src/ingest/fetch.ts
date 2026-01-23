@@ -19,7 +19,7 @@ export interface ArticleDetail extends ArticleCandidate {
   contentStatus?: "ok" | "thin";
 }
 
-const MIN_CONTENT_LEN = 400;
+const MIN_CONTENT_LEN = 300; // Reduced from 400 to allow more articles with good content
 const EMPTY_CONTENT_PENALTY = 5;
 const THIN_CONTENT_PENALTY = 2;
 
