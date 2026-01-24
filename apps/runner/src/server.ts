@@ -8,8 +8,8 @@ import { requiredArticleCount } from "./llm/prompts.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
   const windowConfig = runWindow === "apac"
-    ? { timeZone: REGIONS.au.timeZone, h: 6, m: 0 }
-    : { timeZone: REGIONS["us-mx-la-lng"].timeZone, h: 6, m: 0 };
+    ? { timeZone: REGIONS.au.timeZone, h: 5, m: 0 }
+    : { timeZone: REGIONS["us-mx-la-lng"].timeZone, h: 5, m: 0 };
 
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: windowConfig.timeZone,
@@ -74,6 +74,7 @@ async function main() {
       : body.region
         ? [body.region]
         : undefined;
+    const agentIds = Array.isArray(body?.agentIds) ? body.agentIds : undefined;
 
     const requestedRegions = regionInput
       ?.map((r: string) => r as RegionSlug)
@@ -114,7 +115,8 @@ async function main() {
           handleCron(target.runWindow, {
             runId,
             scheduled: body.scheduled === true,
-            regions: [target.region]
+            regions: [target.region],
+            agentIds
           })
         )
       ).catch((err) => fastify.log.error(err));

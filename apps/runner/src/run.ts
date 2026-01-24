@@ -58,17 +58,24 @@ function toArticleInput(article: ArticleSource): ArticleInput {
  */
 export async function handleCron(
   runWindow: RunWindow,
-  opts?: { runId?: string; scheduled?: boolean; regions?: RegionSlug[] }
+  opts?: { runId?: string; scheduled?: boolean; regions?: RegionSlug[]; agentIds?: string[] }
 ) {
   const agents = loadAgents();
   const normalAgents = agents.filter((a) => a.mode !== "market-dashboard");
   const dashboardAgents = agents.filter((a) => a.mode === "market-dashboard");
+  const agentFilter = opts?.agentIds?.length ? new Set(opts.agentIds) : null;
+  const filteredNormalAgents = agentFilter
+    ? normalAgents.filter((agent) => agentFilter.has(agent.id))
+    : normalAgents;
+  const filteredDashboardAgents = agentFilter
+    ? dashboardAgents.filter((agent) => agentFilter.has(agent.id))
+    : dashboardAgents;
   const runId = opts?.runId ?? crypto.randomUUID();
   const tasks: (() => Promise<RunResult>)[] = [];
   const regionFilter = opts?.regions ? new Set(opts.regions) : null;
 
   const regionList = regionFilter ? Array.from(regionFilter) : undefined;
-  const targetedAgents = expandAgentsByRegion({ agents: normalAgents, regions: regionList });
+  const targetedAgents = expandAgentsByRegion({ agents: filteredNormalAgents, regions: regionList });
 
   for (const { agent, region } of targetedAgents) {
     tasks.push(() => runAgent(agent.id, region, runWindow, runId));
@@ -78,7 +85,7 @@ export async function handleCron(
   const results = await runWithLimit(tasks, 2);
 
   // Run market dashboard agents after normal briefs are published
-  const dashboardTargets = expandAgentsByRegion({ agents: dashboardAgents, regions: regionList });
+  const dashboardTargets = expandAgentsByRegion({ agents: filteredDashboardAgents, regions: regionList });
   for (const { agent, region } of dashboardTargets) {
     const dashboardResult = await runMarketDashboard(agent, region, runWindow, runId);
     results.push(dashboardResult);
