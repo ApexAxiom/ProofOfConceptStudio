@@ -29,11 +29,11 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SecretArn
 
-  DailyBriefSchedule:
+  DailyBriefScheduleBatch1:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-daily-all-categories
-      Description: Daily brief run for all categories and regions at 5:00 AM CST / 11:00 PM AWST (prev day)
+      Name: briefs-daily-batch-1
+      Description: Daily brief batch 1 (5 categories) at 5:00 AM CST
       ScheduleExpression: cron(0 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -45,4 +45,38 @@ Resources:
           HeaderParameters:
             Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
             Content-Type: application/json
-        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true}'
+        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true,"agentIds":["rigs-integrated-drilling","drilling-services","wells-materials-octg","completions-intervention","pa-decommissioning"]}'
+  DailyBriefScheduleBatch2:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-daily-batch-2
+      Description: Daily brief batch 2 (5 categories) at 5:10 AM CST
+      ScheduleExpression: cron(10 11 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true,"agentIds":["subsea-surf-offshore","projects-epc-epcm-construction","major-equipment-oem-ltsa","ops-maintenance-services","mro-site-consumables"]}'
+  DailyBriefScheduleBatch3:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-daily-batch-3
+      Description: Daily brief batch 3 (4 categories + market dashboard) at 5:20 AM CST
+      ScheduleExpression: cron(20 11 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true,"agentIds":["logistics-marine-aviation","site-services-facilities","it-telecom-cyber","professional-services-hr","market-dashboard"]}'
