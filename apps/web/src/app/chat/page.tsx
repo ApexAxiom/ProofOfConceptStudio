@@ -10,7 +10,7 @@ import rehypeExternalLinks from "rehype-external-links";
 function SparklesIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a2.25 2.25 0 002.456 2.456L21.75 6l-1.035.259a2.25 2.25 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
     </svg>
   );
 }
@@ -88,6 +88,272 @@ const extractSources = (content: string) => {
   return Array.from(new Set(matches));
 };
 
+function ChatThread({
+  messages,
+  loading,
+  threadRef
+}: {
+  messages: ChatMessage[];
+  loading: boolean;
+  threadRef: React.RefObject<HTMLDivElement>;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border px-5 py-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">Chat Thread</p>
+          <span className="text-xs text-muted-foreground">Live sourcing + negotiation support</span>
+        </div>
+      </div>
+      <div ref={threadRef} className="max-h-[520px] space-y-4 overflow-y-auto px-5 py-4">
+        {messages.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <p className="font-semibold text-foreground">Start with a sourcing objective.</p>
+            <p className="mt-1">
+              Ask for negotiation levers, supplier risk, or category intelligence. We will cite each source.
+            </p>
+          </div>
+        )}
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div
+              className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                message.role === "user"
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-background text-foreground"
+              }`}
+            >
+              {message.role === "assistant" ? (
+                message.status === "loading" || loading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>Building answer...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="prose max-w-none text-sm dark:prose-invert">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[
+                          rehypeSanitize,
+                          [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
+                        ]}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                    {message.citations && message.citations.length > 0 && (
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {message.citations.map((citation) => (
+                          <a
+                            key={citation.sourceId}
+                            href={citation.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] text-foreground hover:border-primary/40 hover:text-primary"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+                            {citation.title ?? citation.url}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : (
+                <p>{message.content}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChatComposer({
+  question,
+  setQuestion,
+  loading,
+  onSend,
+  onKeyDown,
+  onSuggestion,
+  inputRef
+}: {
+  question: string;
+  setQuestion: (value: string) => void;
+  loading: boolean;
+  onSend: () => void;
+  onKeyDown: (event: React.KeyboardEvent) => void;
+  onSuggestion: (value: string) => void;
+  inputRef: React.RefObject<HTMLTextAreaElement>;
+}) {
+  return (
+    <div className="space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Ask the assistant</p>
+          <p className="text-xs text-muted-foreground">Enter for send, Shift+Enter for new line.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {focusChips.map((chip) => (
+            <button
+              key={chip}
+              onClick={() => onSuggestion(`${chip}: `)}
+              className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="relative">
+        <textarea
+          ref={inputRef}
+          className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 pr-14 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          rows={4}
+          placeholder="Ask a question about your category strategy..."
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <button
+          onClick={onSend}
+          disabled={loading || !question.trim()}
+          className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? (
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <SendIcon />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AgentContextPanel({
+  region,
+  portfolio,
+  setRegion,
+  setPortfolio,
+  latestBriefs,
+  regionFeeds,
+  agentError,
+  activeBriefId
+}: {
+  region: string;
+  portfolio: string;
+  setRegion: (value: string) => void;
+  setPortfolio: (value: string) => void;
+  latestBriefs: BriefSummary[];
+  regionFeeds: AgentFeed[];
+  agentError: string | null;
+  activeBriefId?: string;
+}) {
+  return (
+    <aside className="space-y-6">
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
+        <div className="mt-4 grid gap-4">
+          <div className="space-y-2">
+            <label htmlFor="region-select" className="text-sm font-medium text-foreground">
+              Region
+            </label>
+            <select
+              id="region-select"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            >
+              {REGION_LIST.map((r) => (
+                <option key={r.slug} value={r.slug}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="portfolio-select" className="text-sm font-medium text-foreground">
+              Portfolio Agent
+            </label>
+            <select
+              id="portfolio-select"
+              value={portfolio}
+              onChange={(e) => setPortfolio(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            >
+              {PORTFOLIOS.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {activeBriefId && (
+          <p className="mt-4 text-xs text-primary">
+            Brief-scoped: {activeBriefId}
+          </p>
+        )}
+        <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Briefs in context
+          </p>
+          {latestBriefs.length > 0 ? (
+            <div className="space-y-2">
+              {latestBriefs.map((brief) => (
+                <Link
+                  key={brief.postId}
+                  href={`/brief/${brief.postId}`}
+                  className="block rounded-lg border border-border bg-background px-3 py-2 transition hover:border-primary/40"
+                >
+                  <p className="text-sm font-medium text-foreground line-clamp-2">{brief.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {brief.region === "au" ? "APAC" : "INTL"} · {new Date(brief.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No briefs available for this portfolio yet.</p>
+          )}
+          {agentError && <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{agentError}</p>}
+        </div>
+        {regionFeeds.length > 0 && (
+          <div className="mt-4 text-sm text-muted-foreground">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Daily sources ({regionFeeds.length})</p>
+            <div className="grid gap-2">
+              {regionFeeds.slice(0, 5).map((feed) => (
+                <div
+                  key={`${feed.url}-${feed.name}`}
+                  className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5"
+                >
+                  <span className="text-muted-foreground">•</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground">{feed.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{feed.url}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * Category management assistant chat experience.
+ */
 export default function ChatPage({
   searchParams
 }: {
@@ -195,9 +461,6 @@ export default function ChatPage({
     loadStatus();
   }, []);
 
-  const activeAgent = agents.find((a) => a.portfolio === portfolio && a.region === region);
-  const regionFeeds = activeAgent?.feeds ?? [];
-
   useEffect(() => {
     if (!agents.length) return;
     const match = agents.find((agent) => agent.region === region && agent.portfolio === portfolio);
@@ -208,6 +471,9 @@ export default function ChatPage({
       }
     }
   }, [agents, region, portfolio]);
+
+  const activeAgent = agents.find((a) => a.portfolio === portfolio && a.region === region);
+  const regionFeeds = activeAgent?.feeds ?? [];
 
   const ask = async () => {
     const trimmed = question.trim();
@@ -309,7 +575,7 @@ export default function ChatPage({
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">Category Management Chat</h1>
+              <h1 className="text-2xl font-semibold text-foreground">Category Management Chat</h1>
               <span
                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${statusBadgeClass}`}
               >
@@ -352,82 +618,7 @@ export default function ChatPage({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-5 py-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">Chat Thread</p>
-                <span className="text-xs text-muted-foreground">Live sourcing + negotiation support</span>
-              </div>
-            </div>
-            <div ref={threadRef} className="max-h-[520px] space-y-4 overflow-y-auto px-5 py-4">
-              {messages.length === 0 && (
-                <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-                  <p className="font-semibold text-foreground">Start with a sourcing objective.</p>
-                  <p className="mt-1">
-                    Ask for negotiation levers, supplier risk, or category intelligence. We will cite each source.
-                  </p>
-                </div>
-              )}
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border bg-background text-foreground"
-                    }`}
-                  >
-                    {message.role === "assistant" ? (
-                      message.status === "loading" ? (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          <span>Building answer...</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="prose max-w-none text-sm dark:prose-invert">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              rehypePlugins={[
-                                rehypeSanitize,
-                                [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
-                              ]}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                          {message.citations && message.citations.length > 0 && (
-                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              {message.citations.map((citation) => (
-                                <a
-                                  key={citation.sourceId}
-                                  href={citation.url}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] text-foreground hover:border-primary/40 hover:text-primary"
-                                >
-                                  <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
-                                  {citation.title ?? citation.url}
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    ) : (
-                      <p>{message.content}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ChatThread messages={messages} loading={loading} threadRef={threadRef} />
 
           {!messages.length && (
             <div className="space-y-3">
@@ -447,120 +638,27 @@ export default function ChatPage({
             </div>
           )}
 
-          <div className="space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Ask the assistant</p>
-                <p className="text-xs text-muted-foreground">Enter for send, Shift+Enter for new line.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {focusChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => handleSuggestion(`${chip}: `)}
-                    className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="relative">
-              <textarea
-                ref={inputRef}
-                className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 pr-14 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                rows={4}
-                placeholder="Ask a question about your category strategy..."
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-              <button
-                onClick={ask}
-                disabled={loading || !question.trim()}
-                className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
-              >
-                {loading ? (
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : (
-                  <SendIcon />
-                )}
-              </button>
-            </div>
-          </div>
+          <ChatComposer
+            question={question}
+            setQuestion={setQuestion}
+            loading={loading}
+            onSend={ask}
+            onKeyDown={handleKeyDown}
+            onSuggestion={handleSuggestion}
+            inputRef={inputRef}
+          />
         </div>
 
-        <aside className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
-            <div className="mt-4 grid gap-4">
-              <div className="space-y-2">
-                <label htmlFor="region-select" className="text-sm font-medium text-foreground">Region</label>
-                <select id="region-select" value={region} onChange={(e) => setRegion(e.target.value)} className="w-full">
-                  {REGION_LIST.map((r) => (
-                    <option key={r.slug} value={r.slug}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="portfolio-select" className="text-sm font-medium text-foreground">Portfolio Agent</label>
-                <select id="portfolio-select" value={portfolio} onChange={(e) => setPortfolio(e.target.value)} className="w-full">
-                  {PORTFOLIOS.map((p) => (
-                    <option key={p.slug} value={p.slug}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Latest Briefs</p>
-              {latestBriefs.length > 0 ? (
-                <div className="space-y-2">
-                  {latestBriefs.map((brief) => (
-                    <Link
-                      key={brief.postId}
-                      href={`/brief/${brief.postId}`}
-                      className="block rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/40 hover:bg-muted/30 transition-all"
-                    >
-                      <p className="text-sm font-medium text-foreground line-clamp-2">{brief.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {brief.region === "au" ? "APAC" : "INTL"} • {new Date(brief.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No briefs available for this portfolio yet.</p>
-              )}
-              {agentError && <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{agentError}</p>}
-            </div>
-            {regionFeeds.length > 0 && (
-              <div className="mt-4 text-sm text-muted-foreground overflow-hidden">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Daily sources ({regionFeeds.length})</p>
-                <div className="grid gap-2">
-                  {regionFeeds.slice(0, 5).map((feed) => (
-                    <div
-                      key={`${feed.url}-${feed.name}`}
-                      className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 border border-border overflow-hidden"
-                    >
-                      <span className="text-muted-foreground flex-shrink-0">•</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground truncate">{feed.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{feed.url}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </aside>
+        <AgentContextPanel
+          region={region}
+          portfolio={portfolio}
+          setRegion={setRegion}
+          setPortfolio={setPortfolio}
+          latestBriefs={latestBriefs}
+          regionFeeds={regionFeeds}
+          agentError={agentError}
+          activeBriefId={activeBriefId}
+        />
       </div>
     </div>
   );
