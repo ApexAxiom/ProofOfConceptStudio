@@ -26,20 +26,20 @@ Your AWS Secrets Manager secret should include:
 Test the endpoints manually:
 
 ```bash
-# All categories and regions run
+# APAC batch run (batch 0)
 curl -X POST "https://your-runner.awsapprunner.com/cron" \
   -H "Authorization: Bearer YOUR_CRON_SECRET" \
   -H "Content-Type: application/json" \
-  -d '{"regions":["au","us-mx-la-lng"],"scheduled":true}'
+  -d '{"runWindow":"apac","regions":["au"],"scheduled":true,"batchIndex":0,"batchCount":3}'
 
-# Single region run (for testing)
+# International batch run (batch 0)
 curl -X POST "https://your-runner.awsapprunner.com/cron" \
   -H "Authorization: Bearer YOUR_CRON_SECRET" \
   -H "Content-Type: application/json" \
-  -d '{"runWindow":"apac","regions":["au"],"scheduled":true}'
+  -d '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true,"batchIndex":0,"batchCount":3}'
 ```
 
 ## Schedule Summary
-- **All Categories & Regions**: Daily at 5:00 AM CST / 11:00 PM AWST (prev day)
-  - Runs all 14 category agents + 1 market dashboard for both APAC (au) and International (us-mx-la-lng) regions
-  - Total: 30 briefs per scheduled run (14 categories × 2 regions + 2 market dashboards)
+- **APAC**: 3 batches daily at 6:00/6:10/6:20 AM AWST
+- **International**: 3 batches daily at 5:00/5:10/5:20 AM CST
+- Each batch uses `batchIndex`/`batchCount` to deterministically select agents from the canonical catalog.

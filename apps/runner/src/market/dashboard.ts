@@ -1,5 +1,5 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { AgentConfig, BriefPost, CategoryGroup, RegionSlug, RunWindow, categoryForPortfolio, indicesForRegion } from "@proof/shared";
+import { AgentConfig, BriefPost, CategoryGroup, RegionSlug, RunWindow, categoryForPortfolio, getBriefDayKey, indicesForRegion } from "@proof/shared";
 import { documentClient, tableName } from "../db/client.js";
 import { normalizeForDedupe } from "../ingest/url-normalize.js";
 import { generateMarketBrief } from "../llm/market-openai.js";
@@ -15,6 +15,7 @@ interface RunResult {
   agentId: string;
   region: RegionSlug;
   ok: boolean;
+  status: "published" | "no-updates" | "failed";
   error?: string;
 }
 
@@ -66,6 +67,7 @@ export async function runMarketDashboard(
   runId: string
 ): Promise<RunResult> {
   try {
+    const briefDay = getBriefDayKey(region, new Date());
     const lookbackDays = agent.lookbackDays ?? 2;
     const since = new Date();
     since.setDate(since.getDate() - Math.max(lookbackDays, 1));
@@ -113,8 +115,8 @@ export async function runMarketDashboard(
 
     if (candidates.length === 0) {
       const error = "No candidate articles available for dashboard";
-      await logRunResult(runId, agent.id, region, "failed", error);
-      return { agentId: agent.id, region, ok: false, error };
+      await logRunResult(runId, agent.id, region, "no-updates", error);
+      return { agentId: agent.id, region, ok: true, status: "no-updates", error };
     }
 
     const indices = indicesForRegion(agent.portfolio, region);
@@ -179,15 +181,26 @@ export async function runMarketDashboard(
     if (issues.length > 0 || !validatedBrief) {
       const failedBrief = {
         ...brief,
+        agentId: agent.id,
+        generationStatus: "generation-failed" as const,
+        briefDay,
         status: "draft" as const,
         bodyMarkdown: `Evidence validation failed. Needs review. Issues: ${issues.join("; ")}`,
         sources: [],
         qualityReport: { issues, decision: "block" as const }
       };
 
-      await publishBrief(failedBrief, { articles: [], scannedSources: [], metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } }, runId);
+      try {
+        await publishBrief(
+          failedBrief,
+          { articles: [], scannedSources: [], metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } },
+          runId
+        );
+      } catch (publishError) {
+        console.error(`[${agent.id}/${region}] Failed to write validation failure brief`, publishError);
+      }
       await logRunResult(runId, agent.id, region, "failed", issues.join("; "));
-      return { agentId: agent.id, region, ok: false, error: issues.join("; ") };
+      return { agentId: agent.id, region, ok: false, status: "failed", error: issues.join("; ") };
     }
 
     const validated = validatedBrief;
@@ -219,6 +232,9 @@ export async function runMarketDashboard(
 
     const published = {
       ...validated,
+      agentId: agent.id,
+      generationStatus: "published" as const,
+      briefDay,
       selectedArticles: enrichedArticles,
       heroImageUrl,
       heroImageSourceUrl: heroFromSelection?.url || validated.heroImageSourceUrl,
@@ -230,12 +246,18 @@ export async function runMarketDashboard(
       scannedSources: [], 
       metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } 
     };
-    await publishBrief(published, ingestStub, runId);
-    await logRunResult(runId, agent.id, region, "success");
-    return { agentId: agent.id, region, ok: true };
+    try {
+      await publishBrief(published, ingestStub, runId);
+    } catch (publishError) {
+      console.error(`[${agent.id}/${region}] Failed to publish dashboard brief`, { briefDay }, publishError);
+      await logRunResult(runId, agent.id, region, "failed", (publishError as Error).message);
+      return { agentId: agent.id, region, ok: false, status: "failed", error: (publishError as Error).message };
+    }
+    await logRunResult(runId, agent.id, region, "published");
+    return { agentId: agent.id, region, ok: true, status: "published" };
   } catch (error) {
     console.error(`[${agent.id}/${region}] dashboard error`, error);
     await logRunResult(runId, agent.id, region, "failed", (error as Error).message);
-    return { agentId: agent.id, region, ok: false, error: (error as Error).message };
+    return { agentId: agent.id, region, ok: false, status: "failed", error: (error as Error).message };
   }
 }

@@ -29,11 +29,63 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SecretArn
 
-  DailyBriefScheduleBatch1:
+  DailyBriefScheduleApacBatch0:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-daily-batch-1
-      Description: Daily brief batch 1 (5 categories) at 5:00 AM CST
+      Name: briefs-apac-batch-0
+      Description: Daily APAC brief batch 0 at 6:00 AM AWST
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"regions":["au"],"runWindow":"apac","scheduled":true,"batchIndex":0,"batchCount":3}'
+  DailyBriefScheduleApacBatch1:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-apac-batch-1
+      Description: Daily APAC brief batch 1 at 6:10 AM AWST
+      ScheduleExpression: cron(10 22 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"regions":["au"],"runWindow":"apac","scheduled":true,"batchIndex":1,"batchCount":3}'
+  DailyBriefScheduleApacBatch2:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-apac-batch-2
+      Description: Daily APAC brief batch 2 at 6:20 AM AWST
+      ScheduleExpression: cron(20 22 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub "${RunnerBaseUrl}/cron"
+        RoleArn: !GetAtt SchedulerRole.Arn
+        HttpParameters:
+          HeaderParameters:
+            Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
+            Content-Type: application/json
+        Input: '{"regions":["au"],"runWindow":"apac","scheduled":true,"batchIndex":2,"batchCount":3}'
+
+  DailyBriefScheduleInternationalBatch0:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-batch-0
+      Description: Daily international brief batch 0 at 5:00 AM CST
       ScheduleExpression: cron(0 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -45,12 +97,12 @@ Resources:
           HeaderParameters:
             Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
             Content-Type: application/json
-        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true,"agentIds":["rigs-integrated-drilling","drilling-services","wells-materials-octg","completions-intervention","pa-decommissioning"]}'
-  DailyBriefScheduleBatch2:
+        Input: '{"regions":["us-mx-la-lng"],"runWindow":"international","scheduled":true,"batchIndex":0,"batchCount":3}'
+  DailyBriefScheduleInternationalBatch1:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-daily-batch-2
-      Description: Daily brief batch 2 (5 categories) at 5:10 AM CST
+      Name: briefs-international-batch-1
+      Description: Daily international brief batch 1 at 5:10 AM CST
       ScheduleExpression: cron(10 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -62,12 +114,12 @@ Resources:
           HeaderParameters:
             Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
             Content-Type: application/json
-        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true,"agentIds":["subsea-surf-offshore","projects-epc-epcm-construction","major-equipment-oem-ltsa","ops-maintenance-services","mro-site-consumables"]}'
-  DailyBriefScheduleBatch3:
+        Input: '{"regions":["us-mx-la-lng"],"runWindow":"international","scheduled":true,"batchIndex":1,"batchCount":3}'
+  DailyBriefScheduleInternationalBatch2:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-daily-batch-3
-      Description: Daily brief batch 3 (4 categories + market dashboard) at 5:20 AM CST
+      Name: briefs-international-batch-2
+      Description: Daily international brief batch 2 at 5:20 AM CST
       ScheduleExpression: cron(20 11 * * ? *)
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
@@ -79,4 +131,4 @@ Resources:
           HeaderParameters:
             Authorization: !Sub "Bearer {{resolve:secretsmanager:${SecretArn}:SecretString:CRON_SECRET}}"
             Content-Type: application/json
-        Input: '{"regions":["au","us-mx-la-lng"],"scheduled":true,"agentIds":["logistics-marine-aviation","site-services-facilities","it-telecom-cyber","professional-services-hr","market-dashboard"]}'
+        Input: '{"regions":["us-mx-la-lng"],"runWindow":"international","scheduled":true,"batchIndex":2,"batchCount":3}'

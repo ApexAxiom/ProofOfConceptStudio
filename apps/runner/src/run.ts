@@ -1,5 +1,7 @@
-import { BriefPost, RegionSlug, RunWindow, indicesForRegion } from "@proof/shared";
+import { BriefPost, REGIONS, RegionSlug, RunWindow, getBriefDayKey, indicesForRegion } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
+import { auditCoverage } from "./brief-coverage/audit.js";
+import { buildPlaceholderBrief, PlaceholderReason } from "./brief-coverage/placeholders.js";
 import { ingestAgent, ArticleDetail } from "./ingest/fetch.js";
 import { generateBrief } from "./llm/openai.js";
 import type { ArticleInput } from "./llm/openai.js";
@@ -13,7 +15,8 @@ import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
 import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
 
-type RunResult = { agentId: string; region: RegionSlug; ok: boolean; error?: string };
+type RunStatus = "published" | "no-updates" | "failed";
+type RunResult = { agentId: string; region: RegionSlug; ok: boolean; status: RunStatus; error?: string };
 
 /**
  * Runs tasks with concurrency limit
@@ -29,6 +32,51 @@ async function runWithLimit<T>(tasks: (() => Promise<T>)[], limit = 3): Promise<
   });
   await Promise.all(workers);
   return results;
+}
+
+async function runWithTimeout<T>(task: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timed out: ${label}`)), timeoutMs);
+  });
+  try {
+    return await Promise.race([task, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function publishPlaceholder({
+  agentId,
+  region,
+  runWindow,
+  runId,
+  reason
+}: {
+  agentId: string;
+  region: RegionSlug;
+  runWindow: RunWindow;
+  runId: string;
+  reason: PlaceholderReason;
+}): Promise<RunResult> {
+  const agents = loadAgents();
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) {
+    const error = `Agent ${agentId} not found for placeholder`;
+    await logRunResult(runId, agentId, region, "failed", error);
+    return { agentId, region, ok: false, status: "failed", error };
+  }
+
+  const brief = buildPlaceholderBrief({ agent, region, runWindow, reason });
+  try {
+    await publishBrief(brief, { articles: [], scannedSources: [], metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } }, runId);
+    await logRunResult(runId, agent.id, region, reason === "no-updates" ? "no-updates" : "failed");
+    return { agentId: agent.id, region, ok: true, status: reason === "no-updates" ? "no-updates" : "failed" };
+  } catch (error) {
+    console.error(`[${agentId}/${region}] Placeholder publish failed:`, { briefDay: brief.briefDay }, error);
+    await logRunResult(runId, agent.id, region, "failed", (error as Error).message);
+    return { agentId: agent.id, region, ok: false, status: "failed", error: (error as Error).message };
+  }
 }
 
 type ArticleSource = Omit<ArticleDetail, "contentStatus"> & {
@@ -90,16 +138,103 @@ export async function handleCron(
     const dashboardResult = await runMarketDashboard(agent, region, runWindow, runId);
     results.push(dashboardResult);
   }
+
   const summary = results.reduce(
     (acc, r) => {
-      if ((r as RunResult).ok) acc.successes += 1;
-      else acc.failures += 1;
+      if (r.status === "published") acc.published += 1;
+      else if (r.status === "no-updates") acc.noUpdates += 1;
+      else acc.failed += 1;
       return acc;
     },
-    { successes: 0, failures: 0 }
+    { published: 0, noUpdates: 0, failed: 0 }
   );
-  
-  return { runId, ok: summary.failures === 0, ...summary };
+
+  const auditRegions = regionList ?? (Object.keys(REGIONS) as RegionSlug[]);
+  const coverageResults = await Promise.all(
+    auditRegions.map((region) =>
+      auditCoverage({
+        regions: [region],
+        dayKey: getBriefDayKey(region, new Date()),
+        agentIds: opts?.agentIds
+      })
+    )
+  );
+
+  const missingByRegion = coverageResults.flatMap((coverage) => coverage.missingAgents);
+  const missingCount = missingByRegion.length;
+
+  if (missingCount > 0) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "coverage_missing",
+        runId,
+        regions: auditRegions,
+        missingCount,
+        missingAgentIds: missingByRegion.map((m) => m.agentId)
+      })
+    );
+
+    const rerunTasks = missingByRegion.map((missing) => () =>
+      runWithTimeout(runAgent(missing.agentId, missing.region, runWindow, runId), 10 * 60 * 1000, `rerun-${missing.agentId}`)
+        .catch((error) => ({
+          agentId: missing.agentId,
+          region: missing.region,
+          ok: false,
+          status: "failed",
+          error: (error as Error).message
+        }))
+    );
+
+    const rerunResults = await runWithLimit(rerunTasks, 2);
+    const rerunCoverageResults = await Promise.all(
+      auditRegions.map((region) =>
+        auditCoverage({
+          regions: [region],
+          dayKey: getBriefDayKey(region, new Date()),
+          agentIds: opts?.agentIds
+        })
+      )
+    );
+    const stillMissing = rerunCoverageResults.flatMap((coverage) => coverage.missingAgents);
+    if (stillMissing.length > 0) {
+      const placeholderTasks = stillMissing.map((missing) => {
+        const priorResult = rerunResults.find((result) => result.agentId === missing.agentId && result.region === missing.region);
+        const reason: PlaceholderReason = priorResult?.status === "no-updates" ? "no-updates" : "generation-failed";
+        return () => publishPlaceholder({ agentId: missing.agentId, region: missing.region, runWindow, runId, reason });
+      });
+      await runWithLimit(placeholderTasks, 2);
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "coverage_placeholder_published",
+          runId,
+          regions: auditRegions,
+          missingAgentIds: stillMissing.map((m) => m.agentId)
+        })
+      );
+    }
+  } else {
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "coverage_ok",
+        runId,
+        regions: auditRegions,
+        expectedCount: coverageResults.reduce((total, coverage) => total + coverage.expectedAgents.length, 0),
+        writtenCount: coverageResults.reduce((total, coverage) => total + coverage.publishedBriefs.length, 0),
+        missingCount: 0
+      })
+    );
+  }
+
+  return {
+    runId,
+    ok: summary.failed === 0,
+    ...summary,
+    missingCount,
+    missingAgentIds: missingByRegion.map((missing) => missing.agentId)
+  };
 }
 
 /**
@@ -117,17 +252,18 @@ export async function runAgent(
   if (!agent) {
     const error = `Agent ${agentId} not found`;
     await logRunResult(runId ?? crypto.randomUUID(), agentId, region, "failed", error);
-    return { agentId, region, ok: false, error };
+    return { agentId, region, ok: false, status: "failed", error };
   }
 
   const feeds = agent.feedsByRegion[region];
   if (!feeds || feeds.length === 0) {
     const error = `Region ${region} is not configured for agent ${agentId}`;
     await logRunResult(runId ?? crypto.randomUUID(), agentId, region, "failed", error);
-    return { agentId, region, ok: false, error };
+    return { agentId, region, ok: false, status: "failed", error };
   }
 
   const runIdentifier = runId ?? crypto.randomUUID();
+  const briefDay = getBriefDayKey(region, new Date());
 
   try {
     // Step 1: Ingest articles from all feeds
@@ -139,7 +275,7 @@ export async function runAgent(
       console.error(`[${agentId}/${region}] Ingestion failed:`, ingestErr);
       const error = `Ingestion error: ${(ingestErr as Error).message}`;
       await logRunResult(runIdentifier, agent.id, region, "failed", error);
-      return { agentId: agent.id, region, ok: false, error };
+      return { agentId: agent.id, region, ok: false, status: "failed", error };
     }
     
     const articles: ArticleSource[] = ingestResult.articles ?? [];
@@ -150,8 +286,8 @@ export async function runAgent(
     if (articles.length === 0) {
       const error = `No articles found after ingestion (scanned ${ingestResult.scannedSources?.length ?? 0} sources)`;
       console.error(`[${agentId}/${region}] ${error}`);
-      await logRunResult(runIdentifier, agent.id, region, "failed", error);
-      return { agentId: agent.id, region, ok: false, error };
+      await logRunResult(runIdentifier, agent.id, region, "no-updates", error);
+      return { agentId: agent.id, region, ok: true, status: "no-updates", error };
     }
     
     if (articles.length < minRequired) {
@@ -320,15 +456,25 @@ export async function runAgent(
 
       const failedBrief = {
         ...brief,
+        agentId: agent.id,
+        generationStatus: "generation-failed" as const,
+        briefDay,
         status: "draft" as const,
         bodyMarkdown: `Evidence validation failed. Needs review. Issues: ${issues.join("; ")}`,
         sources: [],
         qualityReport: { issues, decision: "block" as const }
       };
 
-      await publishBrief(failedBrief, ingestResult, runIdentifier);
+      try {
+        await publishBrief(failedBrief, ingestResult, runIdentifier);
+      } catch (publishError) {
+        console.error(
+          `[${agentId}/${region}] Failed to write validation failure brief`,
+          publishError
+        );
+      }
       await logRunResult(runIdentifier, agent.id, region, "failed", issues.join("; "));
-      return { agentId: agent.id, region, ok: false, error: issues.join("; ") };
+      return { agentId: agent.id, region, ok: false, status: "failed", error: issues.join("; ") };
     }
 
     const validated = validatedBrief;
@@ -361,6 +507,9 @@ export async function runAgent(
 
     const published = {
       ...validated,
+      agentId: agent.id,
+      generationStatus: "published" as const,
+      briefDay,
       selectedArticles: enrichedArticles,
       heroImageUrl,
       heroImageSourceUrl: heroFromSelection?.url || validated.heroImageSourceUrl,
@@ -369,8 +518,14 @@ export async function runAgent(
     
     // Step 9: Publish the brief
     console.log(`[${agentId}/${region}] Publishing brief...`);
-    await publishBrief(published, ingestResult, runIdentifier);
-    await logRunResult(runIdentifier, agent.id, region, "success");
+    try {
+      await publishBrief(published, ingestResult, runIdentifier);
+    } catch (publishError) {
+      console.error(`[${agentId}/${region}] Failed to publish brief`, { briefDay }, publishError);
+      await logRunResult(runIdentifier, agent.id, region, "failed", (publishError as Error).message);
+      return { agentId: agent.id, region, ok: false, status: "failed", error: (publishError as Error).message };
+    }
+    await logRunResult(runIdentifier, agent.id, region, "published");
     console.log(
       JSON.stringify({
         level: "info",
@@ -384,11 +539,11 @@ export async function runAgent(
     );
     
     console.log(`[${agentId}/${region}] ✓ Brief published successfully`);
-    return { agentId: agent.id, region, ok: true };
+    return { agentId: agent.id, region, ok: true, status: "published" };
     
   } catch (err) {
     console.error(`[${agentId}/${region}] Error:`, err);
     await logRunResult(runIdentifier, agent.id, region, "failed", (err as Error).message);
-    return { agentId: agent.id, region, ok: false, error: (err as Error).message };
+    return { agentId: agent.id, region, ok: false, status: "failed", error: (err as Error).message };
   }
 }
