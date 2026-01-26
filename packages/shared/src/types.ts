@@ -204,9 +204,12 @@ export interface BriefPost {
   title: string;
   region: RegionSlug;
   portfolio: string;
+  agentId?: string;
   runWindow: RunWindow;
   status: "published" | "draft" | "failed";
+  generationStatus?: "published" | "no-updates" | "generation-failed";
   publishedAt: string;
+  briefDay?: string;
   summary?: string;
   bodyMarkdown: string;
   sources?: BriefSourceInput[];

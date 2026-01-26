@@ -4,6 +4,7 @@ import { handleCron, runAgent } from "./run.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import crypto from "node:crypto";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
+import { selectAgentIdsForRun } from "./agents/selection.js";
 import { requiredArticleCount } from "./llm/prompts.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
@@ -75,6 +76,8 @@ async function main() {
         ? [body.region]
         : undefined;
     const agentIds = Array.isArray(body?.agentIds) ? body.agentIds : undefined;
+    const batchIndex = Number.isInteger(body?.batchIndex) ? Number(body.batchIndex) : undefined;
+    const batchCount = Number.isInteger(body?.batchCount) ? Number(body.batchCount) : undefined;
 
     const requestedRegions = regionInput
       ?.map((r: string) => r as RegionSlug)
@@ -102,11 +105,56 @@ async function main() {
       fastify.log.warn({ runId, regions: regionRuns.map((r: RegionRun) => r.region) }, "outside window; forcing catch-up run");
     }
 
+    const allAgentIds = loadAgents().map((agent) => agent.id);
+    const selection = selectAgentIdsForRun({ agentIds, batchIndex, batchCount, allAgentIds });
+    const selectedAgentIds = selection.agentIds;
+
+    if (selection.mode === "all" && (batchIndex !== undefined || batchCount !== undefined) && !agentIds?.length) {
+      fastify.log.warn({ runId, batchIndex, batchCount }, "invalid batch parameters; defaulting to all agents");
+    }
+
+    fastify.log.info({
+      runId,
+      mode: selection.mode,
+      batchIndex: selection.batchIndex,
+      batchCount: selection.batchCount,
+      selectedCount: selectedAgentIds.length,
+      sample: {
+        first: selectedAgentIds.slice(0, 3),
+        last: selectedAgentIds.slice(-3)
+      }
+    }, "cron selection");
+
+    const waitForCompletion = body.waitForCompletion === true;
+    if (waitForCompletion) {
+      const results = await Promise.all(
+        targetRegions.map((target: RegionRun) =>
+          handleCron(target.runWindow, {
+            runId,
+            scheduled: body.scheduled === true,
+            regions: [target.region],
+            agentIds: selectedAgentIds
+          })
+        )
+      );
+
+      reply.code(200).send({
+        ok: true,
+        accepted: true,
+        runId,
+        regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow })),
+        agentSelection: selection,
+        results
+      });
+      return;
+    }
+
     reply.code(202).send({
       ok: true,
       accepted: true,
       runId,
-      regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow }))
+      regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow })),
+      agentSelection: selection
     });
 
     setImmediate(() => {
@@ -116,10 +164,21 @@ async function main() {
             runId,
             scheduled: body.scheduled === true,
             regions: [target.region],
-            agentIds
+            agentIds: selectedAgentIds
           })
         )
-      ).catch((err) => fastify.log.error(err));
+      )
+        .then((results) => {
+          fastify.log.info({
+            runId,
+            results: results.map((result) => ({
+              ok: result.ok,
+              missingCount: result.missingCount,
+              missingAgentIds: result.missingAgentIds
+            }))
+          }, "cron run completed");
+        })
+        .catch((err) => fastify.log.error(err));
     });
   });
 

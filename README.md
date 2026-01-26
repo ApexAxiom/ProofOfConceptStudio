@@ -103,9 +103,10 @@ Web
 - Web uses server-side proxy routes to call the API; set `API_BASE_URL` to the deployed api endpoint.
 
 ### Scheduler
-Use EventBridge Scheduler with region-specific times. POST to runner `/cron` with header `Authorization: Bearer <CRON_SECRET>`:
-- APAC (06:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`
-- International (06:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`
+Use EventBridge Scheduler with region-specific times. POST to runner `/cron` with header `Authorization: Bearer <CRON_SECRET>`.
+Schedule three batches per region using deterministic batching parameters:
+- APAC (06:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
+- International (06:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
 
 ### Lockfile discipline
 Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds. Dockerfiles will use `--frozen-lockfile` when the lockfile is present.

@@ -1,4 +1,4 @@
-import { RegionSlug } from "./regions.js";
+import { REGIONS, RegionSlug } from "./regions.js";
 import { RunWindow } from "./types.js";
 
 const RUN_WINDOW_TIMEZONES: Record<RunWindow, { timeZone: string; hour: number; minute: number }> = {
@@ -70,4 +70,26 @@ export function nextScheduledRun(date: Date = new Date()): { time: Date; window:
   const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
   const nextApac = new Date(apac.getTime() + 24 * 60 * 60 * 1000);
   return { time: nextApac > nextDay ? nextApac : nextDay, window: "apac" };
+}
+
+function formatDayKey(date: Date, timeZone: string): string {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns the region-local brief day key (YYYY-MM-DD) for a given timestamp.
+ */
+export function getBriefDayKey(region: RegionSlug, date: Date = new Date()): string {
+  const timeZone = REGIONS[region]?.timeZone ?? REGIONS["us-mx-la-lng"].timeZone;
+  return formatDayKey(date, timeZone);
 }

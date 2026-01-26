@@ -10,6 +10,8 @@
     "start": "node dist/server.js",
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
     "evidence:smoke": "tsx src/publish/evidence.smoke.ts",
+    "selection:smoke": "tsx src/agents/selection.smoke.ts",
+    "brief-day:smoke": "tsx src/brief-day.smoke.ts",
     "validate:briefs": "tsx src/validate-briefs.ts",
     "render:smoke": "tsx src/llm/render.smoke.ts",
     "cron:apac": "tsx src/cli.ts apac",

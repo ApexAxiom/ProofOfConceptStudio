@@ -1,6 +1,6 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import client from "./dynamo.js";
-import { BriefPost, REGION_LIST, MOCK_POSTS, normalizeBriefSources } from "@proof/shared";
+import { BriefPost, REGION_LIST, MOCK_POSTS, getBriefDayKey, normalizeBriefSources } from "@proof/shared";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
 
@@ -9,8 +9,10 @@ function sortByPublished(posts: BriefPost[]): BriefPost[] {
 }
 
 function normalizeBrief(post: BriefPost): BriefPost {
+  const briefDay = post.briefDay ?? getBriefDayKey(post.region, new Date(post.publishedAt));
   return {
     ...post,
+    briefDay,
     sources: normalizeBriefSources(post.sources)
   };
 }
