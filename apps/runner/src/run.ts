@@ -1,7 +1,7 @@
 import { BriefPost, REGIONS, RegionSlug, RunWindow, getBriefDayKey, indicesForRegion } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { auditCoverage } from "./brief-coverage/audit.js";
-import { buildPlaceholderBrief, PlaceholderReason } from "./brief-coverage/placeholders.js";
+import { buildCarryForwardBrief, buildPlaceholderBrief, PlaceholderReason } from "./brief-coverage/placeholders.js";
 import { ingestAgent, ArticleDetail } from "./ingest/fetch.js";
 import { generateBrief } from "./llm/openai.js";
 import type { ArticleInput } from "./llm/openai.js";
@@ -264,6 +264,11 @@ export async function runAgent(
 
   const runIdentifier = runId ?? crypto.randomUUID();
   const briefDay = getBriefDayKey(region, new Date());
+  const emptyIngestResult = {
+    articles: [],
+    scannedSources: [],
+    metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 }
+  };
 
   try {
     // Step 1: Ingest articles from all feeds
@@ -274,6 +279,27 @@ export async function runAgent(
     } catch (ingestErr) {
       console.error(`[${agentId}/${region}] Ingestion failed:`, ingestErr);
       const error = `Ingestion error: ${(ingestErr as Error).message}`;
+      const previousBrief = await getLatestPublishedBrief({
+        portfolio: agent.portfolio,
+        region,
+        beforeIso: new Date().toISOString()
+      });
+      if (previousBrief) {
+        const carryForward = buildCarryForwardBrief({
+          agent,
+          region,
+          runWindow,
+          reason: "generation-failed",
+          previousBrief
+        });
+        try {
+          await publishBrief(carryForward, emptyIngestResult, runIdentifier);
+          await logRunResult(runIdentifier, agent.id, region, "published");
+          return { agentId: agent.id, region, ok: true, status: "published" };
+        } catch (publishError) {
+          console.error(`[${agentId}/${region}] Failed to publish carry-forward brief`, publishError);
+        }
+      }
       await logRunResult(runIdentifier, agent.id, region, "failed", error);
       return { agentId: agent.id, region, ok: false, status: "failed", error };
     }
@@ -286,6 +312,27 @@ export async function runAgent(
     if (articles.length === 0) {
       const error = `No articles found after ingestion (scanned ${ingestResult.scannedSources?.length ?? 0} sources)`;
       console.error(`[${agentId}/${region}] ${error}`);
+      const previousBrief = await getLatestPublishedBrief({
+        portfolio: agent.portfolio,
+        region,
+        beforeIso: new Date().toISOString()
+      });
+      if (previousBrief) {
+        const carryForward = buildCarryForwardBrief({
+          agent,
+          region,
+          runWindow,
+          reason: "no-updates",
+          previousBrief
+        });
+        try {
+          await publishBrief(carryForward, ingestResult, runIdentifier);
+          await logRunResult(runIdentifier, agent.id, region, "no-updates", error);
+          return { agentId: agent.id, region, ok: true, status: "no-updates", error };
+        } catch (publishError) {
+          console.error(`[${agentId}/${region}] Failed to publish carry-forward brief`, publishError);
+        }
+      }
       await logRunResult(runIdentifier, agent.id, region, "no-updates", error);
       return { agentId: agent.id, region, ok: true, status: "no-updates", error };
     }
@@ -453,6 +500,23 @@ export async function runAgent(
 
     if (issues.length > 0 || !validatedBrief) {
       console.error(`[${agentId}/${region}] Final validation failed:`, issues);
+
+      if (previousBrief) {
+        const carryForward = buildCarryForwardBrief({
+          agent,
+          region,
+          runWindow,
+          reason: "generation-failed",
+          previousBrief
+        });
+        try {
+          await publishBrief(carryForward, ingestResult, runIdentifier);
+          await logRunResult(runIdentifier, agent.id, region, "published", issues.join("; "));
+          return { agentId: agent.id, region, ok: true, status: "published" };
+        } catch (publishError) {
+          console.error(`[${agentId}/${region}] Failed to publish carry-forward brief`, publishError);
+        }
+      }
 
       const failedBrief = {
         ...brief,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fetchLatest } from "../lib/api";
 import { getExecutiveDashboardData, ExecutiveArticle } from "../lib/executive-dashboard";
 import { inferSignals } from "../lib/signals";
-import { portfolioLabel, regionLabel } from "@proof/shared";
+import { CATEGORY_META, categoryForPortfolio, portfolioLabel, regionLabel } from "@proof/shared";
 
 function SectionHeading({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
   return (
@@ -24,13 +24,24 @@ function NewsItem({ article }: { article: ExecutiveArticle }) {
       rel="noreferrer noopener"
       className="flex items-start justify-between gap-4 rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground transition hover:border-primary/40"
     >
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-1">
         <p className="font-semibold text-foreground line-clamp-2">{article.title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {article.source} · {new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </p>
+        {article.summary && <p className="text-xs text-muted-foreground line-clamp-2">{article.summary}</p>}
       </div>
-      <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{article.category}</span>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{article.category}</span>
+        {article.imageUrl && (
+          <img
+            src={article.imageUrl}
+            alt={article.title}
+            className="h-16 w-20 rounded-md object-cover"
+            loading="lazy"
+          />
+        )}
+      </div>
     </a>
   );
 }
@@ -81,11 +92,28 @@ export default async function Dashboard() {
 
   const briefsToReview = allBriefs.slice(0, 5);
 
+  const categoryOverview = (() => {
+    const categoryMap = new Map<string, typeof allBriefs[number]>();
+    for (const brief of allBriefs) {
+      const category = categoryForPortfolio(brief.portfolio);
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, brief);
+      }
+      if (categoryMap.size >= 5) break;
+    }
+    return Array.from(categoryMap.entries()).map(([category, brief]) => ({
+      category,
+      brief
+    }));
+  })();
+
+  const woodsideSpotlight = executiveDashboard.woodsideArticles.slice(0, 4);
+
   const latestNews = [
+    ...executiveDashboard.woodsideArticles,
     ...executiveDashboard.apacArticles,
-    ...executiveDashboard.internationalArticles,
-    ...executiveDashboard.woodsideArticles
-  ].slice(0, 12);
+    ...executiveDashboard.internationalArticles
+  ].slice(0, 15);
 
   return (
     <div className="space-y-8">
@@ -135,6 +163,30 @@ export default async function Dashboard() {
 
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-card p-5">
+            <SectionHeading title="Category overview" description="Top 5 categories represented today." />
+            <div className="mt-4 space-y-3">
+              {categoryOverview.map(({ category, brief }) => (
+                <Link
+                  key={`${category}-${brief.postId}`}
+                  href={`/brief/${brief.postId}`}
+                  className="block rounded-lg border border-border bg-background p-3 text-sm transition hover:border-primary/40"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    {CATEGORY_META[category].label}
+                  </p>
+                  <p className="mt-1 font-semibold text-foreground line-clamp-2">{brief.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {portfolioLabel(brief.portfolio)} · {regionLabel(brief.region)}
+                  </p>
+                </Link>
+              ))}
+              {categoryOverview.length === 0 && (
+                <p className="text-sm text-muted-foreground">No category briefs available yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-5">
             <SectionHeading title="Actions due soon" description="Highest urgency recommendations." />
             <div className="mt-4 space-y-3">
               {actionItems.map((item) => (
@@ -180,20 +232,34 @@ export default async function Dashboard() {
 
       <section className="rounded-xl border border-border bg-card p-5">
         <SectionHeading
-          title="All updates"
-          description="Raw news is collapsed to keep the scan focused."
+          title="Woodside spotlight"
+          description="Latest Woodside coverage surfaced first."
           action={<span className="text-xs text-muted-foreground">Updated daily</span>}
         />
-        <details className="mt-4 rounded-lg border border-border bg-background">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-foreground">
-            View all updates
-          </summary>
-          <div className="space-y-3 px-4 pb-4">
-            {latestNews.map((article) => (
-              <NewsItem key={article.url} article={article} />
-            ))}
-          </div>
-        </details>
+        <div className="mt-4 space-y-3">
+          {woodsideSpotlight.map((article) => (
+            <NewsItem key={article.url} article={article} />
+          ))}
+          {woodsideSpotlight.length === 0 && (
+            <p className="text-sm text-muted-foreground">No Woodside headlines available yet.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <SectionHeading
+          title="All updates"
+          description="Everything from APAC, International, and Woodside feeds."
+          action={<span className="text-xs text-muted-foreground">Updated daily</span>}
+        />
+        <div className="mt-4 space-y-3">
+          {latestNews.map((article) => (
+            <NewsItem key={article.url} article={article} />
+          ))}
+          {latestNews.length === 0 && (
+            <p className="text-sm text-muted-foreground">No updates available yet.</p>
+          )}
+        </div>
       </section>
     </div>
   );

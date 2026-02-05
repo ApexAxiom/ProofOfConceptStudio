@@ -39,3 +39,42 @@ export function buildPlaceholderBrief(options: {
     tags: ["system-placeholder", options.reason]
   };
 }
+
+/**
+ * Builds a carry-forward brief using the most recent published content.
+ */
+export function buildCarryForwardBrief(options: {
+  agent: AgentConfig;
+  region: RegionSlug;
+  runWindow: RunWindow;
+  reason: PlaceholderReason;
+  previousBrief: BriefPost;
+  now?: Date;
+}): BriefPost {
+  const now = options.now ?? new Date();
+  const publishedAt = now.toISOString();
+  const briefDay = getBriefDayKey(options.region, now);
+  const statusLine =
+    options.reason === "no-updates"
+      ? "No new updates today. Carrying forward the most recent brief."
+      : "Brief generation failed. Carrying forward the most recent brief.";
+
+  const baseSummary = options.previousBrief.summary?.trim();
+  const summary = baseSummary ? `${statusLine} ${baseSummary}` : statusLine;
+
+  return {
+    ...options.previousBrief,
+    postId: crypto.randomUUID(),
+    region: options.region,
+    portfolio: options.agent.portfolio,
+    agentId: options.agent.id,
+    runWindow: options.runWindow,
+    status: "published",
+    generationStatus: options.reason,
+    publishedAt,
+    briefDay,
+    summary,
+    bodyMarkdown: `> ${statusLine}\n\n${options.previousBrief.bodyMarkdown}`,
+    tags: Array.from(new Set([...(options.previousBrief.tags ?? []), "carry-forward", options.reason]))
+  };
+}
