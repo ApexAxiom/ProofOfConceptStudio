@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BriefPost, buildSourceId, normalizeBriefSources, portfolioLabel, regionLabel } from "@proof/shared";
-import { categoryForPortfolio, getCategoryBadgeClass, CATEGORY_META } from "@proof/shared";
+import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 import { ProxiedImage } from "./ProxiedImage";
 import { extractValidUrl } from "../lib/url";
 import { inferSignals } from "../lib/signals";
@@ -44,6 +44,9 @@ function TimeAgo({ date }: { date: string }) {
   );
 }
 
+/**
+ * Renders a compact brief card for scan views.
+ */
 export function BriefCard({ brief }: { brief: BriefPost }) {
   const summary = truncate(previewText(brief) || brief.title);
   const normalizedSources = normalizeBriefSources(brief.sources);
@@ -64,10 +67,6 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
   const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
   const heroImageUrl = extractValidUrl(brief.heroImageUrl);
   const signals = inferSignals(brief);
-  const sourceCount = hasEvidence ? normalizedSources.length : 0;
-
-  // Get first article's key metrics if available
-  const keyMetrics = brief.selectedArticles?.[0]?.keyMetrics?.slice(0, 2);
 
   return (
     <article 
@@ -118,27 +117,12 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
             <span className="text-border">•</span>
             <span className="text-muted-foreground">{regionLabel(brief.region)}</span>
           </div>
-          <span className="font-mono text-muted-foreground">{sourceCount} src</span>
         </div>
         
         {/* Title - Editorial serif */}
         <h3 className="font-display text-base font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-primary transition-colors">
           {brief.title}
         </h3>
-        
-        {/* Key Metrics Strip */}
-        {keyMetrics && keyMetrics.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {keyMetrics.map((metric, idx) => (
-              <span 
-                key={idx} 
-                className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary"
-              >
-                {metric}
-              </span>
-            ))}
-          </div>
-        )}
         
         {/* Signals */}
         {signals.length > 0 && (
