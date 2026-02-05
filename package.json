@@ -11,6 +11,10 @@
     "run:international": "corepack pnpm --filter runner run cron:international",
     "run-briefs": "corepack pnpm --filter runner run run-briefs",
     "coverage:report": "corepack pnpm --filter runner run coverage:report",
+    "coverage:gate": "corepack pnpm --filter runner run coverage:report",
+    "coverage:fill": "corepack pnpm --filter runner run coverage:fill",
+    "backfill:brief-titles": "corepack pnpm --filter runner run backfill:brief-titles",
+    "backfill:brief-upgrade": "corepack pnpm --filter runner run backfill:brief-upgrade",
     "smoke:core": "corepack pnpm --filter api run latest-selection:smoke && corepack pnpm --filter runner run fallback:smoke && corepack pnpm --filter web run executive-dashboard:smoke"
   }
 }

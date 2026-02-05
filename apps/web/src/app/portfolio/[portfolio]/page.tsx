@@ -3,7 +3,7 @@ import { BriefPost, findPortfolio, portfolioLabel, regionLabel } from "@proof/sh
 import { fetchPosts } from "../../../lib/api";
 import { getPortfolioNews } from "../../../lib/portfolio-news";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
-import { BriefsTable } from "../../../components/BriefsTable";
+import { PortfolioBriefHistory } from "../../../components/PortfolioBriefHistory";
 
 interface PortfolioOverviewPageProps {
   params: Promise<{ portfolio: string }>;
@@ -31,9 +31,9 @@ function deriveWhatsHappening(briefs: BriefPost[]): {
   if (!latest) {
     return {
       summary:
-        "No published brief is available yet for this portfolio. A baseline brief is auto-published during the next coverage cycle.",
-      impact: ["Coverage monitor is tracking this portfolio and region pair for today’s publication window."],
-      actions: ["Review portfolio news and source links while the baseline brief initializes."]
+        "Baseline coverage is active for this portfolio while the next full intelligence cycle is published.",
+      impact: ["Coverage monitoring is active across both regions for this portfolio in today’s cycle."],
+      actions: ["Review latest portfolio news and source signals while baseline continuity is maintained."]
     };
   }
 
@@ -176,6 +176,31 @@ export default async function PortfolioOverviewPage({ params }: PortfolioOvervie
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
+        {history.length > 0 ? (
+          <PortfolioBriefHistory briefs={history} />
+        ) : (
+          <div className="space-y-2 rounded-lg border border-border bg-background p-4">
+            <h2 className="text-lg font-semibold text-foreground">Daily brief history</h2>
+            <p className="text-sm text-muted-foreground">Coverage fallback records are queued for this category.</p>
+            {fallbackHistory(portfolio).map((item) => (
+              <div key={item.postId} className="rounded-md border border-border bg-card p-3">
+                <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {regionLabel(item.region)} · {new Date(item.publishedAt).toLocaleDateString("en-US")}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        {history.length > 0 ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Latest published: {new Date(history[0].publishedAt).toLocaleDateString("en-US")} ·{" "}
+            {regionLabel(history[0].region)}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Latest portfolio news</h2>
         <p className="text-sm text-muted-foreground">Scoped to this category’s configured sources and query terms.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -189,43 +214,15 @@ export default async function PortfolioOverviewPage({ params }: PortfolioOvervie
             >
               <p className="text-sm font-semibold text-foreground line-clamp-2">{article.title}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {article.region} · {article.source} ·{" "}
+                {article.source} ·{" "}
                 {new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               </p>
-              {article.summary ? <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{article.summary}</p> : null}
             </a>
           ))}
           {portfolioNews.length === 0 ? (
             <p className="text-sm text-muted-foreground">News feed refresh in progress. Check back in the next run cycle.</p>
           ) : null}
         </div>
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold text-foreground">Daily brief history</h2>
-        <p className="text-sm text-muted-foreground">Chronological brief log across APAC and International regions.</p>
-        <div className="mt-4">
-          {history.length > 0 ? (
-            <BriefsTable briefs={history} showRegion variant="history" />
-          ) : (
-            <div className="space-y-2 rounded-lg border border-border bg-background p-4">
-              {fallbackHistory(portfolio).map((item) => (
-                <div key={item.postId} className="rounded-md border border-border bg-card p-3">
-                  <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {regionLabel(item.region)} · {new Date(item.publishedAt).toLocaleDateString("en-US")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {history.length > 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Latest published: {new Date(history[0].publishedAt).toLocaleDateString("en-US")} ·{" "}
-            {regionLabel(history[0].region)}
-          </p>
-        ) : null}
       </section>
     </div>
   );

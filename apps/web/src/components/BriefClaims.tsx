@@ -90,30 +90,25 @@ export function BriefClaims({ claims, sources }: { claims?: BriefClaim[]; source
                       )}
 
                       {claim.evidence && claim.evidence.length > 0 && (
-                        <details className="mt-3">
-                          <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-                            Show evidence
-                          </summary>
-                          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-                            {claim.evidence.map((evidence, idx) => (
-                              <div key={`${claim.id}-${idx}`} className="rounded-md border border-border bg-background p-3">
-                                <p className="text-foreground">{evidence.excerpt}</p>
-                                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                                  <span>Similarity: {evidence.similarity?.toFixed(2) ?? "n/a"}</span>
-                                  <span className="text-border">•</span>
-                                  <a
-                                    href={evidence.url}
-                                    target="_blank"
-                                    rel="noreferrer noopener"
-                                    className="text-primary hover:underline"
-                                  >
-                                    Open source
-                                  </a>
-                                </div>
+                        <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                          {claim.evidence.slice(0, 2).map((evidence, idx) => (
+                            <div key={`${claim.id}-${idx}`} className="rounded-md border border-border bg-background p-3">
+                              <p className="text-foreground">{evidence.excerpt}</p>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                                <span>Similarity: {evidence.similarity?.toFixed(2) ?? "n/a"}</span>
+                                <span className="text-border">•</span>
+                                <a
+                                  href={evidence.url}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="text-primary hover:underline"
+                                >
+                                  Open source
+                                </a>
                               </div>
-                            ))}
-                          </div>
-                        </details>
+                            </div>
+                          ))}
+                        </div>
                       )}
 
                       {claim.status !== "supported" && (!claim.evidence || claim.evidence.length === 0) && (

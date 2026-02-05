@@ -1,4 +1,11 @@
 import { getGoogleNewsFeeds, getPortfolioSources } from "@proof/shared";
+import {
+  cleanText,
+  dedupeNewsItems,
+  isLikelyJunkText,
+  resolvePublisherUrl,
+  splitPublisherFromTitle
+} from "./news-normalization";
 
 export interface PortfolioNewsArticle {
   title: string;
@@ -23,8 +30,8 @@ function parseTag(item: string, tag: string): string | null {
 
 function normalizeSummary(text?: string): string | undefined {
   if (!text) return undefined;
-  const clean = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return clean.length ? clean.slice(0, 180) : undefined;
+  const cleaned = cleanText(text);
+  return cleaned.length ? cleaned.slice(0, 180) : undefined;
 }
 
 function isFresh(iso: string): boolean {
@@ -49,45 +56,40 @@ async function fetchFeed(url: string, region: "APAC" | "INTL", sourceName: strin
 
     const xml = await response.text();
     const matches = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)).slice(0, MAX_ITEMS_PER_FEED);
-    const articles: PortfolioNewsArticle[] = [];
+    const articles = await Promise.all(
+      matches.map(async (match): Promise<PortfolioNewsArticle | null> => {
+        const item = match[1];
+        const rawTitle = parseTag(item, "title");
+        const link = parseTag(item, "link");
+        const pubDate = parseTag(item, "pubDate");
+        const description = parseTag(item, "description");
+        if (!rawTitle || !link) return null;
 
-    for (const match of matches) {
-      const item = match[1];
-      const title = parseTag(item, "title");
-      const link = parseTag(item, "link");
-      const pubDate = parseTag(item, "pubDate");
-      const description = parseTag(item, "description");
-      if (!title || !link) continue;
-      const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
-      if (!isFresh(publishedAt)) continue;
-      articles.push({
-        title: title.replace(/\s+/g, " ").trim(),
-        url: link,
-        source: sourceName,
-        publishedAt,
-        summary: normalizeSummary(description),
-        region
-      });
-    }
+        const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
+        if (!isFresh(publishedAt)) return null;
 
-    return articles;
+        const resolvedUrl = await resolvePublisherUrl(link);
+        const { title, publisher } = splitPublisherFromTitle(rawTitle);
+        const cleanTitle = cleanText(title);
+        if (!cleanTitle || isLikelyJunkText(cleanTitle)) return null;
+
+        return {
+          title: cleanTitle,
+          url: resolvedUrl,
+          source: publisher ?? sourceName,
+          publishedAt,
+          summary: normalizeSummary(description),
+          region
+        };
+      })
+    );
+
+    return articles.filter((article): article is PortfolioNewsArticle => Boolean(article));
   } catch {
     return [];
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function dedupeArticles(items: PortfolioNewsArticle[]): PortfolioNewsArticle[] {
-  const seen = new Set<string>();
-  const result: PortfolioNewsArticle[] = [];
-  for (const item of items) {
-    const key = `${item.url.toLowerCase()}::${item.title.toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(item);
-  }
-  return result;
 }
 
 function feedUrls(portfolio: string, region: "apac" | "intl"): Array<{ url: string; source: string }> {
@@ -114,8 +116,7 @@ export async function getPortfolioNews(portfolio: string, limit = 12): Promise<P
     Promise.all(intlFeeds.map((feed) => fetchFeed(feed.url, "INTL", feed.source))).then((list) => list.flat())
   ]);
 
-  return dedupeArticles([...apacArticles, ...intlArticles])
+  return dedupeNewsItems([...apacArticles, ...intlArticles])
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, limit);
 }
-

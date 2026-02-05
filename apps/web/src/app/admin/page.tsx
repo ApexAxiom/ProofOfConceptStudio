@@ -2,6 +2,16 @@
 import { useState } from "react";
 import { REGION_LIST, PORTFOLIOS } from "@proof/shared";
 
+interface FeedHealthEntry {
+  url: string;
+  name: string;
+  lastRegion: "au" | "us-mx-la-lng";
+  lastStatus: "ok" | "empty" | "error";
+  lastCheckedAt: string;
+  consecutiveFailures: number;
+  consecutiveEmpty: number;
+}
+
 function TerminalIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -27,6 +37,8 @@ export default function AdminPage() {
   const [agentId, setAgentId] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [message, setMessage] = useState("");
+  const [feedHealth, setFeedHealth] = useState<FeedHealthEntry[]>([]);
+  const [feedHealthUpdatedAt, setFeedHealthUpdatedAt] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   const runRequest = async (payload: {
@@ -77,6 +89,30 @@ export default function AdminPage() {
       setMessage("Failed to trigger run. Check console for details.");
     }
     setLoading(false);
+  };
+
+  const loadFeedHealth = async () => {
+    if (!adminToken) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/feed-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminToken, limit: 50 })
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage(JSON.stringify(json, null, 2));
+        return;
+      }
+      setFeedHealth(Array.isArray(json.entries) ? json.entries : []);
+      setFeedHealthUpdatedAt(typeof json.updatedAt === "string" ? json.updatedAt : "");
+    } catch (err) {
+      setMessage("Failed to load feed health.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -199,11 +235,45 @@ export default function AdminPage() {
               </>
             )}
           </button>
+          <button
+            onClick={loadFeedHealth}
+            disabled={loading || !adminToken}
+            className="btn-secondary"
+          >
+            Load Feed Health
+          </button>
           <span className="text-sm text-muted-foreground">
             {!adminToken && "Enter admin token to enable"}
           </span>
         </div>
       </div>
+
+      {/* Feed health */}
+      {feedHealth.length > 0 ? (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Feed health</h3>
+            <p className="text-xs text-muted-foreground">
+              Updated: {feedHealthUpdatedAt ? new Date(feedHealthUpdatedAt).toLocaleString("en-US") : "n/a"}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {feedHealth.slice(0, 15).map((entry) => (
+              <div key={entry.url} className="rounded-lg border border-border bg-background p-3 text-sm">
+                <p className="font-semibold text-foreground line-clamp-1">{entry.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{entry.url}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>Status: {entry.lastStatus}</span>
+                  <span>Region: {entry.lastRegion === "au" ? "APAC" : "INTL"}</span>
+                  <span>Empty streak: {entry.consecutiveEmpty}</span>
+                  <span>Failure streak: {entry.consecutiveFailures}</span>
+                  <span>Last check: {new Date(entry.lastCheckedAt).toLocaleString("en-US")}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Output */}
       {message && (

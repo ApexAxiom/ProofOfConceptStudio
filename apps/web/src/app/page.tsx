@@ -34,7 +34,6 @@ function NewsCard({ article }: { article: ExecutiveArticle }) {
         {article.domain ?? article.source} ·{" "}
         {new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
       </p>
-      {article.summary ? <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{article.summary}</p> : null}
     </a>
   );
 }
@@ -249,4 +248,3 @@ export default async function ExecutiveViewPage() {
     </div>
   );
 }
-

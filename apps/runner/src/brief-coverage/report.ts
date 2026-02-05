@@ -9,6 +9,7 @@ interface CoverageRow {
   region: RegionSlug;
   hasBriefToday: boolean;
   latestPublishedAt: string;
+  status: "published" | "carry-forward" | "baseline" | "stale" | "no-history";
 }
 
 function parseRegions(argv: string[]): RegionSlug[] {
@@ -21,13 +22,14 @@ function parseRegions(argv: string[]): RegionSlug[] {
 }
 
 function printTable(rows: CoverageRow[]): void {
-  const headers = ["Agent", "Portfolio", "Region", "HasToday", "LatestPublished"];
+  const headers = ["Agent", "Portfolio", "Region", "HasToday", "Status", "LatestPublished"];
   const widths = [
     Math.max(headers[0].length, ...rows.map((row) => row.agentId.length)),
     Math.max(headers[1].length, ...rows.map((row) => row.portfolio.length)),
     Math.max(headers[2].length, ...rows.map((row) => row.region.length)),
     headers[3].length,
-    Math.max(headers[4].length, ...rows.map((row) => row.latestPublishedAt.length))
+    Math.max(headers[4].length, ...rows.map((row) => row.status.length)),
+    Math.max(headers[5].length, ...rows.map((row) => row.latestPublishedAt.length))
   ];
 
   const rowToLine = (cells: string[]) =>
@@ -44,6 +46,7 @@ function printTable(rows: CoverageRow[]): void {
         row.portfolio,
         row.region,
         row.hasBriefToday ? "yes" : "no",
+        row.status,
         row.latestPublishedAt
       ])
     );
@@ -69,13 +72,30 @@ async function main() {
       ? latest.briefDay ?? getBriefDayKey(expectedAgent.region, new Date(latest.publishedAt))
       : undefined;
     const hasBriefToday = Boolean(dayKey && dayKey === expectedDayByRegion.get(expectedAgent.region));
+    const isCarryForward = Boolean(
+      latest &&
+        (latest.generationStatus === "no-updates" ||
+          latest.generationStatus === "generation-failed" ||
+          (latest.tags ?? []).some((tag) => tag.toLowerCase() === "carry-forward"))
+    );
+    const isBaseline = Boolean(latest && (latest.tags ?? []).some((tag) => tag.toLowerCase() === "baseline"));
+    const status: CoverageRow["status"] = !latest
+      ? "no-history"
+      : !hasBriefToday
+        ? "stale"
+        : isBaseline
+          ? "baseline"
+          : isCarryForward
+            ? "carry-forward"
+            : "published";
 
     rows.push({
       agentId: expectedAgent.agentId,
       portfolio: expectedAgent.portfolio,
       region: expectedAgent.region,
       hasBriefToday,
-      latestPublishedAt
+      latestPublishedAt,
+      status
     });
   }
 

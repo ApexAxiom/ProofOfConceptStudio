@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { selectAgentIdsForRun } from "./agents/selection.js";
 import { requiredArticleCount } from "./llm/prompts.js";
+import { getFeedHealthSnapshot } from "./ingest/feed-health.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
   const windowConfig = runWindow === "apac"
@@ -54,6 +55,21 @@ async function main() {
         articlesPerRun: requiredArticleCount(agent),
         feeds
       }))
+    };
+  });
+
+  fastify.get("/feed-health", async (request, reply) => {
+    if (!CRON_SECRET || request.headers.authorization !== `Bearer ${CRON_SECRET}`) {
+      reply.code(401).send({ error: "unauthorized" });
+      return;
+    }
+    const limitRaw = Number((request.query as { limit?: string | number })?.limit ?? 200);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 200;
+    const snapshot = await getFeedHealthSnapshot(limit);
+    return {
+      updatedAt: snapshot.updatedAt,
+      count: snapshot.entries.length,
+      entries: snapshot.entries
     };
   });
 

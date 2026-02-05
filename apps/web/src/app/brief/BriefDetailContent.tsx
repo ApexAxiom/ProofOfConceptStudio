@@ -1,6 +1,9 @@
 import Link from "next/link";
 import {
+  BriefCitedBullet,
   BriefPost,
+  BriefReportAction,
+  BriefReportImpactGroup,
   BriefSource,
   buildSourceId,
   normalizeBriefSources,
@@ -124,14 +127,49 @@ function sourceLabel(source: BriefSource): string {
   }
 }
 
+function sourcePublisher(source: BriefSource): string {
+  try {
+    return new URL(source.url).hostname.replace(/^www\./, "");
+  } catch {
+    return "source";
+  }
+}
+
+function sourceDate(source: BriefSource): string {
+  if (!source.publishedAt) return "n.d.";
+  return new Date(source.publishedAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+function citationLabel(sourceIds: string[], sourceNumberById: Map<string, number>): string {
+  const refs = Array.from(
+    new Set(sourceIds.map((sourceId) => sourceNumberById.get(sourceId)).filter((value): value is number => Number.isFinite(value)))
+  );
+  if (refs.length === 0) return "";
+  return refs.map((value) => `[${value}]`).join("");
+}
+
+function renderCitedBullet(
+  bullet: BriefCitedBullet,
+  sourceNumberById: Map<string, number>
+): string {
+  return `${bullet.text} ${citationLabel(bullet.sourceIds, sourceNumberById)}`.trim();
+}
+
 /**
  * Cohesive single-flow brief report.
  */
 export function BriefDetailContent({ brief }: { brief: BriefPost }) {
-  const summary = deriveSummary(brief);
-  const impact = deriveImpact(brief);
-  const actions = deriveActions(brief);
+  const fallbackSummary = deriveSummary(brief);
+  const fallbackImpact = deriveImpact(brief);
+  const fallbackActions = deriveActions(brief);
   const sources = deriveSources(brief);
+  const sourceNumberById = new Map(sources.map((source, index) => [source.sourceId, index + 1]));
+  const reportImpactGroups: BriefReportImpactGroup[] = brief.report?.impactGroups ?? [];
+  const reportActionGroups = brief.report?.actionGroups ?? [];
   const isCarryForward = brief.generationStatus === "no-updates" || brief.generationStatus === "generation-failed";
 
   return (
@@ -154,57 +192,109 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
         </div>
         {isCarryForward ? (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Carry-forward edition: published today because no material update or generation failure occurred in this cycle.
+            Carry-forward edition: published today because no material update was detected or the automated refresh was unavailable.
           </p>
         ) : null}
       </header>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Summary</h2>
-        <p className="mt-3 text-sm text-foreground leading-relaxed">{summary}</p>
+        {brief.report?.summaryBullets?.length ? (
+          <ul className="mt-3 space-y-2 text-sm text-foreground">
+            {brief.report.summaryBullets.map((bullet, idx) => (
+              <li key={`summary-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-foreground leading-relaxed">{fallbackSummary}</p>
+        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Impact</h2>
-        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-          {impact.map((item, idx) => (
-            <li key={`${item}-${idx}`} className="flex gap-2">
-              <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
+        {reportImpactGroups.length > 0 ? (
+          <div className="mt-3 space-y-4">
+            {reportImpactGroups.map((group) => (
+              <div key={group.label}>
+                <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
+                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                  {group.bullets.map((bullet, idx) => (
+                    <li key={`${group.label}-${idx}`} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                      <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            {fallbackImpact.map((item, idx) => (
+              <li key={`${item}-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Possible actions</h2>
-        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-          {actions.map((item, idx) => (
-            <li key={`${item}-${idx}`} className="flex gap-2">
-              <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
+        {reportActionGroups.length > 0 ? (
+          <div className="mt-3 space-y-4">
+            {reportActionGroups.map((group) => (
+              <div key={group.horizon}>
+                <h3 className="text-sm font-semibold text-foreground">{group.horizon}</h3>
+                <ul className="mt-2 space-y-3 text-sm text-muted-foreground">
+                  {group.actions.map((action, idx) => {
+                    const refs = citationLabel((action as BriefReportAction).sourceIds, sourceNumberById);
+                    return (
+                      <li key={`${group.horizon}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
+                        <p className="text-foreground font-medium">{action.action}</p>
+                        <p className="mt-1">Rationale: {action.rationale}</p>
+                        <p className="mt-1">Owner: {action.owner}</p>
+                        <p className="mt-1">
+                          Expected outcome / KPI: {action.expectedOutcome} {refs}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            {fallbackActions.map((item, idx) => (
+              <li key={`${item}-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Sources</h2>
-        <div className="mt-3 space-y-2">
-          {sources.map((source) => (
-            <a
-              key={source.sourceId}
-              href={source.url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="block rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition hover:border-primary/40"
-            >
-              <p className="font-medium line-clamp-1">{sourceLabel(source)}</p>
-              <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{source.url}</p>
-            </a>
+        <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
+          {sources.map((source, idx) => (
+            <li key={source.sourceId} className="rounded-lg border border-border bg-background px-3 py-2">
+              <span className="font-semibold text-foreground">[{idx + 1}] </span>
+              <span className="text-foreground">{sourceLabel(source)}</span>
+              <span> — {sourcePublisher(source)} ({sourceDate(source)}) — </span>
+              <a href={source.url} target="_blank" rel="noreferrer noopener" className="text-primary hover:underline break-all">
+                {source.url}
+              </a>
+            </li>
           ))}
           {sources.length === 0 ? <p className="text-sm text-muted-foreground">No source links were attached to this brief.</p> : null}
-        </div>
+        </ol>
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
@@ -218,4 +308,3 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
     </div>
   );
 }
-

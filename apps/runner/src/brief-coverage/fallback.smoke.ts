@@ -52,9 +52,8 @@ const baseline = resolveFallbackBrief({
 });
 
 assert.equal(baseline.generationStatus, "generation-failed");
-assert.ok(baseline.summary?.toLowerCase().includes("first-time baseline"));
+assert.ok(baseline.summary?.toLowerCase().includes("baseline coverage"));
 assert.ok((baseline.sources ?? []).length > 0);
 assert.ok(baseline.tags?.includes("baseline"));
 
 console.log("fallback.smoke passed");
-

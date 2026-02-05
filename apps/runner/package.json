@@ -14,6 +14,9 @@
     "brief-day:smoke": "tsx src/brief-day.smoke.ts",
     "fallback:smoke": "tsx src/brief-coverage/fallback.smoke.ts",
     "coverage:report": "tsx src/brief-coverage/report.ts",
+    "coverage:fill": "tsx src/brief-coverage/fill-missing.ts",
+    "backfill:brief-titles": "tsx src/backfill/brief-titles.ts",
+    "backfill:brief-upgrade": "tsx src/backfill/brief-upgrade.ts",
     "validate:briefs": "tsx src/validate-briefs.ts",
     "render:smoke": "tsx src/llm/render.smoke.ts",
     "cron:apac": "tsx src/cli.ts apac",
@@ -36,7 +39,8 @@
     "jsdom": "24.0.0",
     "openai": "4.56.0",
     "undici": "6.19.8",
-    "yaml": "2.4.5"
+    "yaml": "2.4.5",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/jsdom": "21.1.7",

@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { AgentFeed } from "@proof/shared";
 import { request } from "undici";
+import { cleanText, resolvePublisherUrl } from "./news-normalization.js";
 
 // Browser-like headers to avoid 403/400 errors from RSS feeds
 const RSS_HEADERS = {
@@ -63,19 +64,27 @@ async function fetchRssWithRetry(feed: AgentFeed, maxRetries = 3): Promise<any[]
       // Handle single item (not array)
       const itemArray = Array.isArray(items) ? items : [items];
       
-      const results = itemArray
-        .map((item: any) => ({
-          title: item.title?._text || item.title || "",
-          link: item.link?.["@_href"] || item.link?.href || item.link || item.guid || "",
-          pubDate: item.pubDate || item.updated || item.published || item["dc:date"]
-        }))
-        .filter((i: any) => i.link && typeof i.link === "string");
+      const results = await Promise.all(
+        itemArray.map(async (item: any) => {
+          const rawTitle = item.title?._text || item.title || "";
+          const rawLink = item.link?.["@_href"] || item.link?.href || item.link || item.guid || "";
+          const title = cleanText(String(rawTitle || ""));
+          if (!rawLink || typeof rawLink !== "string" || !title) return null;
+          const resolvedLink = await resolvePublisherUrl(String(rawLink));
+          return {
+            title,
+            link: resolvedLink,
+            pubDate: item.pubDate || item.updated || item.published || item["dc:date"]
+          };
+        })
+      );
+      const filtered = results.filter((item): item is NonNullable<typeof item> => Boolean(item));
       
-      if (results.length > 0) {
-        console.log(`RSS feed ${feed.name} returned ${results.length} items`);
+      if (filtered.length > 0) {
+        console.log(`RSS feed ${feed.name} returned ${filtered.length} items`);
       }
       
-      return results;
+      return filtered;
     } catch (err) {
       lastError = err as Error;
       console.warn(`RSS feed ${feed.name} attempt ${attempt}/${maxRetries} failed:`, (err as Error).message);

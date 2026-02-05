@@ -1,4 +1,11 @@
-import { BriefMarketIndicator, SelectedArticle, RegionSlug, REGIONS } from "@proof/shared";
+import {
+  BriefMarketIndicator,
+  BriefReport,
+  BriefSource,
+  RegionSlug,
+  REGIONS,
+  SelectedArticle
+} from "@proof/shared";
 
 interface RenderParams {
   title: string;
@@ -124,4 +131,88 @@ export function renderBriefMarkdown({
   }
 
   return lines.join("\n\n");
+}
+
+interface RenderProcurementReportParams {
+  title: string;
+  regionLabel: string;
+  portfolioLabel: string;
+  runWindow: string;
+  publishedAtISO: string;
+  region: RegionSlug;
+  report: BriefReport;
+  sources: BriefSource[];
+}
+
+function citationTag(sourceIds: string[], numberBySourceId: Map<string, number>): string {
+  const numbers = Array.from(new Set(sourceIds.map((sourceId) => numberBySourceId.get(sourceId)).filter(Boolean)));
+  if (numbers.length === 0) return "";
+  return numbers.map((value) => `[${value}]`).join("");
+}
+
+/**
+ * Renders the structured procurement report markdown in the required 4-section format.
+ */
+export function renderProcurementReportMarkdown({
+  title,
+  regionLabel,
+  portfolioLabel,
+  runWindow,
+  publishedAtISO,
+  region,
+  report,
+  sources
+}: RenderProcurementReportParams): string {
+  const publishedAt = formatDateForRegion(publishedAtISO, region);
+  const numberedSources = sources.map((source, index) => ({ ...source, number: index + 1 }));
+  const numberBySourceId = new Map(numberedSources.map((source) => [source.sourceId, source.number]));
+  const lines: string[] = [];
+
+  lines.push(`# ${title}`);
+  lines.push("", `**Region:** ${regionLabel}`, `**Portfolio:** ${portfolioLabel}`, `**Edition:** ${runWindow.toUpperCase()}`);
+  lines.push(`**Published:** ${publishedAt}`);
+
+  lines.push("", "## Summary");
+  for (const bullet of report.summaryBullets) {
+    lines.push(`- ${bullet.text} ${citationTag(bullet.sourceIds, numberBySourceId)}`.trim());
+  }
+
+  lines.push("", "## Impact");
+  for (const group of report.impactGroups) {
+    lines.push(`### ${group.label}`);
+    for (const bullet of group.bullets) {
+      lines.push(`- ${bullet.text} ${citationTag(bullet.sourceIds, numberBySourceId)}`.trim());
+    }
+    lines.push("");
+  }
+
+  lines.push("## Possible actions");
+  for (const group of report.actionGroups) {
+    lines.push(`### ${group.horizon}`);
+    for (const action of group.actions) {
+      const refs = citationTag(action.sourceIds, numberBySourceId);
+      lines.push(`- **Action:** ${action.action}`);
+      lines.push(`  - **Rationale:** ${action.rationale}`);
+      lines.push(`  - **Owner:** ${action.owner}`);
+      lines.push(`  - **Expected outcome / KPI:** ${action.expectedOutcome} ${refs}`.trim());
+    }
+    lines.push("");
+  }
+
+  lines.push("## Sources");
+  for (const source of numberedSources) {
+    let publisher = "";
+    try {
+      publisher = source.url ? new URL(source.url).hostname.replace(/^www\./, "") : "";
+    } catch {
+      publisher = "";
+    }
+    const date = source.publishedAt
+      ? new Date(source.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "n.d.";
+    const titleOrDomain = source.title?.trim() || publisher || source.url;
+    lines.push(`${source.number}. ${titleOrDomain} — ${publisher || "Source"} (${date}) — ${source.url}`);
+  }
+
+  return lines.join("\n");
 }

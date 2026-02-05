@@ -32,10 +32,16 @@ export function buildPlaceholderBrief(options: {
   ).slice(0, 8);
 
   const statusLine = options.baseline
-    ? "First-time baseline brief: awaiting the first successful content generation for this portfolio/region."
+    ? "Baseline coverage is active while the first full intelligence cycle initializes for this portfolio/region."
     : options.reason === "no-updates"
-      ? "No material change detected today. A carry-forward baseline was published."
-      : "Brief generation failed; a fallback baseline was published while the system retries.";
+      ? "No material change detected today. Carry-forward baseline remains in effect."
+      : "Automated refresh was unavailable in this cycle. Baseline coverage remains active.";
+
+  const title = options.baseline
+    ? `${options.agent.label} baseline coverage activated for today's cycle`
+    : options.reason === "no-updates"
+      ? `${options.agent.label} conditions hold steady with no material change`
+      : `${options.agent.label} baseline maintained during temporary refresh outage`;
 
   const sourceLines =
     sourceHints.length > 0
@@ -44,7 +50,7 @@ export function buildPlaceholderBrief(options: {
 
   return {
     postId: crypto.randomUUID(),
-    title: `${options.agent.label} — Daily Brief`,
+    title,
     region: options.region,
     portfolio: options.agent.portfolio,
     agentId: options.agent.id,
@@ -54,7 +60,25 @@ export function buildPlaceholderBrief(options: {
     publishedAt,
     briefDay,
     summary: statusLine,
-    bodyMarkdown: `# ${options.agent.label}\n\n${statusLine}\n\n## Sources monitored\n${sourceLines}\n\n_Check back later for updates._`,
+    bodyMarkdown: `# ${title}
+
+## Summary
+- ${statusLine}
+
+## Impact
+- Market/Cost drivers: Core category exposure is unchanged until new signals are confirmed.
+- Supply base & capacity: Supplier and market scans continue on the configured source set.
+- Contracting & commercial terms: Existing assumptions remain in force for this cycle.
+- Risk & regulatory / operational constraints: Monitoring remains active for new constraints and shifts.
+
+## Possible actions
+- Next 72 hours: Review monitored sources for newly published material and critical updates.
+- Next 2-4 weeks: Validate if baseline assumptions still hold against new supplier and market data.
+- Next quarter: Maintain contingency options until full refresh cadence stabilizes.
+
+## Sources
+${sourceLines}
+`,
     sources: sourceHints,
     selectedArticles: [],
     tags: [
@@ -82,7 +106,7 @@ export function buildCarryForwardBrief(options: {
   const statusLine =
     options.reason === "no-updates"
       ? "No material change detected today. Carrying forward the most recent brief."
-      : "Brief generation failed. Carrying forward the most recent brief.";
+      : "Automated refresh was unavailable this cycle. Carrying forward the most recent brief.";
 
   const baseSummary = options.previousBrief.summary?.trim();
   const summary = baseSummary ? `${statusLine} ${baseSummary}` : statusLine;

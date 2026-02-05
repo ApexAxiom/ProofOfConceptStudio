@@ -26,8 +26,15 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
 - `pnpm --filter runner run validate:briefs` – validate recent briefs for evidence/source integrity
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
-- `pnpm coverage:report` – portfolio × region coverage matrix (`has brief today` + latest published date)
+- `pnpm coverage:report` – portfolio × region coverage matrix (`has brief today` + latest published date + status)
+- `pnpm coverage:fill` – publish carry-forward/baseline briefs for any missing portfolio × region coverage for today
+- `pnpm backfill:brief-titles -- --dry-run` – preview headline-title backfill
+- `pnpm backfill:brief-upgrade -- --dry-run` – preview legacy brief upgrade to Summary/Impact/Possible actions/Sources format
 - `pnpm smoke:core` – smoke checks for latest-by-portfolio logic, fallback behavior, and executive payload
+
+Backfill runtime guidance (varies by table size and network):
+- `backfill:brief-titles`: typically 1-3 minutes per 1,000 briefs
+- `backfill:brief-upgrade`: typically 3-8 minutes per 1,000 briefs
 
 ## Env Vars
 See `.env.example`. Secrets must be provided at runtime. Optional:

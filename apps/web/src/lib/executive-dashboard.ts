@@ -1,5 +1,13 @@
 import { getPortfolioSources } from "@proof/shared";
 import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
+import {
+  cleanText,
+  dedupeNewsItems,
+  extractDomain,
+  isLikelyJunkText,
+  resolvePublisherUrl,
+  splitPublisherFromTitle
+} from "./news-normalization";
 
 export type ExecutiveRegion = "apac" | "international" | "woodside";
 
@@ -135,18 +143,6 @@ const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
   ]
 };
 
-function dedupeByUrlAndTitle(articles: ExecutiveArticle[]): ExecutiveArticle[] {
-  const seen = new Set<string>();
-  const output: ExecutiveArticle[] = [];
-  for (const article of articles) {
-    const key = `${article.url.toLowerCase()}::${article.title.toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push(article);
-  }
-  return output;
-}
-
 function parseTagValue(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
   if (cdata?.[1]) return cdata[1].trim();
@@ -167,14 +163,6 @@ function matchesKeywords(text: string, keywords: string[]): boolean {
   return keywords.some((keyword) => haystack.includes(keyword));
 }
 
-function extractDomain(url: string): string | undefined {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return undefined;
-  }
-}
-
 async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
@@ -192,32 +180,38 @@ async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
 
     const xml = await response.text();
     const itemMatches = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)).slice(0, MAX_ITEMS_PER_FEED);
-    const articles: ExecutiveArticle[] = [];
+    const articleCandidates = await Promise.all(
+      itemMatches.map(async (match): Promise<ExecutiveArticle | null> => {
+        const item = match[1];
+        const rawTitle = parseTagValue(item, "title");
+        const rawLink = parseTagValue(item, "link");
+        const pubDate = parseTagValue(item, "pubDate");
+        const description = parseTagValue(item, "description");
+        const imageMatch = item.match(/url="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/i);
+        const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
 
-    for (const match of itemMatches) {
-      const item = match[1];
-      const title = parseTagValue(item, "title");
-      const link = parseTagValue(item, "link");
-      const pubDate = parseTagValue(item, "pubDate");
-      const description = parseTagValue(item, "description");
-      const imageMatch = item.match(/url="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/i);
-      const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
+        if (!rawTitle || !rawLink || !looksFresh(publishedAt)) return null;
+        const resolvedUrl = await resolvePublisherUrl(rawLink);
+        const { title, publisher } = splitPublisherFromTitle(rawTitle);
+        const cleanTitle = cleanText(title);
+        if (!cleanTitle || isLikelyJunkText(cleanTitle)) return null;
+        const domain = extractDomain(resolvedUrl);
 
-      if (!title || !link || !looksFresh(publishedAt)) continue;
-      articles.push({
-        title: title.replace(/\s+/g, " ").trim(),
-        url: link,
-        source: feed.source,
-        publishedAt,
-        category: feed.category,
-        region: feed.region,
-        summary: description?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180),
-        imageUrl: imageMatch?.[1],
-        domain: extractDomain(link)
-      });
-    }
+        return {
+          title: cleanTitle,
+          url: resolvedUrl,
+          source: publisher ?? domain ?? feed.source,
+          publishedAt,
+          category: feed.category,
+          region: feed.region,
+          summary: cleanText(description ?? "").slice(0, 180),
+          imageUrl: imageMatch?.[1],
+          domain
+        };
+      })
+    );
 
-    return articles;
+    return articleCandidates.filter((article): article is ExecutiveArticle => Boolean(article));
   } catch {
     return [];
   } finally {
@@ -227,7 +221,7 @@ async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
 
 async function collectSectionArticles(feeds: RssFeed[], keywords: string[]): Promise<ExecutiveArticle[]> {
   const buckets = await Promise.all(feeds.map((feed) => fetchRssFeed(feed)));
-  const merged = dedupeByUrlAndTitle(buckets.flat())
+  const merged = dedupeNewsItems(buckets.flat())
     .filter((article) => matchesKeywords(`${article.title} ${article.summary ?? ""}`, keywords))
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, SECTION_LIMIT);
@@ -287,4 +281,3 @@ export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPay
     }
   };
 }
-

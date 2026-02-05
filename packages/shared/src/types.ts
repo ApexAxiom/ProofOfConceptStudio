@@ -200,6 +200,36 @@ export interface BriefSource {
 
 export type BriefSourceInput = BriefSource | string;
 
+export interface BriefCitedBullet {
+  text: string;
+  sourceIds: string[];
+  signal?: "confirmed" | "early-signal" | "unconfirmed";
+}
+
+export interface BriefReportImpactGroup {
+  label: string;
+  bullets: BriefCitedBullet[];
+}
+
+export interface BriefReportAction {
+  action: string;
+  rationale: string;
+  owner: "Category" | "Contracts" | "Legal" | "Ops";
+  expectedOutcome: string;
+  sourceIds: string[];
+}
+
+export interface BriefReportActionGroup {
+  horizon: "Next 72 hours" | "Next 2-4 weeks" | "Next quarter";
+  actions: BriefReportAction[];
+}
+
+export interface BriefReport {
+  summaryBullets: BriefCitedBullet[];
+  impactGroups: BriefReportImpactGroup[];
+  actionGroups: BriefReportActionGroup[];
+}
+
 export interface BriefPost {
   postId: string;
   title: string;
@@ -255,6 +285,7 @@ export interface BriefPost {
   cmSnapshot?: CmSnapshot;
   decisionSummary?: DecisionSummary;
   marketSnapshot?: BriefMarketSnapshotItem[];
+  report?: BriefReport;
 }
 
 export interface RunLog {

@@ -4,6 +4,7 @@ import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js
 import { dedupeArticles } from "./dedupe.js";
 import { normalizeForDedupe } from "./url-normalize.js";
 import { getRecentlyUsedUrls } from "../db/used-urls.js";
+import { FeedAttempt, recordFeedAttempts } from "./feed-health.js";
 
 export interface ArticleCandidate {
   title: string;
@@ -23,12 +24,47 @@ const MIN_CONTENT_LEN = 300; // Reduced from 400 to allow more articles with goo
 const EMPTY_CONTENT_PENALTY = 5;
 const THIN_CONTENT_PENALTY = 2;
 
-function computeKeywordScore(text: string, categoryKeywords: string[], generalKeywords: string[]): number {
-  if (!text) return 0;
+const COMMON_EXCLUDE_KEYWORDS = [
+  "celebrity",
+  "entertainment",
+  "movie",
+  "gaming",
+  "lottery",
+  "horoscope"
+];
+
+function deriveKeywordPack(portfolioSlug: string): { primary: string[]; secondary: string[]; exclude: string[] } {
+  const keywords = keywordsForPortfolio(portfolioSlug).map((keyword) => keyword.toLowerCase());
+  const primary = keywords.slice(0, 4);
+  const secondary = keywords.slice(4);
+  return { primary, secondary, exclude: COMMON_EXCLUDE_KEYWORDS };
+}
+
+function countMatches(text: string, keywords: string[]): number {
+  if (!text || keywords.length === 0) return 0;
   const haystack = text.toLowerCase();
-  const categoryScore = categoryKeywords.reduce((acc, kw) => (haystack.includes(kw) ? acc + 2 : acc), 0);
-  const generalScore = generalKeywords.reduce((acc, kw) => (haystack.includes(kw) ? acc + 1 : acc), 0);
-  return categoryScore + generalScore;
+  return keywords.reduce((acc, keyword) => (haystack.includes(keyword.toLowerCase()) ? acc + 1 : acc), 0);
+}
+
+function computeKeywordSignals(
+  text: string,
+  primaryKeywords: string[],
+  secondaryKeywords: string[],
+  excludeKeywords: string[],
+  generalKeywords: string[]
+): {
+  primaryMatches: number;
+  secondaryMatches: number;
+  generalMatches: number;
+  hasExclude: boolean;
+  score: number;
+} {
+  const primaryMatches = countMatches(text, primaryKeywords);
+  const secondaryMatches = countMatches(text, secondaryKeywords);
+  const generalMatches = countMatches(text, generalKeywords);
+  const hasExclude = countMatches(text, excludeKeywords) > 0;
+  const score = primaryMatches * 4 + secondaryMatches * 2 + generalMatches;
+  return { primaryMatches, secondaryMatches, generalMatches, hasExclude, score };
 }
 
 const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
@@ -39,6 +75,7 @@ const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
     { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
     { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
+    { name: "EIA Press Releases", url: "https://www.eia.gov/rss/press_rss.xml", type: "rss" }
   ],
   "au": [
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
@@ -96,6 +133,7 @@ const BASE_REGULATORY_PACK: Record<RegionSlug, AgentFeed[]> = {
     { name: "Federal Register (Energy)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=energy", type: "rss" },
     { name: "Federal Register (Oil & Gas)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=oil%20gas", type: "rss" },
     { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
+    { name: "EIA Press Releases", url: "https://www.eia.gov/rss/press_rss.xml", type: "rss" },
     { name: "BSEE Newsroom", url: "https://www.bsee.gov/newsroom", type: "web" },
     { name: "BOEM Newsroom", url: "https://www.boem.gov/newsroom", type: "web" },
     { name: "OSHA News Releases", url: "https://www.osha.gov/news/newsreleases", type: "web" },
@@ -163,15 +201,27 @@ function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[
 async function fetchFromFeeds(
   feeds: AgentFeed[],
   maxArticles: number,
-  attemptedFeeds: Set<string>
+  attemptedFeeds: Set<string>,
+  context: { agentId: string; region: RegionSlug }
 ): Promise<ArticleCandidate[]> {
   const collected: ArticleCandidate[] = [];
+  const feedAttempts: FeedAttempt[] = [];
 
   for (const feed of feeds) {
+    const checkedAt = new Date().toISOString();
     attemptedFeeds.add(feed.url);
     try {
       if (feed.type === "rss") {
         const items = await fetchRss(feed);
+        feedAttempts.push({
+          url: feed.url,
+          name: feed.name,
+          agentId: context.agentId,
+          region: context.region,
+          checkedAt,
+          status: items.length > 0 ? "ok" : "empty",
+          itemCount: items.length
+        });
         collected.push(
           ...items.slice(0, maxArticles).map((i: any) => ({
             title: i.title,
@@ -182,6 +232,15 @@ async function fetchFromFeeds(
         );
       } else {
         const links = await shallowScrape(feed.url, maxArticles);
+        feedAttempts.push({
+          url: feed.url,
+          name: feed.name,
+          agentId: context.agentId,
+          region: context.region,
+          checkedAt,
+          status: links.length > 0 ? "ok" : "empty",
+          itemCount: links.length
+        });
         collected.push(
           ...links.map((l) => ({
             title: l.title,
@@ -191,9 +250,23 @@ async function fetchFromFeeds(
         );
       }
     } catch (err) {
+      feedAttempts.push({
+        url: feed.url,
+        name: feed.name,
+        agentId: context.agentId,
+        region: context.region,
+        checkedAt,
+        status: "error",
+        itemCount: 0,
+        error: (err as Error).message
+      });
       console.error(`Feed error for ${feed.name}:`, err);
     }
   }
+
+  await recordFeedAttempts(feedAttempts).catch((error) => {
+    console.warn(`[${context.agentId}/${context.region}] Failed to persist feed health`, (error as Error).message);
+  });
   
   return collected;
 }
@@ -212,7 +285,10 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   
   // Step 1: Fetch from primary feeds
   const attemptedFeeds = new Set<string>();
-  let collected = await fetchFromFeeds(feeds, agent.maxArticlesToConsider, attemptedFeeds);
+  let collected = await fetchFromFeeds(feeds, agent.maxArticlesToConsider, attemptedFeeds, {
+    agentId: agent.id,
+    region
+  });
   console.log(`[${agent.id}/${region}] Primary feeds returned ${collected.length} articles`);
   
   // Step 2: If not enough articles, use fallback feeds
@@ -228,7 +304,10 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
     const newFallbacks = fallbackFeeds.filter((f) => !primaryUrls.has(f.url));
     
     if (newFallbacks.length > 0) {
-      const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider, attemptedFeeds);
+      const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider, attemptedFeeds, {
+        agentId: agent.id,
+        region
+      });
       collected = [...collected, ...fallbackArticles];
       console.log(`[${agent.id}/${region}] After fallback feeds: ${collected.length} articles`);
     }
@@ -319,15 +398,25 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   ];
   
   // Score articles by keyword relevance
-  const categoryKeywords = keywordsForPortfolio(agent.portfolio).map((k) => k.toLowerCase());
+  const keywordPack = deriveKeywordPack(agent.portfolio);
+  const primaryKeywords = keywordPack.primary;
+  const secondaryKeywords = keywordPack.secondary;
+  const excludeKeywords = keywordPack.exclude;
 
-  const scored = dedupeSafeList
+  const scoredAll = dedupeSafeList
     .map((item) => {
-      const hay = `${item.title} ${item.url}`;
-      const score = computeKeywordScore(hay, categoryKeywords, generalKeywords);
-      return { ...item, score };
+      const hay = `${item.title} ${item.url} ${item.summary ?? ""}`.toLowerCase();
+      const signals = computeKeywordSignals(hay, primaryKeywords, secondaryKeywords, excludeKeywords, generalKeywords);
+      return { ...item, ...signals };
     })
+    .filter((item) => !item.hasExclude)
     .sort((a, b) => b.score - a.score);
+
+  const primaryQualified = scoredAll.filter((item) => item.primaryMatches > 0);
+  const scored =
+    primaryQualified.length >= minNeeded
+      ? primaryQualified
+      : scoredAll;
   
   // Take top 12 candidates for detailed extraction (increased from 10 for more options)
   const top = scored.slice(0, 12);
@@ -373,10 +462,20 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   const rankedByContent = articles
     .map((article, idx) => {
       const contentLen = (article.content ?? "").trim().length;
-      const contentScore = computeKeywordScore(article.content ?? "", categoryKeywords, generalKeywords);
+      const contentSignals = computeKeywordSignals(
+        article.content ?? "",
+        primaryKeywords,
+        secondaryKeywords,
+        excludeKeywords,
+        generalKeywords
+      );
       const baseScore = top[idx]?.score ?? 0;
       const penalty = contentLen === 0 ? EMPTY_CONTENT_PENALTY : contentLen < MIN_CONTENT_LEN ? THIN_CONTENT_PENALTY : 0;
-      return { article: { ...article, contentStatus: contentLen >= MIN_CONTENT_LEN ? "ok" : "thin" }, combinedScore: baseScore + contentScore - penalty };
+      const excludePenalty = contentSignals.hasExclude ? 3 : 0;
+      return {
+        article: { ...article, contentStatus: contentLen >= MIN_CONTENT_LEN ? "ok" : "thin" },
+        combinedScore: baseScore + contentSignals.score - penalty - excludePenalty
+      };
     })
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .map((entry) => entry.article);

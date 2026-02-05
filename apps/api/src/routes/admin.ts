@@ -55,6 +55,20 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const json = await res.json();
     return reply.status(res.status).send(json);
   });
+
+  fastify.get("/feed-health", async (request, reply) => {
+    const limitRaw = Number((request.query as { limit?: string | number })?.limit ?? 200);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 200;
+    const res = await fetch(`${RUNNER_BASE_URL}/feed-health?limit=${limit}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${getCronSecret()}`,
+        "Content-Type": "application/json"
+      }
+    });
+    const json = await res.json();
+    return reply.status(res.status).send(json);
+  });
 };
 
 export default adminRoutes;

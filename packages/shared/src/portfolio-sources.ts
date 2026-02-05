@@ -3,7 +3,7 @@
  * Each portfolio has dedicated sources from the verified README.
  */
 
-import { keywordsForPortfolio } from "./keywords.js";
+import { keywordPackForPortfolio } from "./keywords.js";
 
 export interface PortfolioSource {
   name: string;
@@ -295,7 +295,9 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "MarketWatch Energy", url: "https://www.marketwatch.com/investing/futures/crude-oil", region: "both" },
       { name: "LNG Industry", url: "https://www.lngindustry.com/", region: "both", rssUrl: "https://www.lngindustry.com/rss/" },
       { name: "S&P Global Energy", url: "https://www.spglobal.com/commodityinsights/en/commodities/energy", region: "both" },
-      { name: "EIA Today in Energy", url: "https://www.eia.gov/todayinenergy/", region: "intl" },
+      { name: "EIA Today in Energy", url: "https://www.eia.gov/todayinenergy/", region: "intl", rssUrl: "https://www.eia.gov/rss/todayinenergy.xml" },
+      { name: "EIA Press Releases", url: "https://www.eia.gov/pressroom/releases.php", region: "intl", rssUrl: "https://www.eia.gov/rss/press_rss.xml" },
+      { name: "EIA Testimony", url: "https://www.eia.gov/about/testimony.php", region: "intl", rssUrl: "https://www.eia.gov/rss/testimony.xml" },
       { name: "AEMO Gas Bulletin", url: "https://aemo.com.au/en/energy-systems/gas/gas-bulletin-board-gbb", region: "apac" },
     ],
     indices: [
@@ -372,8 +374,8 @@ export function getGoogleNewsFeeds(
   portfolioSlug: string,
   region: "apac" | "intl"
 ): PortfolioSource[] {
-  // Get keywords from keywords.ts
-  const keywords = keywordsForPortfolio(portfolioSlug);
+  const pack = keywordPackForPortfolio(portfolioSlug);
+  const keywords = [...pack.primary, ...pack.secondary];
   if (keywords.length === 0) return [];
   
   // Select top keywords for search queries (prefer multi-word terms)
@@ -385,8 +387,8 @@ export function getGoogleNewsFeeds(
 
   // Region-specific modifiers
   const regionModifiers: Record<"apac" | "intl", string[]> = {
-    apac: ["Australia", "APAC", "Perth", "Asia Pacific"],
-    intl: ["US", "United States", "Mexico", "LNG", "Gulf of Mexico"]
+    apac: ["Australia", "APAC", "Perth", "Asia Pacific", "LNG"],
+    intl: ["US", "United States", "Mexico", "Senegal", "Gulf of Mexico", "LNG"]
   };
 
   const modifiers = regionModifiers[region];
@@ -432,9 +434,10 @@ export function getGoogleNewsFeeds(
     
     // Google News RSS format
     const countryCode = region === "apac" ? "AU" : "US";
+    const language = region === "apac" ? "en-AU" : "en-US";
     const ceid = region === "apac" ? "AU:en" : "US:en";
     
-    const rssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=en-US&gl=${countryCode}&ceid=${ceid}&when=1d`;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=${language}&gl=${countryCode}&ceid=${ceid}&when=7d`;
     
     feeds.push({
       name: `Google News: ${query}`,
