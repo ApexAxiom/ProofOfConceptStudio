@@ -75,10 +75,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       extractValidUrl(normalizedSources[0]?.url)
     : undefined;
   const signals = inferSignals(brief);
-  const keyData = Array.from(
-    new Set(selectedArticles.flatMap((article) => article.keyMetrics ?? []))
-  ).slice(0, 3);
-
   const decisionSummary = brief.decisionSummary;
   const whatChanged = decisionSummary?.whatChanged?.length
     ? decisionSummary.whatChanged
@@ -143,17 +139,9 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {signals.map((signal) => (
+          {signals.slice(0, 3).map((signal) => (
             <span key={signal.type} className="signal-chip text-[10px]">
               {signal.label}
-            </span>
-          ))}
-          {keyData.map((metric) => (
-            <span
-              key={metric}
-              className="inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary"
-            >
-              {metric}
             </span>
           ))}
         </div>
@@ -174,8 +162,10 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-card p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Decision Memo</p>
-            {brief.summary && (
+            {brief.summary ? (
               <p className="mt-3 text-base font-medium text-foreground">{brief.summary}</p>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Summary will appear once the brief is fully populated.</p>
             )}
           </div>
 
@@ -195,24 +185,24 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             )}
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="text-sm font-semibold text-foreground">Category impact</h2>
-            {brief.vpSnapshot?.health?.narrative ? (
-              <p className="mt-2 text-sm text-muted-foreground">{brief.vpSnapshot.health.narrative}</p>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">Impact narrative will appear as briefs mature.</p>
-            )}
-            {brief.vpSnapshot?.topSignals?.length ? (
-              <div className="mt-4 space-y-2">
-                {brief.vpSnapshot.topSignals.slice(0, 3).map((signal, idx) => (
-                  <div key={`${signal.title}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
-                    <p className="text-sm font-semibold text-foreground">{signal.title}</p>
-                    <p className="text-xs text-muted-foreground">Impact: {signal.impact}</p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          {(brief.vpSnapshot?.health?.narrative || brief.vpSnapshot?.topSignals?.length) && (
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h2 className="text-sm font-semibold text-foreground">Category impact</h2>
+              {brief.vpSnapshot?.health?.narrative && (
+                <p className="mt-2 text-sm text-muted-foreground">{brief.vpSnapshot.health.narrative}</p>
+              )}
+              {brief.vpSnapshot?.topSignals?.length ? (
+                <div className="mt-4 space-y-2">
+                  {brief.vpSnapshot.topSignals.slice(0, 3).map((signal, idx) => (
+                    <div key={`${signal.title}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
+                      <p className="text-sm font-semibold text-foreground">{signal.title}</p>
+                      <p className="text-xs text-muted-foreground">Impact: {signal.impact}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {watchThisWeek.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5">
@@ -244,130 +234,125 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
               </ul>
             )}
           </div>
-
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="text-sm font-semibold text-foreground">Supplier radar</h2>
-            {(brief.cmSnapshot?.supplierRadar ?? []).length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">No supplier signals logged.</p>
-            ) : (
-              <ul className="mt-3 space-y-3 text-sm text-foreground">
-                {brief.cmSnapshot?.supplierRadar.slice(0, 4).map((item, idx) => (
-                  <li key={`${item.supplier}-${idx}`}>
-                    <p className="font-semibold">{item.supplier}</p>
-                    <p className="text-xs text-muted-foreground">{item.signal}</p>
-                    <p className="text-xs text-muted-foreground">Next: {item.nextStep}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="text-sm font-semibold text-foreground">Negotiation levers</h2>
-            {(brief.cmSnapshot?.negotiationLevers ?? []).length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">No levers captured.</p>
-            ) : (
-              <ul className="mt-3 space-y-2 text-sm text-foreground">
-                {brief.cmSnapshot?.negotiationLevers.slice(0, 4).map((item, idx) => (
-                  <li key={`${item.lever}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
-                    <p className="font-semibold">{item.lever}</p>
-                    <p className="text-xs text-muted-foreground">{item.whenToUse}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="text-sm font-semibold text-foreground">Risks & triggers</h2>
-            {(brief.vpSnapshot?.riskRegister ?? []).length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">No risks captured.</p>
-            ) : (
-              <ul className="mt-3 space-y-3 text-sm text-foreground">
-                {brief.vpSnapshot?.riskRegister.slice(0, 4).map((risk, idx) => (
-                  <li key={`${risk.risk}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
-                    <p className="font-semibold">{risk.risk}</p>
-                    <p className="text-xs text-muted-foreground">Trigger: {risk.trigger}</p>
-                    <p className="text-xs text-muted-foreground">Mitigation: {risk.mitigation}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </div>
       </section>
 
       <section className="space-y-4">
         <details className="rounded-xl border border-border bg-card">
           <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground">
-            Evidence & sources
+            Supporting intelligence
           </summary>
           <div className="space-y-6 px-5 pb-5">
-            <div className="text-xs text-muted-foreground">
-              {hasEvidence ? (
-                <span>Evidence-backed: {evidenceStats.supported} | Analysis: {evidenceStats.analysis}</span>
-              ) : (
-                <span>Evidence unavailable for legacy brief.</span>
-              )}
+            {(brief.cmSnapshot?.supplierRadar ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Supplier radar</h3>
+                <ul className="mt-3 space-y-3 text-sm text-foreground">
+                  {brief.cmSnapshot?.supplierRadar.slice(0, 4).map((item, idx) => (
+                    <li key={`${item.supplier}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
+                      <p className="font-semibold">{item.supplier}</p>
+                      <p className="text-xs text-muted-foreground">{item.signal}</p>
+                      <p className="text-xs text-muted-foreground">Next: {item.nextStep}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(brief.cmSnapshot?.negotiationLevers ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Negotiation levers</h3>
+                <ul className="mt-3 space-y-2 text-sm text-foreground">
+                  {brief.cmSnapshot?.negotiationLevers.slice(0, 4).map((item, idx) => (
+                    <li key={`${item.lever}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
+                      <p className="font-semibold">{item.lever}</p>
+                      <p className="text-xs text-muted-foreground">{item.whenToUse}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(brief.vpSnapshot?.riskRegister ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Risks & triggers</h3>
+                <ul className="mt-3 space-y-3 text-sm text-foreground">
+                  {brief.vpSnapshot?.riskRegister.slice(0, 4).map((risk, idx) => (
+                    <li key={`${risk.risk}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
+                      <p className="font-semibold">{risk.risk}</p>
+                      <p className="text-xs text-muted-foreground">Trigger: {risk.trigger}</p>
+                      <p className="text-xs text-muted-foreground">Mitigation: {risk.mitigation}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-border bg-background p-4">
+              <h3 className="text-sm font-semibold text-foreground">Evidence & sources</h3>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {hasEvidence ? (
+                  <span>Evidence-backed: {evidenceStats.supported} | Analysis: {evidenceStats.analysis}</span>
+                ) : (
+                  <span>Evidence will appear once sources are mapped.</span>
+                )}
+              </div>
+              {hasEvidence && <BriefClaims claims={brief.claims} sources={brief.sources} />}
+              {selectedArticles.length > 0 && <ArticleList articles={selectedArticles} />}
+              {sources.length > 0 && <FooterSources sources={brief.sources} />}
             </div>
-            {hasEvidence && <BriefClaims claims={brief.claims} sources={brief.sources} />}
-            {selectedArticles.length > 0 && <ArticleList articles={selectedArticles} />}
-            {sources.length > 0 && <FooterSources sources={brief.sources} />}
+
+            {(brief.marketSnapshot?.length || brief.marketIndicators?.length) && (
+              <div className="rounded-lg border border-border bg-background p-4">
+                <h3 className="text-sm font-semibold text-foreground">Market & benchmarks</h3>
+                <div className="mt-3 space-y-4">
+                  {brief.marketSnapshot && brief.marketSnapshot.length > 0 && (
+                    <MarketSnapshotTiles items={brief.marketSnapshot} />
+                  )}
+                  {brief.marketIndicators && brief.marketIndicators.length > 0 && (
+                    <ul className="space-y-3">
+                      {brief.marketIndicators.map((indicator) => (
+                        <li key={indicator.id} className="rounded-lg border border-border bg-background px-3 py-2">
+                          <p className="text-sm font-semibold text-foreground">{indicator.label}</p>
+                          <p className="text-xs text-muted-foreground">{indicator.note}</p>
+                          {indicator.url && (
+                            <a
+                              href={indicator.url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                              View source
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              </svg>
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {brief.bodyMarkdown && (
+              <div className="rounded-lg border border-border bg-background p-4">
+                <h3 className="text-sm font-semibold text-foreground">Export & appendix</h3>
+                <div className="prose prose-sm max-w-none pt-4 dark:prose-invert prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[
+                      rehypeSanitize,
+                      [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
+                    ]}
+                  >
+                    {brief.bodyMarkdown}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
           </div>
         </details>
-
-        <details className="rounded-xl border border-border bg-card">
-          <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground">
-            Market & benchmarks
-          </summary>
-          <div className="space-y-6 px-5 pb-5">
-            {brief.marketSnapshot && brief.marketSnapshot.length > 0 && (
-              <MarketSnapshotTiles items={brief.marketSnapshot} />
-            )}
-            {brief.marketIndicators && brief.marketIndicators.length > 0 && (
-              <ul className="space-y-3">
-                {brief.marketIndicators.map((indicator) => (
-                  <li key={indicator.id} className="rounded-lg border border-border bg-background px-3 py-2">
-                    <p className="text-sm font-semibold text-foreground">{indicator.label}</p>
-                    <p className="text-xs text-muted-foreground">{indicator.note}</p>
-                    {indicator.url && (
-                      <a
-                        href={indicator.url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      >
-                        View source
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                        </svg>
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </details>
-
-        {brief.bodyMarkdown && (
-          <details className="rounded-xl border border-border bg-card">
-            <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-foreground">
-              Export & appendix
-            </summary>
-            <div className="prose prose-sm max-w-none px-5 pb-5 pt-4 dark:prose-invert prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[
-                  rehypeSanitize,
-                  [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
-                ]}
-              >
-                {brief.bodyMarkdown}
-              </ReactMarkdown>
-            </div>
-          </details>
-        )}
       </section>
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5">

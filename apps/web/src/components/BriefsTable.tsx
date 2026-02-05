@@ -2,8 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
-import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
+import { BriefPost, portfolioLabel } from "@proof/shared";
 import { inferSignals } from "../lib/signals";
 
 interface BriefsTableProps {
@@ -40,6 +39,9 @@ function regionBadge(brief: BriefPost): string {
   return "🌎 INTL";
 }
 
+/**
+ * Renders a filtered and sortable briefs table.
+ */
 export function BriefsTable({ briefs, showRegion = true, variant = "full" }: BriefsTableProps) {
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -206,9 +208,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
               <tr className="border-b border-border bg-secondary/20">
                 <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Time</th>
                 {showRegion && <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Region</th>}
-                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Category</th>
                 <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground min-w-[250px]">Brief</th>
-                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Key Data</th>
                 <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Signals</th>
                 <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"></th>
               </tr>
@@ -216,7 +216,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
             <tbody className="divide-y divide-border/50">
               {filteredAndSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={showRegion ? 7 : 6} className="px-4 py-16 text-center">
+                  <td colSpan={showRegion ? 5 : 4} className="px-4 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
                         <svg className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -229,10 +229,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                 </tr>
               ) : (
                 filteredAndSorted.map((brief) => {
-                  const category = categoryForPortfolio(brief.portfolio);
-                  const meta = CATEGORY_META[category];
                   const signals = inferSignals(brief);
-                  const keyMetrics = brief.selectedArticles?.[0]?.keyMetrics?.slice(0, 2);
 
                   return (
                     <tr key={brief.postId} className="group hover:bg-secondary/20 transition-colors">
@@ -251,20 +248,6 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                           <span className="text-sm">{brief.region === "au" ? "🇦🇺 AU" : "🇺🇸 US"}</span>
                         </td>
                       )}
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span 
-                            className="h-2 w-2 rounded-full flex-shrink-0 transition-transform group-hover:scale-125" 
-                            style={{ 
-                              backgroundColor: meta.color,
-                              boxShadow: `0 0 6px ${meta.color}40`
-                            }} 
-                          />
-                          <span className="text-sm text-foreground font-medium truncate max-w-[140px]" title={portfolioLabel(brief.portfolio)}>
-                            {portfolioLabel(brief.portfolio)}
-                          </span>
-                        </div>
-                      </td>
                       <td className="px-4 py-4">
                         <Link 
                           href={`/brief/${brief.postId}`}
@@ -273,22 +256,6 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                         >
                           {brief.title}
                         </Link>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {keyMetrics && keyMetrics.length > 0 ? (
-                            keyMetrics.map((metric, idx) => (
-                              <span 
-                                key={idx} 
-                                className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary"
-                              >
-                                {metric}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-1.5">
