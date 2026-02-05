@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { REGION_LIST } from "@proof/shared";
+import { ThemeToggle } from "../ThemeToggle";
 
 const primaryNav = [
   { href: "/", label: "Morning Scan" },
@@ -69,6 +70,7 @@ export function TopNav() {
               {item.label}
             </Link>
           ))}
+          <ThemeToggle />
         </div>
       </div>
     </header>
