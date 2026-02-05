@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from "fastify";
 import { REGION_LIST } from "@proof/shared";
-import { filterPosts, getPost, getRegionPosts } from "../db/posts.js";
+import { filterPosts, getPost, getRegionPosts, latestPerPortfolio } from "../db/posts.js";
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async (request, reply) => {
@@ -20,7 +20,18 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
       return;
     }
-    return getRegionPosts(region).then((posts) => posts.slice(0, 30));
+    return getRegionPosts(region, 120).then((posts) => posts.slice(0, 30));
+  });
+
+  fastify.get("/latest-by-portfolio", async (request, reply) => {
+    const { region } = request.query as Record<string, string>;
+    const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
+    if (!region || !validRegions.has(region)) {
+      reply.code(400).send({ error: "region is required and must be a valid RegionSlug" });
+      return;
+    }
+    const posts = await getRegionPosts(region, 800);
+    return latestPerPortfolio(posts);
   });
 
   fastify.get<{ Params: { postId: string } }>("/:postId", async (request) => {

@@ -4,11 +4,13 @@
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "scripts": {
-    "dev": "pnpm -r --parallel dev --filter web --filter api --filter runner",
-    "lint": "pnpm -r lint",
-    "build": "pnpm -r build",
-    "run:apac": "pnpm --filter runner run cron:apac",
-    "run:international": "pnpm --filter runner run cron:international",
-    "run-briefs": "pnpm --filter runner run run-briefs"
+    "dev": "corepack pnpm -r --parallel dev --filter web --filter api --filter runner",
+    "lint": "corepack pnpm -r lint",
+    "build": "corepack pnpm -r build",
+    "run:apac": "corepack pnpm --filter runner run cron:apac",
+    "run:international": "corepack pnpm --filter runner run cron:international",
+    "run-briefs": "corepack pnpm --filter runner run run-briefs",
+    "coverage:report": "corepack pnpm --filter runner run coverage:report",
+    "smoke:core": "corepack pnpm --filter api run latest-selection:smoke && corepack pnpm --filter runner run fallback:smoke && corepack pnpm --filter web run executive-dashboard:smoke"
   }
 }

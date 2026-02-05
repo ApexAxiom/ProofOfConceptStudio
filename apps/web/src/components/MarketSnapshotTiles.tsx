@@ -52,8 +52,10 @@ export function MarketSnapshotTiles({ items }: { items: BriefMarketSnapshotItem[
                   {formatChange(item.change)} ({formatChange(item.changePercent)}%)
                 </div>
               </div>
-              {item.isFallback && (
-                <p className="text-xs text-amber-500">Fallback price used</p>
+              {(item.dataState || item.isFallback) && (
+                <p className="text-xs text-amber-500">
+                  Data state: {item.dataState ?? (item.isFallback ? "fallback" : "live")}
+                </p>
               )}
             </div>
           );

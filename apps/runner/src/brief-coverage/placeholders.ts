@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AgentConfig, BriefPost, RegionSlug, RunWindow, getBriefDayKey } from "@proof/shared";
+import { AgentConfig, BriefPost, RegionSlug, RunWindow, buildSourceId, getBriefDayKey } from "@proof/shared";
 
 export type PlaceholderReason = "no-updates" | "generation-failed";
 
@@ -11,15 +11,36 @@ export function buildPlaceholderBrief(options: {
   region: RegionSlug;
   runWindow: RunWindow;
   reason: PlaceholderReason;
+  baseline?: boolean;
   now?: Date;
 }): BriefPost {
   const now = options.now ?? new Date();
   const publishedAt = now.toISOString();
   const briefDay = getBriefDayKey(options.region, now);
-  const statusLine =
-    options.reason === "no-updates"
-      ? "No updates were found for this category today."
-      : "Brief generation failed; the system will retry.";
+  const sourceHints = Array.from(
+    new Map(
+      (options.agent.feedsByRegion[options.region] ?? []).map((feed) => [
+        feed.url,
+        {
+          sourceId: buildSourceId(feed.url),
+          title: feed.name,
+          url: feed.url,
+          retrievedAt: publishedAt
+        }
+      ])
+    ).values()
+  ).slice(0, 8);
+
+  const statusLine = options.baseline
+    ? "First-time baseline brief: awaiting the first successful content generation for this portfolio/region."
+    : options.reason === "no-updates"
+      ? "No material change detected today. A carry-forward baseline was published."
+      : "Brief generation failed; a fallback baseline was published while the system retries.";
+
+  const sourceLines =
+    sourceHints.length > 0
+      ? sourceHints.map((source) => `- ${source.title}: ${source.url}`).join("\n")
+      : "- No source endpoints are currently configured.";
 
   return {
     postId: crypto.randomUUID(),
@@ -33,10 +54,14 @@ export function buildPlaceholderBrief(options: {
     publishedAt,
     briefDay,
     summary: statusLine,
-    bodyMarkdown: `# ${options.agent.label}\n\n${statusLine}\n\n_Check back later for updates._`,
-    sources: [],
+    bodyMarkdown: `# ${options.agent.label}\n\n${statusLine}\n\n## Sources monitored\n${sourceLines}\n\n_Check back later for updates._`,
+    sources: sourceHints,
     selectedArticles: [],
-    tags: ["system-placeholder", options.reason]
+    tags: [
+      "system-placeholder",
+      options.reason,
+      ...(options.baseline ? ["baseline"] : [])
+    ]
   };
 }
 
@@ -56,7 +81,7 @@ export function buildCarryForwardBrief(options: {
   const briefDay = getBriefDayKey(options.region, now);
   const statusLine =
     options.reason === "no-updates"
-      ? "No new updates today. Carrying forward the most recent brief."
+      ? "No material change detected today. Carrying forward the most recent brief."
       : "Brief generation failed. Carrying forward the most recent brief.";
 
   const baseSummary = options.previousBrief.summary?.trim();

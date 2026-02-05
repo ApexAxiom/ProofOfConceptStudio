@@ -34,7 +34,7 @@ export function BriefsPreview({ briefs, region, portfolio }: BriefsPreviewProps)
           <span>Latest Briefs</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          No briefs yet. Briefs will appear here once runs complete.
+          Coverage refresh in progress. A baseline or carry-forward brief will appear for this cycle.
         </p>
       </div>
     );

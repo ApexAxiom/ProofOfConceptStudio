@@ -3,7 +3,9 @@
  * Use this shared utility instead of duplicating getCategoryColor logic across components.
  */
 
-export type CategoryGroup = "energy" | "steel" | "freight" | "services" | "cyber" | "facility";
+import { portfolioCategoryGroup, PortfolioCategoryGroup } from "./portfolio-catalog.js";
+
+export type CategoryGroup = PortfolioCategoryGroup;
 
 export interface CategoryMeta {
   id: CategoryGroup;
@@ -72,30 +74,12 @@ export const CATEGORY_META: Record<CategoryGroup, CategoryMeta> = {
   }
 };
 
-const PORTFOLIO_CATEGORY_MAP: Record<string, CategoryGroup> = {
-  "rigs-integrated-drilling": "energy",
-  "drilling-services": "energy",
-  "wells-materials-octg": "steel",
-  "completions-intervention": "energy",
-  "pa-decommissioning": "energy",
-  "subsea-surf-offshore": "energy",
-  "projects-epc-epcm-construction": "energy",
-  "major-equipment-oem-ltsa": "energy",
-  "ops-maintenance-services": "energy",
-  "mro-site-consumables": "steel",
-  "logistics-marine-aviation": "freight",
-  "site-services-facilities": "facility",
-  "market-dashboard": "energy",
-  "it-telecom-cyber": "cyber",
-  "professional-services-hr": "services"
-};
-
 /**
  * Determines the category group for a given portfolio slug.
  */
 export function categoryForPortfolio(slug: string): CategoryGroup {
   const lowerSlug = slug.toLowerCase();
-  const mapped = PORTFOLIO_CATEGORY_MAP[lowerSlug];
+  const mapped = portfolioCategoryGroup(lowerSlug);
   if (mapped) {
     return mapped;
   }

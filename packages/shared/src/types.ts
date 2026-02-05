@@ -150,6 +150,7 @@ export interface BriefMarketSnapshotItem {
   changePercent: number;
   asOf: string;
   sourceUrl: string;
+  dataState?: "live" | "stale" | "fallback";
   isFallback?: boolean;
 }
 

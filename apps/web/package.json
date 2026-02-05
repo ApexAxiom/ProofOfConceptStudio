@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node start.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "executive-dashboard:smoke": "tsx src/lib/executive-dashboard.smoke.ts"
   },
   "dependencies": {
-    "@proof/shared": "file:../../packages/shared",
     "@aws-sdk/client-secrets-manager": "^3.958.0",
+    "@proof/shared": "file:../../packages/shared",
     "clsx": "^2.1.1",
     "next": "15.0.7",
     "next-themes": "^0.4.6",
@@ -31,6 +32,7 @@
     "eslint-config-next": "15.0.7",
     "postcss": "8.4.38",
     "tailwindcss": "3.4.13",
+    "tsx": "^4.21.0",
     "typescript": "5.4.5"
   }
 }

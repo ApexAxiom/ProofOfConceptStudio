@@ -78,8 +78,19 @@ function pickLatestPerPortfolio(briefs: BriefPost[]): BriefPost[] {
  * Fetch the latest brief for each portfolio in a region, using mock posts when the API is unreachable.
  */
 export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[]> {
-  const posts = await fetchPosts({ region, limit: 200 });
-  return pickLatestPerPortfolio(posts);
+  try {
+    const apiBaseUrl = await getApiBaseUrl();
+    const res = await fetch(`${apiBaseUrl}/posts/latest-by-portfolio?region=${region}`, { cache: "no-store" });
+    if (!res.ok) {
+      const posts = await fetchPosts({ region, limit: 400 });
+      return pickLatestPerPortfolio(posts);
+    }
+    const posts = (await res.json()) as BriefPost[];
+    return pickLatestPerPortfolio(posts);
+  } catch {
+    const posts = await fetchPosts({ region, limit: 400 });
+    return pickLatestPerPortfolio(posts);
+  }
 }
 
 /**

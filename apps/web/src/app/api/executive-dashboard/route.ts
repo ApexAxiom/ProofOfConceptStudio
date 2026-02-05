@@ -3,7 +3,7 @@ import { getExecutiveDashboardData } from "../../../lib/executive-dashboard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 86_400; // refresh daily
+export const revalidate = 3_600; // refresh hourly
 
 export async function GET() {
   try {

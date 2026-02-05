@@ -15,7 +15,8 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
         return;
       }
 
-      const agents = await res.json();
+      const payload = await res.json();
+      const agents = Array.isArray(payload) ? payload : payload?.agents ?? [];
       return { agents };
     } catch (err) {
       request.log.error({ err }, "Failed to load agents from runner");

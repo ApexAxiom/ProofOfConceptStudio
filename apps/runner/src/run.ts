@@ -1,8 +1,10 @@
-import { BriefPost, REGIONS, RegionSlug, RunWindow, getBriefDayKey, indicesForRegion } from "@proof/shared";
+import { BriefPost, REGIONS, RegionSlug, RunWindow, getBriefDayKey, indicesForRegion, runWindowForRegion } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { auditCoverage } from "./brief-coverage/audit.js";
-import { buildCarryForwardBrief, buildPlaceholderBrief, PlaceholderReason } from "./brief-coverage/placeholders.js";
-import { ingestAgent, ArticleDetail } from "./ingest/fetch.js";
+import { expectedCoverageDayKey } from "./brief-coverage/day.js";
+import { PlaceholderReason } from "./brief-coverage/placeholders.js";
+import { resolveFallbackBrief } from "./brief-coverage/fallback.js";
+import { ingestAgent, ArticleDetail, IngestResult } from "./ingest/fetch.js";
 import { generateBrief } from "./llm/openai.js";
 import type { ArticleInput } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
@@ -46,6 +48,106 @@ async function runWithTimeout<T>(task: Promise<T>, timeoutMs: number, label: str
   }
 }
 
+async function publishFallbackBrief(options: {
+  agent: ReturnType<typeof loadAgents>[number];
+  region: RegionSlug;
+  runWindow: RunWindow;
+  runId: string;
+  reason: PlaceholderReason;
+  previousBrief?: BriefPost | null;
+  ingestResult?: IngestResult;
+  now?: Date;
+}): Promise<RunResult> {
+  const ingestResult: IngestResult =
+    options.ingestResult ?? {
+      articles: [],
+      scannedSources: [],
+      metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 }
+    };
+
+  const brief = resolveFallbackBrief({
+    agent: options.agent,
+    region: options.region,
+    runWindow: options.runWindow,
+    reason: options.reason,
+    previousBrief: options.previousBrief,
+    now: options.now
+  });
+
+  try {
+    await publishBrief(brief, ingestResult, options.runId);
+    const status = options.reason === "no-updates" ? "no-updates" : "published";
+    await logRunResult(options.runId, options.agent.id, options.region, status);
+    return { agentId: options.agent.id, region: options.region, ok: true, status };
+  } catch (error) {
+    const message = (error as Error).message;
+    await logRunResult(options.runId, options.agent.id, options.region, "failed", message);
+    return { agentId: options.agent.id, region: options.region, ok: false, status: "failed", error: message };
+  }
+}
+
+function dayKeyToMiddayUtc(dayKey: string): Date {
+  return new Date(`${dayKey}T12:00:00.000Z`);
+}
+
+async function backfillMissedDay(options: {
+  regions: RegionSlug[];
+  runId: string;
+  agentIds?: string[];
+}): Promise<void> {
+  const emptyIngest = {
+    articles: [],
+    scannedSources: [],
+    metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 }
+  };
+  const agents = loadAgents();
+
+  for (const region of options.regions) {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const previousDayKey = getBriefDayKey(region, yesterday);
+    const coverage = await auditCoverage({
+      regions: [region],
+      dayKey: previousDayKey,
+      agentIds: options.agentIds
+    });
+
+    if (coverage.missingAgents.length === 0) continue;
+    const targetDate = dayKeyToMiddayUtc(previousDayKey);
+
+    for (const missing of coverage.missingAgents) {
+      const agent = agents.find((candidate) => candidate.id === missing.agentId);
+      if (!agent) continue;
+      const previousBrief = await getLatestPublishedBrief({
+        portfolio: agent.portfolio,
+        region: missing.region,
+        beforeIso: targetDate.toISOString()
+      });
+
+      await publishFallbackBrief({
+        agent,
+        region: missing.region,
+        runWindow: runWindowForRegion(missing.region),
+        runId: options.runId,
+        reason: "no-updates",
+        previousBrief,
+        ingestResult: emptyIngest,
+        now: targetDate
+      });
+    }
+
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "coverage_backfill_published",
+        runId: options.runId,
+        region,
+        dayKey: previousDayKey,
+        missingCount: coverage.missingAgents.length
+      })
+    );
+  }
+}
+
 async function publishPlaceholder({
   agentId,
   region,
@@ -67,16 +169,24 @@ async function publishPlaceholder({
     return { agentId, region, ok: false, status: "failed", error };
   }
 
-  const brief = buildPlaceholderBrief({ agent, region, runWindow, reason });
-  try {
-    await publishBrief(brief, { articles: [], scannedSources: [], metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } }, runId);
-    await logRunResult(runId, agent.id, region, reason === "no-updates" ? "no-updates" : "failed");
-    return { agentId: agent.id, region, ok: true, status: reason === "no-updates" ? "no-updates" : "failed" };
-  } catch (error) {
-    console.error(`[${agentId}/${region}] Placeholder publish failed:`, { briefDay: brief.briefDay }, error);
-    await logRunResult(runId, agent.id, region, "failed", (error as Error).message);
-    return { agentId: agent.id, region, ok: false, status: "failed", error: (error as Error).message };
+  const previousBrief = await getLatestPublishedBrief({
+    portfolio: agent.portfolio,
+    region,
+    beforeIso: new Date().toISOString()
+  });
+  const fallback = await publishFallbackBrief({
+    agent,
+    region,
+    runWindow,
+    runId,
+    reason,
+    previousBrief,
+    ingestResult: { articles: [], scannedSources: [], metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } }
+  });
+  if (!fallback.ok) {
+    console.error(`[${agentId}/${region}] Placeholder publish failed`, fallback.error);
   }
+  return fallback;
 }
 
 type ArticleSource = Omit<ArticleDetail, "contentStatus"> & {
@@ -149,13 +259,16 @@ export async function handleCron(
     { published: 0, noUpdates: 0, failed: 0 }
   );
 
-  const auditRegions = regionList ?? (Object.keys(REGIONS) as RegionSlug[]);
+  const allRegions = Object.keys(REGIONS) as RegionSlug[];
+  const auditRegions = opts?.scheduled ? allRegions : (regionList ?? allRegions);
+  const coverageAgentIds = opts?.scheduled ? undefined : opts?.agentIds;
+  const coverageDayByRegion = new Map(auditRegions.map((region) => [region, expectedCoverageDayKey(region, new Date())]));
   const coverageResults = await Promise.all(
     auditRegions.map((region) =>
       auditCoverage({
         regions: [region],
-        dayKey: getBriefDayKey(region, new Date()),
-        agentIds: opts?.agentIds
+        dayKey: coverageDayByRegion.get(region) ?? expectedCoverageDayKey(region, new Date()),
+        agentIds: coverageAgentIds
       })
     )
   );
@@ -176,7 +289,11 @@ export async function handleCron(
     );
 
     const rerunTasks = missingByRegion.map((missing) => () =>
-      runWithTimeout(runAgent(missing.agentId, missing.region, runWindow, runId), 10 * 60 * 1000, `rerun-${missing.agentId}`)
+      runWithTimeout(
+        runAgent(missing.agentId, missing.region, runWindowForRegion(missing.region), runId),
+        10 * 60 * 1000,
+        `rerun-${missing.agentId}`
+      )
         .catch((error) => ({
           agentId: missing.agentId,
           region: missing.region,
@@ -191,8 +308,8 @@ export async function handleCron(
       auditRegions.map((region) =>
         auditCoverage({
           regions: [region],
-          dayKey: getBriefDayKey(region, new Date()),
-          agentIds: opts?.agentIds
+          dayKey: coverageDayByRegion.get(region) ?? expectedCoverageDayKey(region, new Date()),
+          agentIds: coverageAgentIds
         })
       )
     );
@@ -201,7 +318,14 @@ export async function handleCron(
       const placeholderTasks = stillMissing.map((missing) => {
         const priorResult = rerunResults.find((result) => result.agentId === missing.agentId && result.region === missing.region);
         const reason: PlaceholderReason = priorResult?.status === "no-updates" ? "no-updates" : "generation-failed";
-        return () => publishPlaceholder({ agentId: missing.agentId, region: missing.region, runWindow, runId, reason });
+        return () =>
+          publishPlaceholder({
+            agentId: missing.agentId,
+            region: missing.region,
+            runWindow: runWindowForRegion(missing.region),
+            runId,
+            reason
+          });
       });
       await runWithLimit(placeholderTasks, 2);
       console.warn(
@@ -224,6 +348,23 @@ export async function handleCron(
         expectedCount: coverageResults.reduce((total, coverage) => total + coverage.expectedAgents.length, 0),
         writtenCount: coverageResults.reduce((total, coverage) => total + coverage.publishedBriefs.length, 0),
         missingCount: 0
+      })
+    );
+  }
+
+  try {
+    await backfillMissedDay({
+      regions: auditRegions,
+      runId,
+      agentIds: coverageAgentIds
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "coverage_backfill_failed",
+        runId,
+        error: (error as Error).message
       })
     );
   }
@@ -284,22 +425,16 @@ export async function runAgent(
         region,
         beforeIso: new Date().toISOString()
       });
-      if (previousBrief) {
-        const carryForward = buildCarryForwardBrief({
-          agent,
-          region,
-          runWindow,
-          reason: "generation-failed",
-          previousBrief
-        });
-        try {
-          await publishBrief(carryForward, emptyIngestResult, runIdentifier);
-          await logRunResult(runIdentifier, agent.id, region, "published");
-          return { agentId: agent.id, region, ok: true, status: "published" };
-        } catch (publishError) {
-          console.error(`[${agentId}/${region}] Failed to publish carry-forward brief`, publishError);
-        }
-      }
+      const fallback = await publishFallbackBrief({
+        agent,
+        region,
+        runWindow,
+        runId: runIdentifier,
+        reason: "generation-failed",
+        previousBrief,
+        ingestResult: emptyIngestResult
+      });
+      if (fallback.ok) return fallback;
       await logRunResult(runIdentifier, agent.id, region, "failed", error);
       return { agentId: agent.id, region, ok: false, status: "failed", error };
     }
@@ -317,24 +452,18 @@ export async function runAgent(
         region,
         beforeIso: new Date().toISOString()
       });
-      if (previousBrief) {
-        const carryForward = buildCarryForwardBrief({
-          agent,
-          region,
-          runWindow,
-          reason: "no-updates",
-          previousBrief
-        });
-        try {
-          await publishBrief(carryForward, ingestResult, runIdentifier);
-          await logRunResult(runIdentifier, agent.id, region, "no-updates", error);
-          return { agentId: agent.id, region, ok: true, status: "no-updates", error };
-        } catch (publishError) {
-          console.error(`[${agentId}/${region}] Failed to publish carry-forward brief`, publishError);
-        }
-      }
-      await logRunResult(runIdentifier, agent.id, region, "no-updates", error);
-      return { agentId: agent.id, region, ok: true, status: "no-updates", error };
+      const fallback = await publishFallbackBrief({
+        agent,
+        region,
+        runWindow,
+        runId: runIdentifier,
+        reason: "no-updates",
+        previousBrief,
+        ingestResult
+      });
+      if (fallback.ok) return { ...fallback, error };
+      await logRunResult(runIdentifier, agent.id, region, "failed", error);
+      return { agentId: agent.id, region, ok: false, status: "failed", error };
     }
     
     if (articles.length < minRequired) {
@@ -501,22 +630,16 @@ export async function runAgent(
     if (issues.length > 0 || !validatedBrief) {
       console.error(`[${agentId}/${region}] Final validation failed:`, issues);
 
-      if (previousBrief) {
-        const carryForward = buildCarryForwardBrief({
-          agent,
-          region,
-          runWindow,
-          reason: "generation-failed",
-          previousBrief
-        });
-        try {
-          await publishBrief(carryForward, ingestResult, runIdentifier);
-          await logRunResult(runIdentifier, agent.id, region, "published", issues.join("; "));
-          return { agentId: agent.id, region, ok: true, status: "published" };
-        } catch (publishError) {
-          console.error(`[${agentId}/${region}] Failed to publish carry-forward brief`, publishError);
-        }
-      }
+      const fallback = await publishFallbackBrief({
+        agent,
+        region,
+        runWindow,
+        runId: runIdentifier,
+        reason: "generation-failed",
+        previousBrief,
+        ingestResult
+      });
+      if (fallback.ok) return { ...fallback, error: issues.join("; ") };
 
       const failedBrief = {
         ...brief,

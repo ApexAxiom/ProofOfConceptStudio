@@ -12,6 +12,8 @@
     "evidence:smoke": "tsx src/publish/evidence.smoke.ts",
     "selection:smoke": "tsx src/agents/selection.smoke.ts",
     "brief-day:smoke": "tsx src/brief-day.smoke.ts",
+    "fallback:smoke": "tsx src/brief-coverage/fallback.smoke.ts",
+    "coverage:report": "tsx src/brief-coverage/report.ts",
     "validate:briefs": "tsx src/validate-briefs.ts",
     "render:smoke": "tsx src/llm/render.smoke.ts",
     "cron:apac": "tsx src/cli.ts apac",

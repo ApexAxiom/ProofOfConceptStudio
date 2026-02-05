@@ -1,23 +1,7 @@
-type ExecutiveRegion = "apac" | "international" | "woodside";
+import { getPortfolioSources } from "@proof/shared";
+import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
 
-export interface ExecutiveIndexPoint {
-  date: string;
-  value: number;
-}
-
-export interface ExecutiveIndex {
-  symbol: string;
-  name: string;
-  unit: string;
-  category: "crude" | "gas" | "lng" | "shipping" | "equities" | "macro";
-  region: "global" | "apac" | "americas";
-  source: string;
-  sourceUrl: string;
-  series: ExecutiveIndexPoint[];
-  latest: number;
-  change: number;
-  changePercent: number;
-}
+export type ExecutiveRegion = "apac" | "international" | "woodside";
 
 export interface ExecutiveArticle {
   title: string;
@@ -25,509 +9,282 @@ export interface ExecutiveArticle {
   source: string;
   publishedAt: string;
   category: string;
-  summary?: string;
   region: ExecutiveRegion;
+  summary?: string;
   imageUrl?: string;
+  domain?: string;
 }
 
 export interface ExecutiveDashboardPayload {
   generatedAt: string;
-  indices: ExecutiveIndex[];
-  articles: ExecutiveArticle[];
-  apacArticles: ExecutiveArticle[];
-  internationalArticles: ExecutiveArticle[];
-  woodsideArticles: ExecutiveArticle[];
-  sources: { pricing: string; news: string };
-}
-
-interface IndexConfig {
-  symbol: ExecutiveIndex["symbol"];
-  name: ExecutiveIndex["name"];
-  unit: ExecutiveIndex["unit"];
-  category: ExecutiveIndex["category"];
-  region: ExecutiveIndex["region"];
-  source: ExecutiveIndex["source"];
-  sourceUrl: ExecutiveIndex["sourceUrl"];
-  yahooSymbol: string;
-  fallback: number;
-  volatility: number;
-}
-
-const INDEX_CONFIG: IndexConfig[] = [
-  {
-    symbol: "WTI",
-    name: "WTI Crude",
-    unit: "/bbl",
-    category: "crude",
-    region: "americas",
-    source: "Yahoo Finance",
-    sourceUrl: "https://query1.finance.yahoo.com",
-    yahooSymbol: "CL=F",
-    fallback: 78,
-    volatility: 0.035,
-  },
-  {
-    symbol: "BRENT",
-    name: "Brent",
-    unit: "/bbl",
-    category: "crude",
-    region: "global",
-    source: "Yahoo Finance",
-    sourceUrl: "https://query1.finance.yahoo.com",
-    yahooSymbol: "BZ=F",
-    fallback: 82,
-    volatility: 0.032,
-  },
-  {
-    symbol: "HH",
-    name: "Henry Hub Gas",
-    unit: "/MMBtu",
-    category: "gas",
-    region: "americas",
-    source: "Yahoo Finance",
-    sourceUrl: "https://query1.finance.yahoo.com",
-    yahooSymbol: "NG=F",
-    fallback: 2.9,
-    volatility: 0.06,
-  },
-  {
-    symbol: "JKM",
-    name: "JKM LNG",
-    unit: "/MMBtu",
-    category: "lng",
-    region: "apac",
-    source: "CME (JKM Futures)",
-    sourceUrl: "https://www.cmegroup.com/market-data",
-    yahooSymbol: "LNG",
-    fallback: 12.4,
-    volatility: 0.045,
-  },
-  {
-    symbol: "BDI",
-    name: "Baltic Dry",
-    unit: "pts",
-    category: "shipping",
-    region: "global",
-    source: "Stooq (free index feed)",
-    sourceUrl: "https://stooq.pl",
-    yahooSymbol: "^BDI",
-    fallback: 1450,
-    volatility: 0.05,
-  },
-  {
-    symbol: "XOP",
-    name: "Energy Equities (XOP)",
-    unit: "pts",
-    category: "equities",
-    region: "global",
-    source: "Stooq/Yahoo Finance",
-    sourceUrl: "https://query1.finance.yahoo.com",
-    yahooSymbol: "XOP",
-    fallback: 148,
-    volatility: 0.028,
-  },
-  {
-    symbol: "SPX",
-    name: "S&P 500",
-    unit: "pts",
-    category: "macro",
-    region: "global",
-    source: "Yahoo Finance",
-    sourceUrl: "https://query1.finance.yahoo.com",
-    yahooSymbol: "^GSPC",
-    fallback: 5125,
-    volatility: 0.01,
-  },
-];
-
-// News feeds organized by region
-const NEWS_FEEDS: Array<{ url: string; category: string; source: string; region: ExecutiveRegion }> = [
-  // APAC Sources (Australia, Asia-Pacific)
-  {
-    url: "https://www.energynewsbulletin.net/rss",
-    category: "Energy",
-    source: "Energy News Bulletin",
-    region: "apac",
-  },
-  {
-    url: "https://www.offshore-energy.biz/feed/",
-    category: "Offshore",
-    source: "Offshore Energy",
-    region: "apac",
-  },
-  {
-    url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx",
-    category: "Drilling",
-    source: "Rigzone APAC",
-    region: "apac",
-  },
-  // International Sources (Houston, Mexico, Senegal, LNG)
-  {
-    url: "https://feeds.marketwatch.com/marketwatch/energy",
-    category: "Energy",
-    source: "MarketWatch",
-    region: "international",
-  },
-  {
-    url: "https://www.lngindustry.com/rss/",
-    category: "LNG",
-    source: "LNG Industry",
-    region: "international",
-  },
-  {
-    url: "https://www.reutersagency.com/feed/?best-topics=energy",
-    category: "Energy",
-    source: "Reuters",
-    region: "international",
-  },
-  {
-    url: "https://www.worldoil.com/rss/",
-    category: "Oil & Gas",
-    source: "World Oil",
-    region: "international",
-  },
-  {
-    url: "https://www.ogj.com/rss",
-    category: "Oil & Gas",
-    source: "Oil & Gas Journal",
-    region: "international",
-  },
-];
-
-const WOODSIDE_FEEDS: Array<{ url: string; category: string; source: string; region: ExecutiveRegion }> = [
-  {
-    url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-AU&gl=AU&ceid=AU:en",
-    category: "Woodside",
-    source: "Google News",
-    region: "woodside",
-  },
-  {
-    url: "https://www.offshore-energy.biz/feed/",
-    category: "Offshore",
-    source: "Offshore Energy",
-    region: "woodside",
-  },
-];
-
-function randomBetween(min: number, max: number): number {
-  return Math.random() * (max - min) + min;
-}
-
-function generateSyntheticSeries(basePrice: number, volatility: number): ExecutiveIndexPoint[] {
-  const days = 180;
-  const now = new Date();
-  const points: ExecutiveIndexPoint[] = [];
-  let current = basePrice;
-
-  for (let i = days - 1; i >= 0; i -= 1) {
-    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const drift = randomBetween(-volatility, volatility);
-    current = Math.max(0, current * (1 + drift));
-    points.push({ date: date.toISOString(), value: Number(current.toFixed(2)) });
-  }
-
-  return points;
-}
-
-async function fetchSparkSeries(symbols: string[]): Promise<Map<string, ExecutiveIndexPoint[]>> {
-  const sparkMap = new Map<string, ExecutiveIndexPoint[]>();
-
-  if (!symbols.length) {
-    return sparkMap;
-  }
-
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/spark?interval=1d&range=6mo&symbols=${symbols.join(",")}`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; ProofStudio/1.0)" },
-      next: { revalidate: 3_600 },
-    });
-
-    if (!res.ok) {
-      return sparkMap;
-    }
-
-    const json = await res.json();
-    const result = json?.spark?.result as Array<{ symbol: string; response?: Array<{ timestamp: number[]; close: number[] }> }>;
-
-    if (!Array.isArray(result)) {
-      return sparkMap;
-    }
-
-    for (const entry of result) {
-      const response = entry.response?.[0];
-      if (!response?.timestamp || !response?.close) {
-        continue;
-      }
-
-      const series: ExecutiveIndexPoint[] = response.timestamp.map((ts: number, idx: number) => ({
-        date: new Date(ts * 1000).toISOString(),
-        value: Number(response.close[idx]?.toFixed(2) ?? 0),
-      }));
-
-      sparkMap.set(entry.symbol, series);
-    }
-  } catch (error) {
-    console.error("Spark data fetch failed", error);
-  }
-
-  return sparkMap;
-}
-
-function buildIndex(config: IndexConfig, series: ExecutiveIndexPoint[]): ExecutiveIndex {
-  const sortedSeries = [...series].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const latest = sortedSeries.at(-1)?.value ?? config.fallback;
-  const starting = sortedSeries[0]?.value ?? config.fallback;
-  const change = latest - starting;
-  const changePercent = starting === 0 ? 0 : (change / starting) * 100;
-
-  return {
-    symbol: config.symbol,
-    name: config.name,
-    unit: config.unit,
-    category: config.category,
-    region: config.region,
-    source: config.source,
-    sourceUrl: config.sourceUrl,
-    series: sortedSeries,
-    latest,
-    change,
-    changePercent,
+  market: {
+    quotes: MarketQuote[];
+    source: "live" | "mixed" | "fallback";
+    lastUpdated: string;
+  };
+  woodside: {
+    articles: ExecutiveArticle[];
+    lastUpdated: string;
+    source: string;
+  };
+  apac: {
+    articles: ExecutiveArticle[];
+    lastUpdated: string;
+    source: string;
+  };
+  international: {
+    articles: ExecutiveArticle[];
+    lastUpdated: string;
+    source: string;
   };
 }
 
-function getFallbackArticles(): ExecutiveArticle[] {
-  const now = new Date();
-  const iso = (daysAgo: number) => new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+interface RssFeed {
+  url: string;
+  source: string;
+  category: string;
+  region: ExecutiveRegion;
+}
 
-  return [
-    // Woodside Energy Focus
+const FEED_TIMEOUT_MS = 8_000;
+const MAX_ITEMS_PER_FEED = 6;
+const SECTION_LIMIT = 12;
+const MAX_ARTICLE_AGE_DAYS = 7;
+
+const WOODSIDE_FEEDS: RssFeed[] = [
+  {
+    url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-US&gl=US&ceid=US:en",
+    source: "Google News",
+    category: "Woodside",
+    region: "woodside"
+  }
+];
+
+const APAC_FEEDS: RssFeed[] = [
+  ...getPortfolioSources("market-dashboard", "apac")
+    .map((source) => source.rssUrl ?? source.url)
+    .filter((url) => url.includes("rss") || url.includes("/feed"))
+    .map((url) => ({
+      url,
+      source: "Portfolio Sources",
+      category: "Oil & Gas",
+      region: "apac" as const
+    })),
+  {
+    url: "https://news.google.com/rss/search?q=oil%20gas%20APAC%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
+    source: "Google News",
+    category: "Oil & Gas",
+    region: "apac"
+  }
+];
+
+const INTERNATIONAL_FEEDS: RssFeed[] = [
+  ...getPortfolioSources("market-dashboard", "intl")
+    .map((source) => source.rssUrl ?? source.url)
+    .filter((url) => url.includes("rss") || url.includes("/feed"))
+    .map((url) => ({
+      url,
+      source: "Portfolio Sources",
+      category: "Oil & Gas",
+      region: "international" as const
+    })),
+  {
+    url: "https://news.google.com/rss/search?q=oil%20gas%20LNG%20US%20Mexico%20Senegal&hl=en-US&gl=US&ceid=US:en",
+    source: "Google News",
+    category: "Oil & Gas",
+    region: "international"
+  }
+];
+
+const APAC_KEYWORDS = ["apac", "australia", "perth", "asia", "lng", "offshore"];
+const INTERNATIONAL_KEYWORDS = ["us", "united states", "mexico", "senegal", "houston", "lng", "gulf"];
+
+const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
+  woodside: [
     {
-      title: "Woodside submits revised Scarborough environmental plan",
-      url: "https://news.google.com/rss/articles/CBMiemh0dHBzOi8vd3d3LnJlZmluZXJ5MzcwLmNvbS9uZXdzL3dvb2RzaWRlLXN1Ym1pdHMtcmV2aXNlZC1zY2FyYm9yb3VnaC1lbnZpcm9ubWVudGFsLXBsYW4tdG8ta2VlcC1wcm9qZWN0LW9uLXRyYWNrL9IBAA?oc=5",
-      source: "Refinery29",
-      publishedAt: iso(1),
-      category: "Projects",
+      title: "Woodside Energy headlines unavailable. Feed refresh in progress.",
+      url: "https://news.google.com/search?q=Woodside%20Energy",
+      source: "System",
+      publishedAt: new Date().toISOString(),
+      category: "Woodside",
       region: "woodside",
-      summary: "Operator refreshes approvals for Scarborough as stakeholder consultations continue.",
-    },
+      summary: "Temporary fallback while live RSS feed refreshes."
+    }
+  ],
+  apac: [
     {
-      title: "Woodside eyes hydrogen and ammonia offtake partnerships",
-      url: "https://news.google.com/rss/articles/CBMiZGh0dHBzOi8vd3d3LmFmdC5jb20uYXUvbmV3cy93b29kc2lkZS1lbmVyZ3ktc2Vla3MtaHlkcm9nZW4tYW5kLWFtbW9uaWEtbWFya2V0LXBhcnRuZXJzLzYxNjA1NjcyM9IBAA?oc=5",
-      source: "AFR",
-      publishedAt: iso(2),
-      category: "Energy Transition",
-      region: "woodside",
-      summary: "Company pursues offtake deals to underpin clean energy projects across WA and Asia.",
-    },
-    {
-      title: "Sangomar ramp-up lifts Woodside West Africa production",
-      url: "https://news.google.com/rss/articles/CBMiOGh0dHBzOi8vd3d3Lm9nam91cm5hbC5jb20vbmV3cy9zYW5nb21hci1wcmljZS13b29kc2lkZS1leHBlY3RhdGlvbnPSAQA?oc=5",
-      source: "OGJ",
-      publishedAt: iso(3),
-      category: "Production",
-      region: "woodside",
-      summary: "West African volumes climb as Sangomar moves toward plateau output under Woodside operatorship.",
-    },
-    // APAC
-    {
-      title: "Woodside Scarborough project reaches key milestone",
-      url: "https://www.energynewsbulletin.net",
-      source: "Energy News Bulletin",
-      publishedAt: iso(1),
-      category: "LNG",
+      title: "APAC Oil & Gas feed refresh in progress",
+      url: "https://news.google.com/search?q=APAC%20oil%20gas%20LNG",
+      source: "System",
+      publishedAt: new Date().toISOString(),
+      category: "Oil & Gas",
       region: "apac",
-      summary: "Major Australian LNG development achieves drilling milestone as export capacity ramps up.",
-    },
+      summary: "Live APAC coverage is temporarily unavailable."
+    }
+  ],
+  international: [
     {
-      title: "Perth Basin gas exploration intensifies",
-      url: "https://www.offshore-energy.biz",
-      source: "Offshore Energy",
-      publishedAt: iso(2),
-      category: "Exploration",
-      region: "apac",
-      summary: "WA operators fast-track appraisal drilling to meet domestic gas reservation policy.",
-    },
-    {
-      title: "NWS extension discussions continue with Chevron",
-      url: "https://www.rigzone.com",
-      source: "Rigzone",
-      publishedAt: iso(3),
-      category: "Offshore",
-      region: "apac",
-      summary: "Chevron and partners negotiate extended production rights for North West Shelf facilities.",
-    },
-    {
-      title: "Browse Basin FID timeline firming up",
-      url: "https://www.energynewsbulletin.net",
-      source: "Energy News Bulletin",
-      publishedAt: iso(4),
-      category: "Projects",
-      region: "apac",
-      summary: "Woodside targets late 2025 FID for Browse to Pluto Train 2 backfill project.",
-    },
-    // International
-    {
-      title: "Golden Pass LNG construction hits 90% complete",
-      url: "https://www.lngindustry.com",
-      source: "LNG Industry",
-      publishedAt: iso(1),
-      category: "LNG",
+      title: "International Oil & Gas feed refresh in progress",
+      url: "https://news.google.com/search?q=US%20Mexico%20Senegal%20oil%20gas%20LNG",
+      source: "System",
+      publishedAt: new Date().toISOString(),
+      category: "Oil & Gas",
       region: "international",
-      summary: "Qatar-Exxon Texas facility on track for first cargo in 2025 as Train 1 commissioning begins.",
-    },
-    {
-      title: "Mexico Pacific LNG secures additional offtakers",
-      url: "https://www.reuters.com",
-      source: "Reuters",
-      publishedAt: iso(2),
-      category: "LNG",
-      region: "international",
-      summary: "New 20-year SPAs signed with Asian buyers for Sonora coast export terminal.",
-    },
-    {
-      title: "Permian operators lock in rig contracts through 2026",
-      url: "https://www.worldoil.com",
-      source: "World Oil",
-      publishedAt: iso(3),
-      category: "Drilling",
-      region: "international",
-      summary: "Drilling contractors see improved visibility as E&Ps commit to multi-year programs.",
-    },
-    {
-      title: "Senegal offshore oil production ramps up at Sangomar",
-      url: "https://www.ogj.com",
-      source: "Oil & Gas Journal",
-      publishedAt: iso(4),
-      category: "Offshore",
-      region: "international",
-      summary: "Woodside-operated field hits 100,000 bpd ahead of schedule in West Africa.",
-    },
-    {
-      title: "US Gulf shelf activity picks up on higher oil prices",
-      url: "https://www.marketwatch.com",
-      source: "MarketWatch",
-      publishedAt: iso(5),
-      category: "Offshore",
-      region: "international",
-      summary: "Shallow water operators return as economics improve for mature field development.",
-    },
-  ];
+      summary: "Live US/Mexico/Senegal coverage is temporarily unavailable."
+    }
+  ]
+};
+
+function dedupeByUrlAndTitle(articles: ExecutiveArticle[]): ExecutiveArticle[] {
+  const seen = new Set<string>();
+  const output: ExecutiveArticle[] = [];
+  for (const article of articles) {
+    const key = `${article.url.toLowerCase()}::${article.title.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(article);
+  }
+  return output;
 }
 
 function parseTagValue(item: string, tag: string): string | null {
-  const regex = new RegExp(`<${tag}>([^<]*)<\\/${tag}>`);
-  const match = item.match(regex);
-  if (match?.[1]) {
-    return match[1].trim();
-  }
-
-  const cdataRegex = new RegExp(`<${tag}><!\[CDATA\[([^]*?)\]\]><\\/${tag}>`);
-  const cdataMatch = item.match(cdataRegex);
-  return cdataMatch?.[1]?.trim() ?? null;
+  const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
+  if (cdata?.[1]) return cdata[1].trim();
+  const plain = item.match(new RegExp(`<${tag}>([^<]*)<\\/${tag}>`, "i"));
+  return plain?.[1]?.trim() ?? null;
 }
 
-async function fetchArticles(): Promise<{ apac: ExecutiveArticle[]; international: ExecutiveArticle[]; woodside: ExecutiveArticle[] }> {
-  const buckets: Record<ExecutiveRegion, ExecutiveArticle[]> = {
-    apac: [],
-    international: [],
-    woodside: [],
-  };
+function looksFresh(iso: string): boolean {
+  const publishedAt = new Date(iso).getTime();
+  if (!Number.isFinite(publishedAt)) return false;
+  const maxAge = MAX_ARTICLE_AGE_DAYS * 24 * 60 * 60 * 1000;
+  return Date.now() - publishedAt <= maxAge;
+}
 
-  const feeds = [...NEWS_FEEDS, ...WOODSIDE_FEEDS];
+function matchesKeywords(text: string, keywords: string[]): boolean {
+  if (keywords.length === 0) return true;
+  const haystack = text.toLowerCase();
+  return keywords.some((keyword) => haystack.includes(keyword));
+}
 
-  for (const feed of feeds) {
-    try {
-      const res = await fetch(feed.url, { next: { revalidate: 3_600 } });
-      if (!res.ok) {
-        continue;
-      }
-      const xml = await res.text();
-      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-      let match: RegExpExecArray | null = null;
-      const targetArray = buckets[feed.region];
-
-      while ((match = itemRegex.exec(xml)) && targetArray.length < 6) {
-        const item = match[1];
-        const title = parseTagValue(item, "title");
-        const link = parseTagValue(item, "link");
-        const pubDate = parseTagValue(item, "pubDate") ?? new Date().toISOString();
-        const description = parseTagValue(item, "description");
-
-        // Try to extract image from media:content or enclosure
-        const mediaMatch = item.match(/url="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/i);
-        const imageUrl = mediaMatch?.[1];
-
-        if (title && link) {
-          targetArray.push({
-            title,
-            url: link,
-            source: feed.region === "woodside" ? "News" : feed.source,
-            publishedAt: new Date(pubDate).toISOString(),
-            category: feed.category,
-            region: feed.region,
-            summary: description?.slice(0, 150),
-            imageUrl,
-          });
-        }
-      }
-    } catch (error) {
-      console.error(`Failed to read feed ${feed.url}`, error);
-    }
+function extractDomain(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
   }
+}
 
-  // Use fallbacks if no articles fetched
-  const fallback = getFallbackArticles();
-  (Object.keys(buckets) as ExecutiveRegion[]).forEach((region) => {
-    if (buckets[region].length === 0) {
-      buckets[region].push(...fallback.filter((a) => a.region === region));
+async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(feed.url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; ProofOfConceptStudio/1.0)",
+        Accept: "application/rss+xml, application/xml, text/xml"
+      },
+      next: { revalidate: 3_600 }
+    });
+    if (!response.ok) return [];
+
+    const xml = await response.text();
+    const itemMatches = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)).slice(0, MAX_ITEMS_PER_FEED);
+    const articles: ExecutiveArticle[] = [];
+
+    for (const match of itemMatches) {
+      const item = match[1];
+      const title = parseTagValue(item, "title");
+      const link = parseTagValue(item, "link");
+      const pubDate = parseTagValue(item, "pubDate");
+      const description = parseTagValue(item, "description");
+      const imageMatch = item.match(/url="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/i);
+      const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
+
+      if (!title || !link || !looksFresh(publishedAt)) continue;
+      articles.push({
+        title: title.replace(/\s+/g, " ").trim(),
+        url: link,
+        source: feed.source,
+        publishedAt,
+        category: feed.category,
+        region: feed.region,
+        summary: description?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180),
+        imageUrl: imageMatch?.[1],
+        domain: extractDomain(link)
+      });
     }
-  });
 
-  return {
-    apac: buckets.apac
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, 6),
-    international: buckets.international
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, 6),
-    woodside: buckets.woodside
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, 6),
-  };
+    return articles;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function collectSectionArticles(feeds: RssFeed[], keywords: string[]): Promise<ExecutiveArticle[]> {
+  const buckets = await Promise.all(feeds.map((feed) => fetchRssFeed(feed)));
+  const merged = dedupeByUrlAndTitle(buckets.flat())
+    .filter((article) => matchesKeywords(`${article.title} ${article.summary ?? ""}`, keywords))
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    .slice(0, SECTION_LIMIT);
+  return merged;
+}
+
+function sectionLastUpdated(articles: ExecutiveArticle[], fallback = new Date().toISOString()): string {
+  if (articles.length === 0) return fallback;
+  return articles
+    .map((article) => article.publishedAt)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
 }
 
 /**
- * Builds the executive dashboard payload with 6-month price history and energy headlines.
- * Articles are split by region: Woodside spotlight, APAC (Australia/Asia-Pacific) and International (Houston/Mexico/Senegal/LNG).
+ * Builds the executive dashboard payload for the homepage and API route.
  */
 export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
-  const now = new Date().toISOString();
+  const [market, woodsideLive, apacLive, internationalLive] = await Promise.all([
+    getExecutiveMarketQuotes(),
+    collectSectionArticles(WOODSIDE_FEEDS, ["woodside", "scarborough", "sangomar", "lng"]),
+    collectSectionArticles(APAC_FEEDS, APAC_KEYWORDS),
+    collectSectionArticles(INTERNATIONAL_FEEDS, INTERNATIONAL_KEYWORDS)
+  ]);
 
-  const yahooSymbols = INDEX_CONFIG.map((cfg) => cfg.yahooSymbol);
-  const sparkMap = await fetchSparkSeries(yahooSymbols);
+  const woodsideArticles = woodsideLive.length > 0 ? woodsideLive : FALLBACK_ARTICLES.woodside;
+  const apacArticles = apacLive.length > 0 ? apacLive : FALLBACK_ARTICLES.apac;
 
-  const indices: ExecutiveIndex[] = INDEX_CONFIG.map((config) => {
-    const liveSeries = sparkMap.get(config.yahooSymbol);
-    const series = liveSeries?.length ? liveSeries : generateSyntheticSeries(config.fallback, config.volatility);
-    return buildIndex(config, series);
-  });
+  // Prevent duplication across APAC and International sections.
+  const apacUrls = new Set(apacArticles.map((article) => article.url.toLowerCase()));
+  const internationalArticlesRaw = internationalLive.filter((article) => !apacUrls.has(article.url.toLowerCase()));
+  const internationalArticles =
+    internationalArticlesRaw.length > 0 ? internationalArticlesRaw : FALLBACK_ARTICLES.international;
 
-  const { apac, international, woodside } = await fetchArticles();
-  const allArticles = [...woodside, ...apac, ...international].sort((a, b) =>
-    new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
+  const generatedAt = new Date().toISOString();
 
   return {
-    generatedAt: now,
-    indices,
-    articles: allArticles,
-    apacArticles: apac,
-    internationalArticles: international,
-    woodsideArticles: woodside,
-    sources: {
-      pricing: "Yahoo Finance Spark (6 month, 1d interval) with synthetic fallback",
-      news: "Energy RSS feeds (MarketWatch, LNG Industry, Reuters, World Oil, OGJ) with Woodside spotlight (Google News, Offshore Energy) and curated fallback",
+    generatedAt,
+    market: {
+      quotes: market.quotes,
+      source: market.source,
+      lastUpdated: market.generatedAt
     },
+    woodside: {
+      articles: woodsideArticles,
+      lastUpdated: sectionLastUpdated(woodsideArticles, generatedAt),
+      source: "Google News RSS (Woodside Energy)"
+    },
+    apac: {
+      articles: apacArticles,
+      lastUpdated: sectionLastUpdated(apacArticles, generatedAt),
+      source: "Portfolio + Google News APAC O&G feeds"
+    },
+    international: {
+      articles: internationalArticles,
+      lastUpdated: sectionLastUpdated(internationalArticles, generatedAt),
+      source: "Portfolio + Google News International O&G feeds (US/Mexico/Senegal filtered)"
+    }
   };
 }
+

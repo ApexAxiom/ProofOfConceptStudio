@@ -323,7 +323,7 @@ function AgentContextPanel({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No briefs available for this portfolio yet.</p>
+            <p className="text-sm text-muted-foreground">No published brief is available yet for this portfolio in this cycle.</p>
           )}
           {agentError && <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{agentError}</p>}
         </div>

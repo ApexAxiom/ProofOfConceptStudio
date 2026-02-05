@@ -8,6 +8,7 @@
     "dev": "tsx src/server.ts",
     "build": "tsc -b",
     "start": "node dist/server.js",
+    "latest-selection:smoke": "tsx src/db/latest-per-portfolio.smoke.ts",
     "lint": "eslint . --ext .ts,.tsx || true"
   },
   "dependencies": {

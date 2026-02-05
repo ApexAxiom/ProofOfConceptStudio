@@ -6,7 +6,8 @@ import { REGION_LIST } from "@proof/shared";
 import { ThemeToggle } from "../ThemeToggle";
 
 const primaryNav = [
-  { href: "/", label: "Morning Scan" },
+  { href: "/", label: "Executive View" },
+  { href: "/morning-scan", label: "Morning Scan" },
   { href: "/portfolios", label: "My Portfolios" },
   { href: `/actions/${REGION_LIST[0].slug}`, label: "Action Center" },
   { href: "/watchlist", label: "Watchlist" },

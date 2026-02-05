@@ -26,6 +26,8 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
 - `pnpm --filter runner run validate:briefs` – validate recent briefs for evidence/source integrity
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
+- `pnpm coverage:report` – portfolio × region coverage matrix (`has brief today` + latest published date)
+- `pnpm smoke:core` – smoke checks for latest-by-portfolio logic, fallback behavior, and executive payload
 
 ## Env Vars
 See `.env.example`. Secrets must be provided at runtime. Optional:
@@ -130,6 +132,7 @@ To validate the missing-API-key fallback, restart the API without `OPENAI_API_KE
 - [ ] Set required environment variables and secrets per service
 - [ ] Configure EventBridge schedules for APAC (06:00 Perth) and International (06:00 Chicago) runs
 - [ ] Run `pnpm exec tsx scripts/smoke.ts` locally or against deployed endpoints
+- [ ] Run `pnpm coverage:report` and confirm no `hasToday = no` rows before deploy
 
 ## Data Model
 Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-date.

@@ -9,7 +9,7 @@ import { requiredArticleCount } from "./llm/prompts.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
   const windowConfig = runWindow === "apac"
-    ? { timeZone: REGIONS.au.timeZone, h: 5, m: 0 }
+    ? { timeZone: REGIONS.au.timeZone, h: 6, m: 0 }
     : { timeZone: REGIONS["us-mx-la-lng"].timeZone, h: 5, m: 0 };
 
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -44,16 +44,17 @@ async function main() {
   fastify.get("/agents", async () => {
     const agents = loadAgents();
     const expanded = expandAgentsByRegion({ agents });
-
-    return expanded.map(({ agent, region, feeds }) => ({
-      id: agent.id,
-      region,
-      portfolio: agent.portfolio,
-      label: agent.label,
-      description: agent.description,
-      articlesPerRun: requiredArticleCount(agent),
-      feeds
-    }));
+    return {
+      agents: expanded.map(({ agent, region, feeds }) => ({
+        id: agent.id,
+        region,
+        portfolio: agent.portfolio,
+        label: agent.label,
+        description: agent.description,
+        articlesPerRun: requiredArticleCount(agent),
+        feeds
+      }))
+    };
   });
 
   fastify.post("/cron", async (request, reply) => {
@@ -62,12 +63,11 @@ async function main() {
       return;
     }
 
+    const runId = crypto.randomUUID();
     if (!process.env.OPENAI_API_KEY) {
-      reply.code(500).send({ error: "OPENAI_API_KEY is not configured" });
-      return;
+      fastify.log.warn({ runId }, "OPENAI_API_KEY is not configured; fallback briefs may be published.");
     }
     const body = (request.body as any) || {};
-    const runId = crypto.randomUUID();
     const now = new Date();
 
     const regionInput = Array.isArray(body?.regions)

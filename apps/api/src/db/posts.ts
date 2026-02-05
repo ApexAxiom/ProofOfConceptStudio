@@ -3,6 +3,10 @@ import client from "./dynamo.js";
 import { BriefPost, REGION_LIST, MOCK_POSTS, getBriefDayKey, normalizeBriefSources } from "@proof/shared";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
+const DEFAULT_REGION_FETCH_LIMIT = Number(process.env.POSTS_REGION_FETCH_LIMIT ?? 600);
+const DEFAULT_PORTFOLIO_FETCH_LIMIT = Number(process.env.POSTS_PORTFOLIO_FETCH_LIMIT ?? 120);
+const QUERY_PAGE_SIZE = Number(process.env.POSTS_QUERY_PAGE_SIZE ?? 100);
+const MAX_QUERY_PAGES = Number(process.env.POSTS_MAX_QUERY_PAGES ?? 40);
 
 function sortByPublished(posts: BriefPost[]): BriefPost[] {
   return [...posts].sort((a, b) => (a.publishedAt > b.publishedAt ? -1 : 1));
@@ -17,36 +21,116 @@ function normalizeBrief(post: BriefPost): BriefPost {
   };
 }
 
-async function fetchRegionFromDynamo(region: string): Promise<BriefPost[]> {
-  const params: any = {
-    TableName: tableName,
-    IndexName: "GSI2",
-    KeyConditionExpression: "GSI2PK = :pk",
-    ExpressionAttributeValues: {
-      ":pk": `REGION#${region}`
+function positiveInt(value: number, fallback: number): number {
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+  return Math.floor(value);
+}
+
+async function queryPublishedPosts(params: {
+  indexName: "GSI1" | "GSI2";
+  keyConditionExpression: string;
+  expressionAttributeValues: Record<string, unknown>;
+  expressionAttributeNames?: Record<string, string>;
+  filterExpression: string;
+  limit: number;
+}): Promise<BriefPost[]> {
+  const limit = positiveInt(params.limit, 50);
+  let pages = 0;
+  let lastKey: Record<string, unknown> | undefined;
+  const items: BriefPost[] = [];
+
+  do {
+    const page = await client.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: params.indexName,
+        KeyConditionExpression: params.keyConditionExpression,
+        ExpressionAttributeValues: params.expressionAttributeValues as Record<string, unknown>,
+        ExpressionAttributeNames: params.expressionAttributeNames,
+        FilterExpression: params.filterExpression,
+        ScanIndexForward: false,
+        Limit: positiveInt(QUERY_PAGE_SIZE, 100),
+        ExclusiveStartKey: lastKey
+      })
+    );
+
+    const pageItems = (page.Items ?? []) as BriefPost[];
+    for (const item of pageItems) {
+      items.push(normalizeBrief(item));
+      if (items.length >= limit) {
+        return items.slice(0, limit);
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey as Record<string, unknown> | undefined;
+    pages += 1;
+  } while (lastKey && pages < positiveInt(MAX_QUERY_PAGES, 40));
+
+  return items.slice(0, limit);
+}
+
+async function fetchRegionFromDynamo(region: string, limit = DEFAULT_REGION_FETCH_LIMIT): Promise<BriefPost[]> {
+  return queryPublishedPosts({
+    indexName: "GSI2",
+    keyConditionExpression: "GSI2PK = :pk",
+    expressionAttributeValues: {
+      ":pk": `REGION#${region}`,
+      ":status": "published"
     },
-    ScanIndexForward: false,
-    Limit: 50
-  };
-  const data = await client.send(new QueryCommand(params));
-  const items = (data.Items ?? []) as BriefPost[];
-  return items.filter((i) => i.status === "published").map(normalizeBrief);
+    expressionAttributeNames: {
+      "#status": "status"
+    },
+    filterExpression: "#status = :status",
+    limit: positiveInt(limit, DEFAULT_REGION_FETCH_LIMIT)
+  });
+}
+
+async function fetchPortfolioFromDynamo(params: {
+  region: string;
+  portfolio: string;
+  limit: number;
+}): Promise<BriefPost[]> {
+  return queryPublishedPosts({
+    indexName: "GSI1",
+    keyConditionExpression: "GSI1PK = :pk",
+    expressionAttributeValues: {
+      ":pk": `PORTFOLIO#${params.portfolio}`,
+      ":status": "published",
+      ":region": params.region
+    },
+    expressionAttributeNames: {
+      "#status": "status",
+      "#region": "region"
+    },
+    filterExpression: "#status = :status AND #region = :region",
+    limit: positiveInt(params.limit, DEFAULT_PORTFOLIO_FETCH_LIMIT)
+  });
+}
+
+export function latestPerPortfolio(posts: BriefPost[]): BriefPost[] {
+  const latestByPortfolio = new Map<string, BriefPost>();
+  for (const post of sortByPublished(posts)) {
+    if (!latestByPortfolio.has(post.portfolio)) {
+      latestByPortfolio.set(post.portfolio, post);
+    }
+  }
+  return Array.from(latestByPortfolio.values());
 }
 
 /**
  * Load published briefs for a region, preferring DynamoDB and falling back to curated mock content.
  */
-export async function getRegionPosts(region: string): Promise<BriefPost[]> {
+export async function getRegionPosts(region: string, limit = DEFAULT_REGION_FETCH_LIMIT): Promise<BriefPost[]> {
   const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
   if (!region || !validRegions.has(region)) return [];
   try {
-    const live = await fetchRegionFromDynamo(region);
+    const live = await fetchRegionFromDynamo(region, limit);
     if (live.length > 0) return sortByPublished(live);
   } catch (err) {
     console.warn("Falling back to mock posts for region", region, (err as Error).message);
   }
   const mock = MOCK_POSTS.filter((p) => p.region === region && p.status === "published").map(normalizeBrief);
-  return sortByPublished(mock);
+  return sortByPublished(mock).slice(0, positiveInt(limit, DEFAULT_REGION_FETCH_LIMIT));
 }
 
 /**
@@ -58,13 +142,30 @@ export async function filterPosts(params: {
   runWindow?: string;
   limit?: number;
 }): Promise<BriefPost[]> {
-  const posts = await getRegionPosts(params.region);
+  const targetLimit = positiveInt(params.limit ?? 20, 20);
+  let posts: BriefPost[] = [];
+
+  if (params.portfolio) {
+    try {
+      posts = await fetchPortfolioFromDynamo({
+        region: params.region,
+        portfolio: params.portfolio,
+        limit: Math.max(targetLimit, DEFAULT_PORTFOLIO_FETCH_LIMIT)
+      });
+    } catch (err) {
+      console.warn("Falling back to region-scan portfolio query", params.portfolio, (err as Error).message);
+      posts = await getRegionPosts(params.region, DEFAULT_REGION_FETCH_LIMIT);
+    }
+  } else {
+    posts = await getRegionPosts(params.region, Math.max(targetLimit, DEFAULT_REGION_FETCH_LIMIT));
+  }
+
   const filtered = posts.filter(
     (i) =>
       (!params.portfolio || i.portfolio === params.portfolio) &&
       (!params.runWindow || i.runWindow === params.runWindow)
   );
-  return typeof params.limit === "number" ? filtered.slice(0, params.limit) : filtered;
+  return filtered.slice(0, targetLimit);
 }
 
 /**

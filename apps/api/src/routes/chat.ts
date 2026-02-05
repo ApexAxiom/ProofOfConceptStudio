@@ -531,8 +531,8 @@ async function findAgent(agentId?: string, portfolio?: string, region?: string) 
   try {
     const res = await fetch(`${runnerBaseUrl}/agents`);
     if (!res.ok) return undefined;
-    const payload = (await res.json()) as { agents?: AgentSummary[] };
-    const agents = payload.agents ?? [];
+    const payload = (await res.json()) as { agents?: AgentSummary[] } | AgentSummary[];
+    const agents = Array.isArray(payload) ? payload : payload.agents ?? [];
     const byIdAndRegion =
       agentId && region ? agents.find((agent) => agent.id === agentId && agent.region === region) : undefined;
     const byId = agentId ? agents.find((agent) => agent.id === agentId) : undefined;
