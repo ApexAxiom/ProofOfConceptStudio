@@ -25,8 +25,7 @@ const FALLBACK_AGENT_URL = "http://localhost:3002";
 const PROOF_OF_CONCEPT_STUDIO_URL = "https://proofofconceptstudio.com";
 const MAX_WEB_DOCS = 3;
 const MAX_WEB_DOC_CHARS = 2200;
-const MAX_WEB_CONTEXT_CHARS = 8000;
-const SEARCH_TIMEOUT_MS = 5000;
+const SEARCH_TIMEOUT_MS = 5000; // used by buildProofOfConceptContext
 const FALLBACK_MODELS = ["gpt-4o-mini"];
 const STATUS_CHECK_TTL_MS = Number(process.env.CHAT_STATUS_CACHE_MS ?? 60000);
 const STATUS_VERIFY_ENABLED = process.env.CHAT_STATUS_VERIFY === "true";
@@ -370,37 +369,6 @@ async function fetchWithTimeout(url: string, timeoutMs = SEARCH_TIMEOUT_MS) {
   }
 }
 
-function resolveDuckDuckGoUrl(rawUrl: string) {
-  if (!rawUrl.includes("duckduckgo.com/l/")) return rawUrl;
-  try {
-    const parsed = new URL(rawUrl);
-    const target = parsed.searchParams.get("uddg");
-    return target ? decodeURIComponent(target) : rawUrl;
-  } catch {
-    return rawUrl;
-  }
-}
-
-async function fetchDuckDuckGoResults(query: string) {
-  const res = await fetchWithTimeout(
-    `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-    SEARCH_TIMEOUT_MS
-  );
-  if (!res.ok) return [];
-  const html = await res.text();
-  const matches = Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"/g));
-  const urls = matches.map((match) => resolveDuckDuckGoUrl(match[1]));
-  return uniqueStrings(urls.filter((url) => url.startsWith("http")));
-}
-
-async function fetchReadableText(url: string) {
-  const jinaUrl = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}`;
-  const res = await fetchWithTimeout(jinaUrl, SEARCH_TIMEOUT_MS);
-  if (!res.ok) return null;
-  const text = await res.text();
-  return stripHtml(text);
-}
-
 async function buildProofOfConceptContext(question: string): Promise<ExternalContext> {
   const candidates = [
     `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap.xml`,
@@ -447,35 +415,6 @@ async function buildProofOfConceptContext(question: string): Promise<ExternalCon
     }
   }
   return { blocks, urls: topUrls };
-}
-
-async function buildWebSearchContext(
-  question: string,
-  region: string,
-  portfolio: string
-): Promise<ExternalContext> {
-  if (!isWebSearchEnabled()) {
-    return { blocks: [], urls: [] };
-  }
-  const regionDescriptor =
-    region === "au" || region === "us-mx-la-lng" ? regionLabel(region as "au" | "us-mx-la-lng") : region;
-  const query = `${question} ${portfolioLabel(portfolio)} ${regionDescriptor}`;
-  try {
-    const results = await fetchDuckDuckGoResults(query);
-    const filtered = results.filter((url) => !url.includes("proofofconceptstudio.com")).slice(0, MAX_WEB_DOCS);
-    const blocks: string[] = [];
-    const urls: string[] = [];
-    for (const url of filtered) {
-      const text = await fetchReadableText(url);
-      if (!text) continue;
-      const excerpt = summarizeContent(text, MAX_WEB_DOC_CHARS);
-      blocks.push(`URL: ${url}\nExcerpt: ${excerpt}`);
-      urls.push(url);
-    }
-    return { blocks, urls };
-  } catch {
-    return { blocks: [], urls: [] };
-  }
 }
 
 function checkRateLimit(clientIp: string) {
@@ -688,23 +627,15 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       return;
     }
 
-    const [proofContext, webContext] = await Promise.all([
-      buildProofOfConceptContext(effectiveQuestion),
-      buildWebSearchContext(effectiveQuestion, region, portfolio)
-    ]);
+    const proofContext = await buildProofOfConceptContext(effectiveQuestion);
 
     const proofSources = proofContext.urls.map((url) => ({ sourceId: buildSourceId(url), url }));
     const proofBlocks = proofContext.blocks.map((block, index) => {
       const source = proofSources[index];
       return source ? `Source [${source.sourceId}]\n${block}` : block;
     });
-    const webSources = webContext.urls.map((url) => ({ sourceId: buildSourceId(url), url }));
-    const webBlocks = webContext.blocks.map((block, index) => {
-      const source = webSources[index];
-      return source ? `Source [${source.sourceId}]\n${block}` : block;
-    });
 
-    dedupeSources([...proofSources, ...webSources]).forEach((source) => {
+    dedupeSources(proofSources).forEach((source) => {
       if (!sourcesById.has(source.sourceId)) {
         sourcesById.set(source.sourceId, source);
       }
@@ -743,10 +674,6 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       promptSections.push(`ProofOfConceptStudio.com context:\n${proofBlocks.join("\n\n")}`);
     }
 
-    if (webBlocks.length) {
-      promptSections.push(`Web search context:\n${webBlocks.join("\n\n")}`);
-    }
-
     const context = summarizeContent(promptSections.join("\n\n"), MAX_CONTEXT_CHARS);
     const prompt = `${context}\n\nQuestion: ${effectiveQuestion}`;
 
@@ -758,18 +685,18 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       : undefined;
     const agentPrompt = agentConfig ? buildAgentSystemPrompt(agentConfig as any, region) : assistantIdentity;
     const framework = getAgentFramework(agentConfig?.id ?? portfolio);
-    const evidenceInstruction = hasEvidence
-      ? "Prioritize ProofOfConceptStudio.com context and brief evidence; use web excerpts only when needed. If you make an inference beyond sources, label it as (analysis)."
-      : "Use ProofOfConceptStudio.com context first, then brief summaries, then web excerpts. If a statement is not supported by sources, label it as (analysis) and keep it high-level.";
+    const blendAndIdentityInstruction = [
+      "You are always the Category Manager / supply chain expert for your selected domain; that identity and lens never change.",
+      "Use intelligence to blend sources: combine brief evidence, selected articles, web search context, and your general knowledge whenever that produces the best answer. Do not treat them as mutually exclusive—mix them when it adds value (e.g. brief data plus broader market context, or web facts plus category implications).",
+      "When the question is fully outside the brief scope, answer using web search and general knowledge while still speaking as the category expert (e.g. tie implications back to procurement, suppliers, or risk where relevant). Never refuse to answer.",
+      "Cite sources with [sourceId] when you use provided excerpts; label unsupported inference as (analysis). If no provided sources apply, say so briefly before giving analysis. Be concise and factual; do not invent provenance."
+    ].join(" ");
     const systemMessage = [
       "You are ProofOfConceptStudio Chat Analyst.",
       agentPrompt,
-      "Be concise, factual, and do not invent provenance.",
-      evidenceInstruction,
+      blendAndIdentityInstruction,
       "Answer the user's question directly. Do not dump briefs or article lists unless explicitly asked.",
       "If the request is vague or a quick test, respond briefly and ask a clarifying question.",
-      "Cite sources with [sourceId] tokens that map to the allowed sources list whenever you use sourced information.",
-      "If no sources apply, say so explicitly before providing analysis.",
       "Use the interpretation framework to explain why it matters and recommend actions:",
       `Focus areas: ${framework.focusAreas.join(", ") || "N/A"}.`,
       `Market drivers: ${framework.marketDrivers.join(", ") || "N/A"}.`,
@@ -779,22 +706,36 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       "Do not emit HTML."
     ].join(" ");
     const historyMessages = buildConversationHistory(incomingMessages, effectiveQuestion);
-    const requestChatCompletion = (modelOverride?: string) =>
-      openai.chat.completions.create({
-        model: modelOverride ?? getModel(),
-        max_tokens: getMaxOutputTokens(),
-        messages: [
-          { role: "system", content: systemMessage },
-          ...historyMessages,
-          { role: "user", content: prompt }
-        ]
-      });
 
-    const requestChatCompletionWithFallbacks = async (models: string[]) => {
+    // -----------------------------------------------------------------------
+    // OpenAI Responses API — native web_search tool, region-aware
+    // -----------------------------------------------------------------------
+    const webSearchTool: Record<string, unknown> = { type: "web_search" as const };
+    if (region === "au") {
+      webSearchTool.user_location = { type: "approximate", country: "AU", city: "Perth" };
+    } else {
+      webSearchTool.user_location = { type: "approximate", country: "US", city: "Houston" };
+    }
+    const tools = isWebSearchEnabled() ? [webSearchTool] : [];
+
+    const requestResponse = (modelOverride?: string) =>
+      openai.responses.create({
+        model: modelOverride ?? getModel(),
+        max_output_tokens: getMaxOutputTokens(),
+        instructions: systemMessage,
+        input: [
+          ...historyMessages,
+          { role: "user" as const, content: prompt }
+        ],
+        tools: tools as any,
+        tool_choice: isWebSearchEnabled() ? "auto" : undefined
+      } as any);
+
+    const requestResponseWithFallbacks = async (models: string[]) => {
       let lastError: unknown;
       for (const model of models) {
         try {
-          return { response: await requestChatCompletion(model), model };
+          return { response: await requestResponse(model), model };
         } catch (err) {
           lastError = err;
           const status = (err as { status?: number })?.status;
@@ -809,13 +750,33 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     try {
-      const { response, model } = await requestChatCompletionWithFallbacks(getModelFallbacks());
-      const rawAnswer = response.choices?.[0]?.message?.content ?? "";
+      const { response, model } = await requestResponseWithFallbacks(getModelFallbacks());
+      const rawAnswer = (response as any).output_text ?? "";
+
+      // Brief evidence citations ([sourceId] tokens)
       const foundSourceIds = extractSourceIds(rawAnswer);
-      const citations = foundSourceIds
+      const briefCitations = foundSourceIds
         .map((id) => sourcesById.get(id))
         .filter((item): item is BriefSource => Boolean(item));
       const answer = replaceSourceIdsWithLinks(rawAnswer, sourcesById);
+
+      // Web search citations (OpenAI url_citation annotations)
+      const webCitations: BriefSource[] = [];
+      for (const item of (response as any).output ?? []) {
+        if (item.type !== "message") continue;
+        for (const content of item.content ?? []) {
+          for (const ann of content.annotations ?? []) {
+            if (ann.type === "url_citation" && ann.url) {
+              webCitations.push({
+                sourceId: buildSourceId(ann.url),
+                url: ann.url,
+                title: ann.title
+              });
+            }
+          }
+        }
+      }
+      const allCitations = dedupeSources([...briefCitations, ...webCitations]);
 
       const timingMs = Date.now() - startMs;
       const debug = getDebugChatLogging();
@@ -823,15 +784,16 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         {
           ...effectiveLogContext,
           timingMs,
-          openaiRequestId: response.id,
+          openaiRequestId: (response as any).id,
           result: "ok",
           model,
           questionPreview: debug ? effectiveQuestion.slice(0, 300) : undefined,
-          citationsCount: citations.length
+          citationsCount: allCitations.length,
+          webCitationsCount: webCitations.length
         },
         "Chat response generated"
       );
-      return { answer, citations, sources: citations.map((source) => source.url) };
+      return { answer, citations: allCitations, sources: allCitations.map((source) => source.url) };
     } catch (err) {
       const timingMs = Date.now() - startMs;
       const errorMessage = (err as Error)?.message ?? "Unknown error";

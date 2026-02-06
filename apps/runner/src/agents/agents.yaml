@@ -9,10 +9,10 @@
     us-mx-la-lng:
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: Drilling Contractor (IADC), url: https://drillingcontractor.org/feed, type: rss }
-      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
-      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/, type: web }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: Offshore Technology, url: https://www.offshore-technology.com/feed/, type: rss }
       - { name: EIA Drilling Productivity Report, url: https://www.eia.gov/petroleum/drilling/, type: web }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
@@ -22,7 +22,7 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Offshore Technology, url: https://www.offshore-technology.com/feed/, type: rss }
@@ -38,12 +38,12 @@
   feedsByRegion:
     us-mx-la-lng:
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
-      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
-      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/feed, type: rss }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
-      - { name: Hart Energy, url: https://www.hartenergy.com/rss.xml, type: rss }
-      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/, type: web }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
+      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/, type: web }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
+      - { name: Hart Energy, url: https://www.hartenergy.com/news, type: web }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: Offshore Technology, url: https://www.offshore-technology.com/feed/, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
@@ -66,10 +66,10 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: American Iron and Steel Institute, url: https://www.steel.org/news/, type: web }
-      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: Pipeline Journal, url: https://www.pipeline-journal.net/rss.xml, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/, type: web }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - OCTG steel oil gas, url: https://news.google.com/rss/search?q=OCTG%20steel%20oil%20gas&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -78,7 +78,7 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: The Australian Pipeliner, url: https://www.pipeliner.com.au/feed/, type: rss }
-      - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
       - { name: Google News - OCTG Australia, url: https://news.google.com/rss/search?q=OCTG%20Australia&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
@@ -92,13 +92,13 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
-      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/feed, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/, type: web }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
+      - { name: Journal of Petroleum Technology (SPE), url: https://jpt.spe.org/, type: web }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
-      - { name: Hart Energy, url: https://www.hartenergy.com/rss.xml, type: rss }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
+      - { name: Hart Energy, url: https://www.hartenergy.com/news, type: web }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - well completion oil gas, url: https://news.google.com/rss/search?q=well%20completion%20oil%20gas&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -107,7 +107,7 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
+      - { name: World Oil, url: https://www.worldoil.com/, type: web }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Google News - well completion Australia, url: https://news.google.com/rss/search?q=well%20completion%20Australia&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
@@ -121,11 +121,11 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
       - { name: BSEE – Newsroom, url: https://www.bsee.gov/newsroom, type: web }
-      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - plug and abandonment oil gas, url: https://news.google.com/rss/search?q=plug%20and%20abandonment%20oil%20gas&hl=en-US&gl=US&ceid=US:en, type: rss }
       - { name: Google News - offshore decommissioning oil gas, url: https://news.google.com/rss/search?q=offshore%20decommissioning%20oil%20gas&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -133,7 +133,7 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Google News - decommissioning Australia offshore, url: https://news.google.com/rss/search?q=decommissioning%20Australia%20offshore&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
@@ -147,9 +147,9 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: Energy Voice, url: https://www.energyvoice.com/feed/, type: rss }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: gCaptain, url: https://gcaptain.com/feed/, type: rss }
       - { name: Rigzone, url: https://www.rigzone.com/news/rss/rigzone_latest.aspx, type: rss }
       - { name: BSEE Newsroom, url: https://www.bsee.gov/newsroom, type: web }
@@ -160,7 +160,7 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
+      - { name: Safe Work Australia News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
       - { name: Google News - subsea Australia offshore, url: https://news.google.com/rss/search?q=subsea%20Australia%20offshore&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
       - { name: Google News - SURF Australia offshore, url: https://news.google.com/rss/search?q=SURF%20Australia%20offshore&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
@@ -173,13 +173,13 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Hydrocarbon Engineering, url: https://www.hydrocarbonengineering.com/feed/, type: rss }
-      - { name: LNG Industry, url: https://www.lngindustry.com/feed/, type: rss }
-      - { name: World Oil, url: https://www.worldoil.com/rss/news, type: rss }
-      - { name: Oil & Gas Journal, url: https://www.ogj.com/rss, type: rss }
-      - { name: Construction Dive, url: https://www.constructiondive.com/feeds/news/, type: rss }
+      - { name: Hydrocarbon Engineering, url: https://www.hydrocarbonengineering.com/, type: web }
+      - { name: LNG Industry, url: https://www.lngindustry.com/, type: web }
+      - { name: World Oil, url: https://www.worldoil.com/, type: web }
+      - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
+      - { name: Pipeline Journal, url: https://www.pipeline-journal.net/rss.xml, type: rss }
       - { name: Global Construction Review, url: https://www.globalconstructionreview.com/feed/, type: rss }
-      - { name: FERC News, url: https://www.ferc.gov/news-events/news/rss, type: rss }
+      - { name: EIA Press Releases, url: https://www.eia.gov/rss/press_rss.xml, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - LNG EPC contract, url: https://news.google.com/rss/search?q=LNG%20EPC%20contract&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -201,12 +201,12 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Turbomachinery Magazine, url: https://www.turbomachinerymag.com/feed/, type: rss }
-      - { name: CompressorTech2, url: https://www.compressortech2.com/feed/, type: rss }
+      - { name: Turbomachinery Magazine, url: https://www.turbomachinerymag.com/, type: web }
+      - { name: CompressorTech2, url: https://www.compressortech2.com/, type: web }
       - { name: Pumps & Systems, url: https://www.pumpsandsystems.com/rss.xml, type: rss }
-      - { name: Hydrocarbon Processing, url: https://www.hydrocarbonprocessing.com/feed/, type: rss }
+      - { name: Pipeline Journal, url: https://www.pipeline-journal.net/rss.xml, type: rss }
       - { name: Power Engineering, url: https://www.power-eng.com/feed/, type: rss }
-      - { name: Industrial Equipment News, url: https://www.ien.com/rss.xml, type: rss }
+      - { name: Assembly Magazine News, url: https://www.assemblymag.com/rss/topic/2626-news, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - gas turbine LTSA, url: https://news.google.com/rss/search?q=gas%20turbine%20LTSA&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -214,7 +214,7 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Google News - turbine maintenance Australia, url: https://news.google.com/rss/search?q=turbine%20maintenance%20Australia&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
@@ -228,12 +228,12 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Reliabilityweb, url: https://reliabilityweb.com/feed, type: rss }
-      - { name: EHS Today, url: https://www.ehstoday.com/rss, type: rss }
-      - { name: Offshore Magazine, url: https://www.offshore-mag.com/rss, type: rss }
-      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/feed/, type: rss }
+      - { name: Reliabilityweb, url: https://reliabilityweb.com/, type: web }
+      - { name: EHS Today, url: https://www.ehstoday.com/, type: web }
+      - { name: Offshore Magazine, url: https://www.offshore-mag.com/, type: web }
+      - { name: Oilfield Technology, url: https://www.oilfieldtechnology.com/, type: web }
       - { name: Plant Engineering, url: https://www.plantengineering.com/feed/, type: rss }
-      - { name: The Fabricator, url: https://www.thefabricator.com/rss/thefabricator/all, type: rss }
+      - { name: Control Engineering, url: https://www.controleng.com/feed/, type: web }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - maintenance turnaround oil gas, url: https://news.google.com/rss/search?q=maintenance%20turnaround%20oil%20gas&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -256,11 +256,11 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Supply Chain Dive, url: https://www.supplychaindive.com/feeds/news/, type: rss }
+      - { name: Pipeline Journal, url: https://www.pipeline-journal.net/rss.xml, type: rss }
       - { name: Pumps & Systems, url: https://www.pumpsandsystems.com/rss.xml, type: rss }
       - { name: Plant Engineering, url: https://www.plantengineering.com/feed/, type: rss }
-      - { name: Manufacturing.net, url: https://www.manufacturing.net/rss.xml, type: rss }
-      - { name: Industrial Distribution, url: https://www.inddist.com/rss.xml, type: rss }
+      - { name: MRO Magazine, url: https://www.mromagazine.com/feed/, type: rss }
+      - { name: Assembly Magazine News, url: https://www.assemblymag.com/rss/topic/2626-news, type: rss }
       - { name: Fluid Power Journal, url: https://fluidpowerjournal.com/feed/, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
@@ -269,7 +269,7 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Process Online, url: https://www.processonline.com.au/feed/, type: rss }
+      - { name: Process Online, url: https://www.processonline.com.au/, type: web }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
@@ -284,10 +284,10 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Maritime Executive, url: https://www.maritime-executive.com/rss, type: rss }
-      - { name: FreightWaves, url: https://www.freightwaves.com/news/rss.xml, type: rss }
+      - { name: Maritime Executive, url: https://www.maritime-executive.com/, type: web }
+      - { name: FreightWaves, url: https://www.freightwaves.com/feed, type: rss }
       - { name: Air Cargo News, url: https://www.aircargonews.net/feed/, type: rss }
-      - { name: Supply Chain Dive, url: https://www.supplychaindive.com/feeds/news/, type: rss }
+      - { name: MarineLink, url: https://www.marinelink.com/rss, type: rss }
       - { name: gCaptain, url: https://gcaptain.com/feed/, type: rss }
       - { name: Splash247, url: https://splash247.com/feed/, type: rss }
       - { name: Seatrade Maritime, url: https://www.seatrade-maritime.com/rss.xml, type: rss }
@@ -297,9 +297,9 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Daily Cargo News (DCN), url: https://www.thedcn.com.au/feed/, type: rss }
+      - { name: Daily Cargo News (DCN), url: https://www.thedcn.com.au/, type: web }
       - { name: Australian Aviation, url: https://australianaviation.com.au/feed/, type: rss }
-      - { name: AMSA – News and updates, url: https://www.amsa.gov.au/news-community/news-and-media-releases, type: web }
+      - { name: Safe Work Australia News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
       - { name: Google News - offshore vessel Australia LNG, url: https://news.google.com/rss/search?q=offshore%20vessel%20Australia%20LNG&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
       - { name: Google News - aviation logistics Australia oil gas, url: https://news.google.com/rss/search?q=aviation%20logistics%20Australia%20oil%20gas&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
 - id: site-services-facilities
@@ -311,13 +311,13 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: FacilitiesNet, url: https://www.facilitiesnet.com/rss/fn_all.xml, type: rss }
+      - { name: FacilitiesNet, url: https://www.facilitiesnet.com/, type: web }
       - { name: Facility Executive, url: https://facilityexecutive.com/feed/, type: rss }
-      - { name: Waste360, url: https://www.waste360.com/rss.xml, type: rss }
-      - { name: Security Magazine, url: https://www.securitymagazine.com/rss, type: rss }
-      - { name: EHS Today, url: https://www.ehstoday.com/rss, type: rss }
+      - { name: Waste Today Magazine, url: https://www.wastetodaymagazine.com/rss/, type: rss }
+      - { name: Security Magazine, url: https://www.securitymagazine.com/, type: web }
+      - { name: EHS Today, url: https://www.ehstoday.com/, type: web }
       - { name: OSHA News, url: https://www.osha.gov/news/newsreleases, type: web }
-      - { name: EPA News, url: https://www.epa.gov/newsreleases/search/rss, type: rss }
+      - { name: EPA News, url: https://www.epa.gov/newsreleases, type: web }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
       - { name: Google News - facility management oil gas, url: https://news.google.com/rss/search?q=facility%20management%20oil%20gas&hl=en-US&gl=US&ceid=US:en, type: rss }
@@ -340,14 +340,14 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: Dark Reading, url: https://www.darkreading.com/rss.xml, type: rss }
+      - { name: Google News - cyber threat intelligence, url: https://news.google.com/rss/search?q=cyber%20threat%20intelligence&hl=en-US&gl=US&ceid=US:en, type: rss }
       - { name: BleepingComputer, url: https://www.bleepingcomputer.com/feed/, type: rss }
       - { name: The Register, url: https://www.theregister.com/headlines.atom, type: rss }
       - { name: CSO Online, url: https://www.csoonline.com/feed/, type: rss }
       - { name: KrebsOnSecurity, url: https://krebsonsecurity.com/feed/, type: rss }
       - { name: CISA Advisories, url: https://www.cisa.gov/cybersecurity-advisories/all.xml, type: rss }
       - { name: Industrial Cyber, url: https://industrialcyber.co/feed/, type: rss }
-      - { name: Cybersecurity Dive, url: https://www.cybersecuritydive.com/feeds/news/, type: rss }
+      - { name: Google News - cybersecurity incidents critical infrastructure, url: https://news.google.com/rss/search?q=cybersecurity%20incident%20critical%20infrastructure&hl=en-US&gl=US&ceid=US:en, type: rss }
       - { name: The Hacker News, url: https://feeds.feedburner.com/TheHackersNews, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
@@ -356,10 +356,10 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: iTnews, url: https://www.itnews.com.au/rss/feed.ashx, type: rss }
-      - { name: iTWire, url: https://itwire.com/feed, type: rss }
-      - { name: Cyber Daily, url: https://cyberdaily.au/feed/, type: rss }
-      - { name: AusCERT, url: https://auscert.org.au/resources/rss/, type: rss }
+      - { name: SecurityBrief Australia, url: https://www.securitybrief.com.au/, type: web }
+      - { name: iTWire, url: https://itwire.com/, type: web }
+      - { name: Cyber Daily, url: https://cyberdaily.au/, type: web }
+      - { name: AusCERT, url: https://www.cyber.gov.au/about-us/view-all-content/news, type: web }
       - { name: Google News - cybersecurity Australia critical infrastructure, url: https://news.google.com/rss/search?q=cybersecurity%20Australia%20critical%20infrastructure&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
       - { name: Google News - OT security Australia, url: https://news.google.com/rss/search?q=OT%20security%20Australia&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
 - id: professional-services-hr
@@ -371,9 +371,9 @@
   lookbackDays: 3
   feedsByRegion:
     us-mx-la-lng:
-      - { name: HR Dive, url: https://www.hrdive.com/feeds/news/, type: rss }
-      - { name: SHRM News, url: https://www.shrm.org/rss/pages/rss.aspx, type: rss }
-      - { name: Accounting Today, url: https://www.accountingtoday.com/feed, type: rss }
+      - { name: Google News - workforce management energy sector, url: https://news.google.com/rss/search?q=workforce%20management%20energy%20sector&hl=en-US&gl=US&ceid=US:en, type: rss }
+      - { name: SHRM News, url: https://www.shrm.org/topics-tools/news, type: web }
+      - { name: Accounting Today, url: https://www.accountingtoday.com/, type: web }
       - { name: BLS Economic Releases, url: https://www.bls.gov/feed/bls_latest.rss, type: rss }
       - { name: EIA Today in Energy, url: https://www.eia.gov/rss/todayinenergy.xml, type: rss }
       - { name: Federal Register Oil Gas, url: https://www.federalregister.gov/topics/oil-gas-reserves.rss, type: rss }
@@ -382,8 +382,8 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Accountants Daily, url: https://www.accountantsdaily.com.au/feed, type: rss }
-      - { name: Lawyers Weekly, url: https://www.lawyersweekly.com.au/feed, type: rss }
+      - { name: Accountants Daily, url: https://www.accountantsdaily.com.au/, type: web }
+      - { name: Lawyers Weekly, url: https://www.lawyersweekly.com.au/, type: web }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }
       - { name: Google News - HR Australia mining oil gas, url: https://news.google.com/rss/search?q=HR%20Australia%20mining%20oil%20gas&hl=en-AU&gl=AU&ceid=AU:en, type: rss }

@@ -316,7 +316,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "The Hacker News", url: "https://thehackernews.com/", region: "both" },
       { name: "CISA Advisories", url: "https://www.cisa.gov/news-events/cybersecurity-advisories", region: "intl" },
       { name: "Industrial Cyber", url: "https://industrialcyber.co/", region: "both" },
-      { name: "iTnews (AU)", url: "https://www.itnews.com.au/", region: "apac" },
+      { name: "SecurityBrief Australia", url: "https://www.securitybrief.com.au/", region: "apac" },
       { name: "Cyber Daily (AU)", url: "https://cyberdaily.au/", region: "apac" },
       { name: "ACSC (AU)", url: "https://www.cyber.gov.au/", region: "apac" },
     ],
@@ -378,12 +378,21 @@ export function getGoogleNewsFeeds(
   const keywords = [...pack.primary, ...pack.secondary];
   if (keywords.length === 0) return [];
   
-  // Select top keywords for search queries (prefer multi-word terms)
-  const searchKeywords = keywords
-    .filter(k => k.includes(" ") || k.length > 4) // Prefer phrases and longer terms
-    .slice(0, 5)
-    .concat(keywords.slice(0, 3)); // Add some single-word terms
-  const uniqueKeywords = Array.from(new Set(searchKeywords)).slice(0, 5);
+  // Keep Google queries broad enough to return daily items.
+  // Very long keyword chains can produce empty feeds for niche categories.
+  const normalizedKeywords = Array.from(
+    new Set(
+      keywords
+        .map((value) => value.replace(/[-_/]+/g, " ").replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .map((value) => value.split(" ").slice(0, 3).join(" "))
+        .filter((value) => value.length >= 4)
+    )
+  );
+  const uniqueKeywords = normalizedKeywords.slice(0, 4);
+  const fallbackKeyword = portfolioSlug.replace(/-/g, " ");
+  const keywordA = uniqueKeywords[0] ?? fallbackKeyword;
+  const keywordB = uniqueKeywords[1] ?? keywordA;
 
   // Region-specific modifiers
   const regionModifiers: Record<"apac" | "intl", string[]> = {
@@ -399,33 +408,30 @@ export function getGoogleNewsFeeds(
   const queries: string[] = [];
 
   // Query 1: Primary keyword + region
-  if (uniqueKeywords.length > 0 && modifiers.length > 0) {
-    queries.push(`${uniqueKeywords[0]} ${modifiers[0]}`);
+  if (modifiers.length > 0) {
+    queries.push(`${keywordA} ${modifiers[0]}`);
   }
 
-  // Query 2: Primary keyword + alternative region term
-  if (uniqueKeywords.length > 0 && modifiers.length > 1) {
-    queries.push(`${uniqueKeywords[0]} ${modifiers[1]}`);
+  // Query 2: Primary keyword + alternate region term
+  if (modifiers.length > 1) {
+    queries.push(`${keywordA} ${modifiers[1]}`);
   }
 
   // Query 3: Secondary keyword + region
-  if (uniqueKeywords.length > 1 && modifiers.length > 0) {
-    queries.push(`${uniqueKeywords[1]} ${modifiers[0]}`);
+  if (modifiers.length > 0) {
+    queries.push(`${keywordB} ${modifiers[0]}`);
   }
 
-  // Query 4: Combined keywords with OR
-  if (uniqueKeywords.length >= 2) {
-    const keywordPair = uniqueKeywords.slice(0, 2).join(" OR ");
-    queries.push(`${keywordPair} ${modifiers[0] || ""}`);
+  // Query 4: Secondary keyword + alternate region term
+  if (modifiers.length > 1) {
+    queries.push(`${keywordB} ${modifiers[1]}`);
   }
 
-  // Query 5: Category-specific terms with OR
-  if (uniqueKeywords.length >= 3) {
-    queries.push(`${uniqueKeywords.slice(0, 3).join(" OR ")} ${modifiers[0] || ""}`);
-  }
+  // Query 5: Broad category capture for consistent feed freshness
+  queries.push(`${keywordA} oil gas`);
 
-  // Limit to 5 queries max
-  const selectedQueries = queries.slice(0, 5);
+  // Normalize, dedupe and limit to 5 queries max
+  const selectedQueries = Array.from(new Set(queries.map((q) => q.replace(/\s+/g, " ").trim()).filter(Boolean))).slice(0, 5);
 
   // Generate Google News RSS URLs
   for (let i = 0; i < selectedQueries.length; i++) {

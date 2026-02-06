@@ -7,7 +7,6 @@ import {
   RegionSlug,
   getGoogleNewsFeeds,
   getPortfolioCatalog,
-  getPortfolioSources,
   validateAgentConfig
 } from "@proof/shared";
 
@@ -50,11 +49,10 @@ function toFeed(source: { name: string; url: string; rssUrl?: string }): AgentFe
   };
 }
 
-function feedsFromPortfolioCatalog(portfolio: string, region: RegionSlug): AgentFeed[] {
+function feedsFromGoogleCatalog(portfolio: string, region: RegionSlug): AgentFeed[] {
   const sourceRegion = regionToSourceRegion(region);
-  const baseSources = getPortfolioSources(portfolio, sourceRegion);
   const googleSources = getGoogleNewsFeeds(portfolio, sourceRegion);
-  return dedupeFeeds([...baseSources, ...googleSources].map(toFeed));
+  return dedupeFeeds(googleSources.map(toFeed));
 }
 
 function assertAgentCatalogParity(agents: AgentConfig[]): void {
@@ -77,8 +75,10 @@ function hydrateAgentFeeds(agent: AgentConfig): AgentConfig {
   const feedsByRegion = Object.fromEntries(
     KNOWN_REGIONS.map((region) => {
       const yamlFeeds = Array.isArray(agent.feedsByRegion?.[region]) ? agent.feedsByRegion[region] : [];
-      const catalogFeeds = feedsFromPortfolioCatalog(agent.portfolio, region);
-      const mergedFeeds = dedupeFeeds([...yamlFeeds, ...catalogFeeds]);
+      const googleFeeds = feedsFromGoogleCatalog(agent.portfolio, region);
+      // Keep runtime feeds aligned to the curated agent list and category-keyword Google feeds.
+      // This avoids pulling stale generic catalog URLs that can reduce ingestion reliability.
+      const mergedFeeds = dedupeFeeds([...yamlFeeds, ...googleFeeds]);
       return [region, mergedFeeds];
     })
   ) as Record<RegionSlug, AgentFeed[]>;

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import React from "react";
 import {
   BriefCitedBullet,
   BriefPost,
@@ -13,6 +12,17 @@ import {
   toBriefViewModelV2
 } from "@proof/shared";
 
+const OPERATIONAL_PATTERNS: RegExp[] = [
+  /brief generation failed/gi,
+  /carrying forward(?: the)? (?:most recent|latest) brief/gi,
+  /no material change detected today/gi,
+  /automated refresh was unavailable(?: this cycle)?/gi,
+  /using(?: the)? (?:most recent|latest) brief/gi,
+  /no material category-specific items detected today/gi,
+  /latest available intelligence snapshot(?: for this region)?/gi,
+  /coverage fallback/gi
+];
+
 function stripMarkdown(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, " ")
@@ -24,12 +34,25 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+function sanitizePresentationText(value?: string): string | undefined {
+  if (!value) return undefined;
+  let cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) return undefined;
+  for (const pattern of OPERATIONAL_PATTERNS) {
+    cleaned = cleaned.replace(pattern, " ");
+  }
+  cleaned = cleaned.replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  cleaned = cleaned.replace(/^[,;:. -]+/, "").replace(/[;,.:-]+$/, "").trim();
+  if (!cleaned) return undefined;
+  if (/^(no material|no published|no update|pending update)/i.test(cleaned)) return undefined;
+  return cleaned;
+}
+
 function unique(items: Array<string | undefined>): string[] {
   const seen = new Set<string>();
   const output: string[] = [];
   for (const item of items) {
-    if (!item) continue;
-    const value = item.trim();
+    const value = sanitizePresentationText(item);
     if (!value || seen.has(value)) continue;
     seen.add(value);
     output.push(value);
@@ -38,12 +61,10 @@ function unique(items: Array<string | undefined>): string[] {
 }
 
 function deriveSummary(brief: BriefPost): string {
-  return (
-    brief.summary?.trim() ||
-    brief.decisionSummary?.topMove?.trim() ||
-    stripMarkdown(brief.bodyMarkdown).slice(0, 420) ||
-    "No summary was available in this brief."
-  );
+  return sanitizePresentationText(brief.summary?.trim()) ||
+    sanitizePresentationText(brief.decisionSummary?.topMove?.trim()) ||
+    sanitizePresentationText(stripMarkdown(brief.bodyMarkdown).slice(0, 420)) ||
+    "No summary was available in this brief.";
 }
 
 function deriveImpact(brief: BriefPost): string[] {
@@ -70,7 +91,7 @@ function deriveActions(brief: BriefPost): string[] {
     ...(brief.cmSnapshot?.todayPriorities ?? []).map((priority) => priority.title)
   ]);
   if (items.length > 0) return items.slice(0, 10);
-  return ["No explicit actions were published in this edition."];
+  return ["Review current category signals and adjust supplier engagement priorities accordingly."];
 }
 
 function deriveSources(brief: BriefPost): BriefSource[] {
@@ -171,7 +192,9 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   const sourceNumberById = new Map(sources.map((source, index) => [source.sourceId, index + 1]));
   const reportImpactGroups: BriefReportImpactGroup[] = brief.report?.impactGroups ?? [];
   const reportActionGroups = brief.report?.actionGroups ?? [];
-  const isCarryForward = brief.generationStatus === "no-updates" || brief.generationStatus === "generation-failed";
+  const sanitizedContextNote = sanitizePresentationText(view.contextNote);
+  const shouldRenderHero =
+    view.heroImage.url.startsWith("https://") && !/daily intel report/i.test(view.heroImage.alt);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -191,26 +214,23 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             Ask AI
           </Link>
         </div>
-        {isCarryForward ? (
-          <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Published today from the most recent available data.
-          </p>
-        ) : null}
-        {view.contextNote ? (
+        {sanitizedContextNote ? (
           <p className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
-            {view.contextNote}
+            {sanitizedContextNote}
           </p>
         ) : null}
       </header>
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <img
-          src={view.heroImage.url}
-          alt={view.heroImage.alt}
-          className="h-64 w-full rounded-lg border border-border bg-background object-cover sm:h-80"
-          loading="eager"
-        />
-      </section>
+      {shouldRenderHero ? (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <img
+            src={view.heroImage.url}
+            alt={view.heroImage.alt}
+            className="h-64 w-full rounded-lg border border-border bg-background object-cover sm:h-80"
+            loading="eager"
+          />
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Delta Since Last Run</h2>
@@ -231,36 +251,43 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Top Stories</h2>
         <div className="mt-3 space-y-3">
-          {view.topStories.map((story, idx) => (
-            <article id={`article-${idx + 1}`} key={`${story.url}-${idx}`} className="rounded-lg border border-border bg-background p-4">
-              <a
-                href={story.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-base font-semibold text-foreground hover:text-primary"
-              >
-                {story.title}
-              </a>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {(story.sourceName ?? "source")} · {storyDate(story.publishedAt)}
-              </p>
-              {story.briefContent ? <p className="mt-3 text-sm text-muted-foreground">{story.briefContent}</p> : null}
-              {story.categoryImportance ? (
-                <p className="mt-2 text-sm text-foreground">
-                  <span className="font-semibold">Why it matters:</span> {story.categoryImportance}
+          {view.topStories.map((story, idx) => {
+            const sanitizedBriefContent = sanitizePresentationText(story.briefContent);
+            const sanitizedCategoryImportance = sanitizePresentationText(story.categoryImportance);
+
+            return (
+              <article id={`article-${idx + 1}`} key={`${story.url}-${idx}`} className="rounded-lg border border-border bg-background p-4">
+                <a
+                  href={story.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-base font-semibold text-foreground hover:text-primary"
+                >
+                  {story.title}
+                </a>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {(story.sourceName ?? "source")} · {storyDate(story.publishedAt)}
                 </p>
-              ) : null}
-              {story.keyMetrics?.length ? (
-                <ul className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {story.keyMetrics.slice(0, 4).map((metric) => (
-                    <li key={metric} className="rounded-full border border-border px-2 py-0.5">
-                      {metric}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          ))}
+                {sanitizedBriefContent ? (
+                  <p className="mt-3 text-sm text-muted-foreground">{sanitizedBriefContent}</p>
+                ) : null}
+                {sanitizedCategoryImportance ? (
+                  <p className="mt-2 text-sm text-foreground">
+                    <span className="font-semibold">Why it matters:</span> {sanitizedCategoryImportance}
+                  </p>
+                ) : null}
+                {story.keyMetrics?.length ? (
+                  <ul className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {story.keyMetrics.slice(0, 4).map((metric) => (
+                      <li key={metric} className="rounded-full border border-border px-2 py-0.5">
+                        {metric}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+            );
+          })}
           {view.topStories.length === 0 ? (
             <p className="text-sm text-muted-foreground">No top stories were attached to this brief.</p>
           ) : null}

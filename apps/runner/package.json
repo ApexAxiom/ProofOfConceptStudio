@@ -11,6 +11,7 @@
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
     "evidence:smoke": "tsx src/publish/evidence.smoke.ts",
     "selection:smoke": "tsx src/agents/selection.smoke.ts",
+    "feeds:audit": "tsx src/agents/feed-audit.ts",
     "brief-v2:smoke": "tsx src/brief-v2.smoke.ts",
     "brief-day:smoke": "tsx src/brief-day.smoke.ts",
     "fallback:smoke": "tsx src/brief-coverage/fallback.smoke.ts",

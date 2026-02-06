@@ -70,20 +70,21 @@ function computeKeywordSignals(
 const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
   "us-mx-la-lng": [
     { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
-    { name: "World Oil", url: "https://www.worldoil.com/rss/news", type: "rss" },
-    { name: "Oil & Gas Journal", url: "https://www.ogj.com/rss", type: "rss" },
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
-    { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
     { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
-    { name: "EIA Press Releases", url: "https://www.eia.gov/rss/press_rss.xml", type: "rss" }
+    { name: "EIA Press Releases", url: "https://www.eia.gov/rss/press_rss.xml", type: "rss" },
+    { name: "Federal Register (Energy)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=energy", type: "rss" },
+    { name: "Federal Register (Oil & Gas)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=oil%20gas", type: "rss" },
+    { name: "Google News - offshore drilling LNG", url: "https://news.google.com/rss/search?q=offshore%20drilling%20LNG&hl=en-US&gl=US&ceid=US:en&when=7d", type: "rss" }
   ],
   "au": [
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
     { name: "Australian Mining", url: "https://www.australianmining.com.au/feed/", type: "rss" },
-    { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
-    { name: "Process Online", url: "https://www.processonline.com.au/feed/", type: "rss" },
     { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" },
     { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
+    { name: "DISR News", url: "https://www.industry.gov.au/news.xml", type: "rss" },
+    { name: "WA Gov Announcements", url: "https://www.wa.gov.au/rss/announcements/export/171", type: "rss" },
+    { name: "Google News - Australia offshore drilling LNG", url: "https://news.google.com/rss/search?q=Australia%20offshore%20drilling%20LNG&hl=en-AU&gl=AU&ceid=AU:en&when=7d", type: "rss" }
   ]
 };
 
@@ -153,15 +154,15 @@ const BASE_REGULATORY_PACK: Record<RegionSlug, AgentFeed[]> = {
 const GENERAL_CONTEXT_FEEDS: Record<RegionSlug, AgentFeed[]> = {
   "us-mx-la-lng": [
     { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
-    { name: "Oil & Gas Journal", url: "https://www.ogj.com/rss", type: "rss" },
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
-    { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" }
+    { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
+    { name: "Federal Register (Energy)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=energy", type: "rss" }
   ],
   "au": [
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
-    { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
     { name: "Australian Mining", url: "https://www.australianmining.com.au/feed/", type: "rss" },
-    { name: "Process Online", url: "https://www.processonline.com.au/feed/", type: "rss" }
+    { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" },
+    { name: "DISR News", url: "https://www.industry.gov.au/news.xml", type: "rss" }
   ]
 };
 

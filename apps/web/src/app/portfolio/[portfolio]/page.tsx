@@ -27,26 +27,89 @@ interface SourceRow {
 }
 
 const OPERATIONAL_PHRASES: RegExp[] = [
-  /^brief generation failed\.?/i,
-  /^carrying forward the most recent brief\.?/i,
-  /^no material change detected today\.?/i,
-  /^automated refresh was unavailable(?: this cycle)?\.?/i,
-  /^using the most recent brief\.?/i,
-  /^daily intelligence update is being (prepared|initialized)\.?/i,
-  /^baseline coverage is active(?: while.*)?\.?/i,
-  /^latest available intelligence snapshot(?: for this region)?\.?/i
+  /brief generation failed/i,
+  /carrying forward(?: the)? (?:most recent|latest) brief/i,
+  /no material change detected today/i,
+  /automated refresh was unavailable(?: this cycle)?/i,
+  /using(?: the)? (?:most recent|latest) brief/i,
+  /daily intelligence update is being (prepared|initialized)/i,
+  /baseline coverage is active(?: while.*)?/i,
+  /latest available intelligence snapshot(?: for this region)?/i,
+  /coverage fallback/i
+];
+
+const OPERATIONAL_REPLACEMENTS: RegExp[] = [
+  /\bbrief generation failed\b[.:]?/gi,
+  /\bcarrying forward(?: the)? (?:most recent|latest) brief\b[.:]?/gi,
+  /\bno material change detected today\b[.:]?/gi,
+  /\bautomated refresh was unavailable(?: this cycle)?\b[.:]?/gi,
+  /\busing(?: the)? (?:most recent|latest) brief\b[.:]?/gi,
+  /\blatest available intelligence snapshot(?: for this region)?\b[.:]?/gi,
+  /\bcoverage fallback\b[.:]?/gi
 ];
 
 function sanitizeInsightText(value: string | undefined): string | undefined {
   if (!value) return undefined;
   let cleaned = value.replace(/\s+/g, " ").trim();
-  for (const phrase of OPERATIONAL_PHRASES) {
-    cleaned = cleaned.replace(phrase, "").trim();
+  if (!cleaned) return undefined;
+
+  for (const phrase of OPERATIONAL_REPLACEMENTS) {
+    cleaned = cleaned.replace(phrase, " ");
   }
+
+  cleaned = cleaned.replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  if (!cleaned) return undefined;
+
+  const sentenceParts = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const filteredParts = sentenceParts.filter((part) => !OPERATIONAL_PHRASES.some((pattern) => pattern.test(part)));
+  cleaned = filteredParts.join(" ").replace(/\s+/g, " ").trim();
+
   cleaned = cleaned.replace(/^[,;:. -]+/, "").trim();
+  cleaned = cleaned.replace(/[;,.:-]+$/, "").trim();
   if (!cleaned) return undefined;
   if (/^(no material|no published|no update|pending update)/i.test(cleaned)) return undefined;
   return cleaned;
+}
+
+function isSignalBrief(brief: BriefPost): boolean {
+  if (brief.status !== "published") return false;
+  if (brief.generationStatus === "no-updates" || brief.generationStatus === "generation-failed") return false;
+  if (sanitizeInsightText(brief.summary)) return true;
+  return hasStorySignals(brief);
+}
+
+function hasStorySignals(brief: BriefPost): boolean {
+  if ((brief.topStories?.length ?? 0) > 0) return true;
+  if ((brief.selectedArticles?.length ?? 0) > 0) return true;
+  if ((brief.sources?.length ?? 0) > 0) return true;
+  return false;
+}
+
+function hasOperationalCopy(brief: BriefPost): boolean {
+  return OPERATIONAL_PHRASES.some((pattern) => pattern.test(brief.summary ?? ""));
+}
+
+function sortByPublishedDesc(briefs: BriefPost[]): BriefPost[] {
+  return [...briefs].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+}
+
+function pickPreferredBrief(briefs: BriefPost[]): BriefPost | undefined {
+  const published = sortByPublishedDesc(briefs.filter((brief) => brief.status === "published"));
+  const nonCarryForward = published.filter(
+    (brief) => brief.generationStatus !== "no-updates" && brief.generationStatus !== "generation-failed"
+  );
+  if (nonCarryForward.length === 0) return undefined;
+
+  const latestSignal = nonCarryForward.find((brief) => isSignalBrief(brief) && !hasOperationalCopy(brief));
+  if (latestSignal) return latestSignal;
+
+  const latestInformative = nonCarryForward.find((brief) => sanitizeInsightText(brief.summary) || hasStorySignals(brief));
+  if (latestInformative) return latestInformative;
+
+  return nonCarryForward[0];
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -63,23 +126,34 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return result;
 }
 
-function deriveWhatsHappening(briefs: BriefPost[]): {
+function deriveWhatsHappening(briefs: BriefPost[], latestNews: Awaited<ReturnType<typeof getPortfolioNews>> = []): {
   summary: string;
   impact: string[];
   actions: string[];
 } {
   const latest = briefs[0];
+  const topNews = latestNews.slice(0, 4);
   if (!latest) {
+    const fallbackImpact = topNews.map((article) => `${article.title} (${article.source})`);
+    const fallbackActions =
+      topNews.length > 0
+        ? topNews.slice(0, 4).map((article) => `Assess supplier and contract exposure related to: ${article.title}.`)
+        : ["Review latest portfolio news and prioritize follow-up actions tied to current supplier and market moves."];
     return {
-      summary: "Latest portfolio signals are summarized from monitored market and source coverage.",
-      impact: ["Recent source signals are tracked for this portfolio across configured regions."],
-      actions: ["Review latest portfolio news and prioritize follow-up actions tied to current supplier and market moves."]
+      summary:
+        topNews[0]?.summary ??
+        topNews[0]?.title ??
+        "Latest portfolio signals are summarized from monitored market and source coverage.",
+      impact: fallbackImpact.length > 0 ? fallbackImpact : ["Recent source signals are tracked for this portfolio."],
+      actions: fallbackActions
     };
   }
 
   const summary =
     sanitizeInsightText(latest.summary?.trim()) ||
     sanitizeInsightText(latest.decisionSummary?.topMove?.trim()) ||
+    topNews[0]?.summary ||
+    topNews[0]?.title ||
     "Latest market and category movement is reflected in today’s published brief.";
 
   const impact = uniqueStrings([
@@ -97,39 +171,19 @@ function deriveWhatsHappening(briefs: BriefPost[]): {
 
   return {
     summary,
-    impact: impact.length > 0 ? impact : ["No major impact deltas were captured in the latest run."],
-    actions: actions.length > 0 ? actions : ["Monitor next run for concrete category actions."]
+    impact:
+      impact.length > 0
+        ? impact
+        : topNews.length > 0
+          ? topNews.slice(0, 4).map((article) => `${article.title} (${article.source})`)
+          : ["Latest category signals are being tracked against configured source coverage."],
+    actions:
+      actions.length > 0
+        ? actions
+        : topNews.length > 0
+          ? topNews.slice(0, 4).map((article) => `Review category implications from: ${article.title}.`)
+          : ["Review supplier and sourcing implications from the newest monitored category headlines."]
   };
-}
-
-function fallbackHistory(portfolio: string): BriefPost[] {
-  const now = new Date().toISOString();
-  return [
-    {
-      postId: `baseline-${portfolio}-au`,
-      title: `${portfolioLabel(portfolio)} — Intelligence snapshot`,
-      region: "au",
-      portfolio,
-      runWindow: "apac",
-      status: "published",
-      publishedAt: now,
-      summary: "Latest available intelligence snapshot for this region.",
-      bodyMarkdown: "Latest available intelligence snapshot for this region.",
-      tags: ["baseline"]
-    },
-    {
-      postId: `baseline-${portfolio}-intl`,
-      title: `${portfolioLabel(portfolio)} — Intelligence snapshot`,
-      region: "us-mx-la-lng",
-      portfolio,
-      runWindow: "international",
-      status: "published",
-      publishedAt: now,
-      summary: "Latest available intelligence snapshot for this region.",
-      bodyMarkdown: "Latest available intelligence snapshot for this region.",
-      tags: ["baseline"]
-    }
-  ];
 }
 
 function shortDate(iso?: string): string {
@@ -222,31 +276,49 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
     getPortfolioNews(portfolio, 12).catch(() => [])
   ]);
 
-  const history = [...auBriefs, ...intlBriefs].sort(
-    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  const sortedAuBriefs = sortByPublishedDesc(auBriefs);
+  const sortedIntlBriefs = sortByPublishedDesc(intlBriefs);
+  const history = sortByPublishedDesc([...sortedAuBriefs, ...sortedIntlBriefs]);
+  const selectedRegionNews = portfolioNews.filter((article) =>
+    selectedRegion === "au" ? article.region === "APAC" : article.region === "INTL"
   );
-  const insight = deriveWhatsHappening(history);
   const latestByRegion: Record<RegionSlug, BriefPost | undefined> = {
-    au: auBriefs[0],
-    "us-mx-la-lng": intlBriefs[0]
+    au: pickPreferredBrief(sortedAuBriefs),
+    "us-mx-la-lng": pickPreferredBrief(sortedIntlBriefs)
   };
   const activeBrief = latestByRegion[selectedRegion];
+  const selectedRegionHistory = (selectedRegion === "au" ? sortedAuBriefs : sortedIntlBriefs).filter(
+    (brief) =>
+      brief.status === "published" &&
+      brief.generationStatus !== "no-updates" &&
+      brief.generationStatus !== "generation-failed"
+  );
+  const insight = deriveWhatsHappening(
+    activeBrief
+      ? [activeBrief, ...selectedRegionHistory.filter((brief) => brief.postId !== activeBrief.postId)]
+      : selectedRegionHistory,
+    selectedRegionNews
+  );
   const activeBriefView = activeBrief ? toBriefViewModelV2(activeBrief, { defaultRegion: selectedRegion }) : null;
 
-  const displayBriefs = history.length > 0 ? history : fallbackHistory(portfolio);
+  const displayBriefsBase = history.filter((brief) => brief.status === "published");
+  const displayBriefs = displayBriefsBase.filter((brief) => isSignalBrief(brief) && !hasOperationalCopy(brief));
 
   const visibleImpact = insight.impact.slice(0, 4);
   const hiddenImpact = insight.impact.slice(4);
   const visibleActions = insight.actions.slice(0, 4);
   const hiddenActions = insight.actions.slice(4);
-  const visibleNews = portfolioNews.slice(0, 8);
-  const hiddenNews = portfolioNews.slice(8);
+  const visibleNews = selectedRegionNews.slice(0, 8);
+  const hiddenNews = selectedRegionNews.slice(8);
   const visibleBriefs = displayBriefs.slice(0, 6);
   const hiddenBriefs = displayBriefs.slice(6);
   const normalizedSources = normalizeSources(activeBrief?.sources);
   const visibleSources = normalizedSources.slice(0, 8);
   const hiddenSources = normalizedSources.slice(8);
-  const hasRenderableHero = Boolean(activeBriefView?.heroImage?.url?.startsWith("https://"));
+  const heroAlt = activeBriefView?.heroImage?.alt?.toLowerCase() ?? "";
+  const heroUrl = activeBriefView?.heroImage?.url ?? "";
+  const hasRenderableHero =
+    heroUrl.startsWith("https://") && !heroAlt.includes("daily intel report") && !heroUrl.startsWith("data:image/");
 
   return (
     <div className={styles.dashboard}>
@@ -317,14 +389,16 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
               </>
             ) : (
               <>
-                <p className={styles.metaLine}>{selectedRegion === "au" ? "APAC" : "International"} · Latest signal set</p>
-                <h3 className={styles.headline}>Daily intelligence update</h3>
+                <p className={styles.metaLine}>{selectedRegion === "au" ? "APAC" : "International"} · Latest sources</p>
+                <h3 className={styles.headline}>
+                  {selectedRegionNews[0]?.title ?? `${portfolioLabel(portfolio)} intelligence snapshot`}
+                </h3>
                 <p className={styles.lede}>{insight.summary}</p>
               </>
             )}
 
             <section className={styles.subSection}>
-              <h4 className={styles.subSectionTitle}>What changed</h4>
+              <h4 className={styles.subSectionTitle}>Key category related activity</h4>
               {visibleImpact.length > 0 ? (
                 <ul className={styles.bulletList}>
                   {visibleImpact.map((item, idx) => (
@@ -339,7 +413,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
               )}
               {hiddenImpact.length > 0 ? (
                 <details className={styles.details}>
-                  <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more changes</summary>
+                  <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more activity</summary>
                   <ul className={`${styles.bulletList} mt-3`}>
                     {hiddenImpact.map((item, idx) => (
                       <li key={`${item}-${idx}`} className={styles.bulletItem}>
@@ -362,7 +436,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                       title={story.title}
                       href={story.url}
                       meta={`${story.sourceName ?? "source"} · ${shortDate(story.publishedAt)}`}
-                      note={story.categoryImportance ?? story.briefContent}
+                      note={sanitizeInsightText(story.categoryImportance ?? story.briefContent)}
                       className={styles.listRow}
                       titleClassName={styles.rowTitle}
                       metaClassName={styles.rowMeta}
@@ -408,7 +482,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 ))}
               </div>
             ) : (
-              <p className={styles.emptyState}>News feed refresh in progress. Check back in the next run cycle.</p>
+              <p className={styles.emptyState}>No recent items were found in configured category sources.</p>
             )}
 
             {hiddenNews.length > 0 ? (
@@ -470,22 +544,26 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
             headerClassName={styles.cardHeader}
             bodyClassName={styles.cardBody}
           >
-            <div className={styles.listStack}>
-              {visibleBriefs.map((brief) => (
-                <ListRow
-                  key={brief.postId}
-                  title={brief.title}
-                  href={`/brief/${brief.postId}`}
-                  external={false}
-                  meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
-                  note={sanitizeInsightText(brief.summary)}
-                  className={styles.listRow}
-                  titleClassName={styles.rowTitle}
-                  metaClassName={styles.rowMeta}
-                  noteClassName={styles.rowNote}
-                />
-              ))}
-            </div>
+            {visibleBriefs.length > 0 ? (
+              <div className={styles.listStack}>
+                {visibleBriefs.map((brief) => (
+                  <ListRow
+                    key={brief.postId}
+                    title={brief.title}
+                    href={`/brief/${brief.postId}`}
+                    external={false}
+                    meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
+                    note={sanitizeInsightText(brief.summary)}
+                    className={styles.listRow}
+                    titleClassName={styles.rowTitle}
+                    metaClassName={styles.rowMeta}
+                    noteClassName={styles.rowNote}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyState}>Published signal briefs will appear here as new category-relevant items land.</p>
+            )}
             {hiddenBriefs.length > 0 ? (
               <details className={styles.details}>
                 <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more briefs</summary>

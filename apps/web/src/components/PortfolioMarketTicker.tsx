@@ -35,36 +35,6 @@ function formatPrice(price: number): string {
   return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function statusMeta(data: PriceData[]) {
-  if (data.length === 0) {
-    return {
-      label: "NO DATA",
-      tone: "text-muted-foreground bg-muted/30"
-    };
-  }
-
-  const live = data.filter((item) => item.state === "live").length;
-  const stale = data.filter((item) => item.state === "stale").length;
-  const fallback = data.filter((item) => item.state === "fallback").length;
-
-  if (fallback === 0 && stale === 0) {
-    return {
-      label: "LIVE",
-      tone: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-    };
-  }
-  if (live > 0) {
-    return {
-      label: "UPDATING",
-      tone: "text-amber-600 dark:text-amber-400 bg-amber-500/10"
-    };
-  }
-  return {
-    label: "UPDATED",
-    tone: "text-muted-foreground bg-muted/30"
-  };
-}
-
 function ChangeBadge({ changePercent }: { changePercent: number }) {
   const positive = changePercent >= 0;
   const label = `${positive ? "+" : ""}${changePercent.toFixed(2)}%`;
@@ -167,7 +137,6 @@ export function PortfolioMarketTicker({
   }, [portfolio]);
 
   const displayData = useMemo(() => (variant === "grid" ? data.slice(0, limit) : data), [data, limit, variant]);
-  const status = statusMeta(data);
 
   if (loading) {
     if (variant === "grid") {
@@ -208,7 +177,6 @@ export function PortfolioMarketTicker({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground">Market Indices</h3>
-              {status.label ? <span className={`text-[10px] px-2 py-0.5 rounded-full ${status.tone}`}>{status.label}</span> : null}
             </div>
             {lastUpdated ? (
               <span className="text-[11px] text-muted-foreground font-mono">
@@ -229,10 +197,7 @@ export function PortfolioMarketTicker({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${status.tone}`}>{status.label}</span>
-        </div>
+        <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
         {lastUpdated ? (
           <span className="text-xs text-muted-foreground font-mono">
             Last update: {formatTimestampWithTimezones(lastUpdated)}
