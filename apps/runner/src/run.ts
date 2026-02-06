@@ -1,10 +1,22 @@
-import { BriefPost, REGIONS, RegionSlug, RunWindow, getBriefDayKey, indicesForRegion, runWindowForRegion } from "@proof/shared";
+import {
+  BriefPost,
+  BriefV2NewsStatus,
+  REGIONS,
+  RegionSlug,
+  RunWindow,
+  getBriefDayKey,
+  indicesForRegion,
+  makeCategoryPlaceholderDataUrl,
+  runWindowForRegion,
+  validateBriefV2Record
+} from "@proof/shared";
+import type { BriefV2HeroImage } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { auditCoverage } from "./brief-coverage/audit.js";
 import { expectedCoverageDayKey } from "./brief-coverage/day.js";
 import { PlaceholderReason } from "./brief-coverage/placeholders.js";
 import { resolveFallbackBrief } from "./brief-coverage/fallback.js";
-import { ingestAgent, ArticleDetail, IngestResult } from "./ingest/fetch.js";
+import { fetchGeneralContextArticles, ingestAgent, ArticleDetail, IngestResult } from "./ingest/fetch.js";
 import { generateBrief } from "./llm/openai.js";
 import type { ArticleInput } from "./llm/openai.js";
 import { validateBrief } from "./publish/validate.js";
@@ -12,10 +24,11 @@ import { validateNumericClaims } from "./publish/factuality.js";
 import { attachEvidenceToBrief } from "./publish/evidence.js";
 import { publishBrief, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
-import { findImageFromPage, findBestImageFromSources } from "./images/image-scraper.js";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
 import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
+import { buildContextNote, buildTopStories, deriveDeltaSinceLastRun, normalizeNewsStatus } from "./brief-v2.js";
+import { cacheHeroImageToS3 } from "./media/cache-hero-image.js";
 
 type RunStatus = "published" | "no-updates" | "failed";
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; status: RunStatus; error?: string };
@@ -208,6 +221,92 @@ function toArticleInput(article: ArticleSource): ArticleInput {
     sourceName: article.sourceName,
     publishedAt: article.published,
     contentStatus: normalizeContentStatus(article.contentStatus)
+  };
+}
+
+function isUsableCategoryArticle(article: ArticleInput): boolean {
+  const contentLength = (article.content ?? "").trim().length;
+  return contentLength >= 300 && article.contentStatus !== "thin";
+}
+
+function isThinCategoryDay(articles: ArticleInput[]): boolean {
+  if (articles.length < 2) return true;
+  const usableCount = articles.filter(isUsableCategoryArticle).length;
+  const allThinOrEmpty = articles.every((article) => {
+    const contentLength = (article.content ?? "").trim().length;
+    return article.contentStatus === "thin" || contentLength === 0;
+  });
+  return usableCount < 2 || allThinOrEmpty;
+}
+
+function mergeArticleInputs(primary: ArticleInput[], supplemental: ArticleInput[]): ArticleInput[] {
+  const seen = new Set<string>();
+  const merged: ArticleInput[] = [];
+  for (const article of [...primary, ...supplemental]) {
+    const key = article.url.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(article);
+  }
+  return merged;
+}
+
+function heroBucketConfig() {
+  const bucket = process.env.BRIEF_IMAGE_S3_BUCKET?.trim();
+  const bucketRegion = process.env.BRIEF_IMAGE_S3_REGION?.trim() || process.env.AWS_REGION?.trim();
+  const publicBaseUrl = process.env.BRIEF_IMAGE_PUBLIC_BASE_URL?.trim();
+  if (!bucket || !bucketRegion || !publicBaseUrl) return null;
+  return { bucket, bucketRegion, publicBaseUrl };
+}
+
+async function resolveHeroImage(params: {
+  brief: BriefPost;
+  categorySlug: string;
+  categoryLabel: string;
+  region: RegionSlug;
+  publishedAt: string;
+}): Promise<{ heroImage: BriefV2HeroImage; heroSourceUrl?: string }> {
+  const selectedArticles = params.brief.selectedArticles ?? [];
+  const heroBySourceUrl = selectedArticles.find(
+    (article) => article.url === params.brief.heroImageSourceUrl && article.imageUrl
+  );
+  const firstWithImage = selectedArticles.find((article) => article.imageUrl);
+  const fallbackSource = selectedArticles.find((article) => article.url === params.brief.heroImageSourceUrl) ?? selectedArticles[0];
+  const heroCandidate = heroBySourceUrl ?? firstWithImage ?? fallbackSource;
+
+  const sourceArticleIndex = heroCandidate?.sourceIndex ?? 1;
+  const alt =
+    params.brief.heroImageAlt?.trim() ||
+    heroCandidate?.imageAlt?.trim() ||
+    heroCandidate?.title?.trim() ||
+    params.brief.title;
+
+  const cacheConfig = heroBucketConfig();
+  let cachedHero: { url: string; cacheKey: string; contentType: string } | null = null;
+
+  if (cacheConfig && heroCandidate?.imageUrl) {
+    cachedHero = await cacheHeroImageToS3({
+      ogImageUrl: heroCandidate.imageUrl,
+      categorySlug: params.categorySlug,
+      region: params.region,
+      publishedDateISO: params.publishedAt,
+      articleIndex: sourceArticleIndex,
+      bucket: cacheConfig.bucket,
+      bucketRegion: cacheConfig.bucketRegion,
+      publicBaseUrl: cacheConfig.publicBaseUrl
+    });
+  }
+
+  const heroUrl = cachedHero?.url ?? makeCategoryPlaceholderDataUrl(params.categoryLabel);
+
+  return {
+    heroImage: {
+      url: heroUrl,
+      alt,
+      sourceArticleIndex,
+      cacheKey: cachedHero?.cacheKey
+    },
+    heroSourceUrl: heroCandidate?.url
   };
 }
 
@@ -485,16 +584,8 @@ export async function runAgent(
     
     // Step 2: Get market indices for this region/portfolio
     const indices = indicesForRegion(agent.portfolio, region);
-    
-    // Step 3: Build allowed URLs set (for validation)
-    const indexUrls = new Set(indices.map((i) => i.url));
-    const articleUrls = new Set(articles.map((a) => a.url));
-    const allowedUrls = new Set([...articleUrls, ...indexUrls]);
-    
-    // Step 4: Convert articles to LLM input format
-    const articleInputs: ArticleInput[] = articles.map(toArticleInput);
-    
-    // Step 5: Look up previous brief for delta context
+
+    // Step 3: Look up previous brief for delta context
     const previousBrief = await getLatestPublishedBrief({
       portfolio: agent.portfolio,
       region,
@@ -516,7 +607,33 @@ export async function runAgent(
         }
       : undefined;
 
-    // Step 6: Generate brief using LLM
+    // Step 4: Convert articles to LLM input format
+    const baseArticleInputs: ArticleInput[] = articles.map(toArticleInput);
+    const thinCategoryDetected = isThinCategoryDay(baseArticleInputs);
+    let newsStatus: BriefV2NewsStatus = thinCategoryDetected ? "thin-category" : "ok";
+
+    let articleInputs = baseArticleInputs;
+    if (thinCategoryDetected) {
+      console.warn(`[${agentId}/${region}] Thin category input detected, supplementing with broader O&G context feeds.`);
+      const contextArticles = await fetchGeneralContextArticles({
+        region,
+        agentId: agent.id,
+        maxArticles: 3
+      });
+      const contextInputs = contextArticles.map(toArticleInput);
+      if (contextInputs.length > 0) {
+        articleInputs = mergeArticleInputs(baseArticleInputs, contextInputs);
+        newsStatus = "fallback-context";
+      } else {
+        console.warn(`[${agentId}/${region}] Context feed fetch returned no additional usable articles.`);
+      }
+    }
+
+    const indexUrls = new Set(indices.map((i) => i.url));
+    const articleUrls = new Set(articleInputs.map((a) => a.url));
+    const allowedUrls = new Set([...articleUrls, ...indexUrls]);
+
+    // Step 5: Generate brief using LLM
     console.log(`[${agentId}/${region}] Generating brief with ${articleInputs.length} articles...`);
     console.log(`[${agentId}/${region}] Article content lengths: ${articleInputs.map(a => (a.content?.length ?? 0)).join(", ")}`);
     let brief = await generateBrief({
@@ -665,43 +782,46 @@ export async function runAgent(
     }
 
     const validated = validatedBrief;
+    const selectedArticles = validated.selectedArticles ?? [];
+    const topStories = buildTopStories(selectedArticles);
+    const normalizedStatus = normalizeNewsStatus(newsStatus, topStories);
+    const deltaSinceLastRun = deriveDeltaSinceLastRun({
+      currentDelta: validated.deltaSinceLastRun,
+      topStories,
+      previousBrief
+    });
 
-    // Step 8: Enrich images deterministically
-    const enrichedArticles = await Promise.all(
-      (validated.selectedArticles || []).map(async (article) => {
-        if (article.imageUrl && article.imageUrl.startsWith("http")) {
-          return article;
-        }
-        const scraped = await findImageFromPage(article.url);
-        if (scraped?.url) {
-          return { ...article, imageUrl: scraped.url, imageAlt: scraped.alt ?? article.imageAlt };
-        }
-        return article;
-      })
-    );
+    const heroResolution = await resolveHeroImage({
+      brief: validated,
+      categorySlug: agent.portfolio,
+      categoryLabel: agent.label,
+      region,
+      publishedAt: validated.publishedAt
+    });
 
-    const heroFromSelection = enrichedArticles.find((a) => a.url === validated.heroImageSourceUrl) || enrichedArticles[0];
-    let heroImageUrl = heroFromSelection?.imageUrl || validated.heroImageUrl;
-    let heroImageAlt = validated.heroImageAlt || heroFromSelection?.title || validated.title;
+    const contextNote = buildContextNote(agent.label, topStories, normalizedStatus);
 
-    if (!heroImageUrl) {
-      const scrapedHero = await findBestImageFromSources(
-        enrichedArticles.map((a) => ({ url: a.url, title: a.title, publisher: a.sourceName }))
-      );
-      heroImageUrl = scrapedHero?.url;
-      heroImageAlt = heroImageAlt || scrapedHero?.alt || validated.title;
-    }
-
-    const published = {
+    const published: BriefPost = {
       ...validated,
       agentId: agent.id,
-      generationStatus: "published" as const,
+      generationStatus: "published",
       briefDay,
-      selectedArticles: enrichedArticles,
-      heroImageUrl,
-      heroImageSourceUrl: heroFromSelection?.url || validated.heroImageSourceUrl,
-      heroImageAlt
+      version: "v2",
+      newsStatus: normalizedStatus,
+      contextNote,
+      selectedArticles,
+      topStories,
+      deltaSinceLastRun,
+      heroImage: heroResolution.heroImage,
+      heroImageUrl: heroResolution.heroImage.url,
+      heroImageAlt: heroResolution.heroImage.alt,
+      heroImageSourceUrl: heroResolution.heroSourceUrl ?? validated.heroImageSourceUrl
     };
+
+    const v2Validation = validateBriefV2Record(published, { hasPreviousBrief: Boolean(previousBrief) });
+    if (!v2Validation.ok) {
+      throw new Error(`BriefV2 validation failed: ${v2Validation.issues.join("; ")}`);
+    }
     
     // Step 9: Publish the brief
     console.log(`[${agentId}/${region}] Publishing brief...`);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BriefPost, findPortfolio, portfolioLabel, regionLabel } from "@proof/shared";
+import { BriefPost, RegionSlug, findPortfolio, portfolioLabel, regionLabel, toBriefViewModelV2 } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 import { getPortfolioNews } from "../../../lib/portfolio-news";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
@@ -7,6 +7,7 @@ import { PortfolioBriefHistory } from "../../../components/PortfolioBriefHistory
 
 interface PortfolioOverviewPageProps {
   params: Promise<{ portfolio: string }>;
+  searchParams?: Promise<{ briefRegion?: string }>;
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -95,8 +96,11 @@ function fallbackHistory(portfolio: string): BriefPost[] {
 /**
  * Category overview page for a selected portfolio.
  */
-export default async function PortfolioOverviewPage({ params }: PortfolioOverviewPageProps) {
+export default async function PortfolioOverviewPage({ params, searchParams }: PortfolioOverviewPageProps) {
   const { portfolio } = await params;
+  const query = searchParams ? await searchParams : undefined;
+  const selectedRegion: RegionSlug =
+    query?.briefRegion === "us-mx-la-lng" || query?.briefRegion === "au" ? query.briefRegion : "au";
   const portfolioDef = findPortfolio(portfolio);
 
   if (!portfolioDef) {
@@ -120,6 +124,12 @@ export default async function PortfolioOverviewPage({ params }: PortfolioOvervie
   const history = [...auBriefs, ...intlBriefs]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   const insight = deriveWhatsHappening(history);
+  const latestByRegion: Record<RegionSlug, BriefPost | undefined> = {
+    au: auBriefs[0],
+    "us-mx-la-lng": intlBriefs[0]
+  };
+  const activeBrief = latestByRegion[selectedRegion];
+  const activeBriefView = activeBrief ? toBriefViewModelV2(activeBrief, { defaultRegion: selectedRegion }) : null;
 
   return (
     <div className="space-y-8">
@@ -141,6 +151,85 @@ export default async function PortfolioOverviewPage({ params }: PortfolioOvervie
           </Link>
         </div>
       </header>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Latest Brief By Region</h2>
+          <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
+            <Link
+              href={`/portfolio/${portfolio}?briefRegion=au`}
+              className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
+                selectedRegion === "au" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              APAC
+            </Link>
+            <Link
+              href={`/portfolio/${portfolio}?briefRegion=us-mx-la-lng`}
+              className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
+                selectedRegion === "us-mx-la-lng"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              International (US/Mexico/Senegal)
+            </Link>
+          </div>
+        </div>
+
+        {activeBriefView ? (
+          <article className="mt-4 space-y-4">
+            <img
+              src={activeBriefView.heroImage.url}
+              alt={activeBriefView.heroImage.alt}
+              className="h-52 w-full rounded-lg border border-border bg-background object-cover sm:h-64"
+              loading="lazy"
+            />
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {regionLabel(activeBriefView.region)} · {activeBriefView.dateLabel}
+              </p>
+              <h3 className="text-xl font-semibold text-foreground">{activeBriefView.title}</h3>
+              {activeBriefView.contextNote ? (
+                <p className="rounded-md border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+                  {activeBriefView.contextNote}
+                </p>
+              ) : null}
+            </div>
+            {activeBriefView.deltaBullets.length > 0 ? (
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {activeBriefView.deltaBullets.map((item, idx) => (
+                  <li key={`${item}-${idx}`} className="flex gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="grid gap-3 md:grid-cols-2">
+              {activeBriefView.topStories.slice(0, 3).map((story, idx) => (
+                <article key={`${story.url}-${idx}`} className="rounded-lg border border-border bg-background p-3">
+                  <a href={story.url} target="_blank" rel="noreferrer noopener" className="text-sm font-semibold text-foreground hover:text-primary">
+                    {story.title}
+                  </a>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {story.sourceName ?? "source"} ·{" "}
+                    {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "n.d."}
+                  </p>
+                  {story.categoryImportance ? <p className="mt-2 text-xs text-muted-foreground">{story.categoryImportance}</p> : null}
+                </article>
+              ))}
+            </div>
+            <Link href={`/brief/${activeBrief.postId}`} className="btn-secondary text-sm">
+              Open Full Brief
+            </Link>
+          </article>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No published brief is available for this region yet. Coverage fallback is still active for this cycle.
+          </p>
+        )}
+      </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <PortfolioMarketTicker portfolio={portfolio} variant="grid" limit={6} showHeader />

@@ -1,5 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: CMHub core infra
+Parameters:
+  BriefImageBucketName:
+    Type: String
+    Default: ""
+    Description: Optional public bucket name for cached brief hero images
+Conditions:
+  CreateBriefImageBucket: !Not [!Equals [!Ref BriefImageBucketName, ""]]
 Resources:
   CMHubTable:
     Type: AWS::DynamoDB::Table
@@ -55,8 +62,46 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+  BriefImageBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateBriefImageBucket
+    Properties:
+      BucketName: !Ref BriefImageBucketName
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: [GET, HEAD]
+            AllowedOrigins: ["*"]
+            MaxAge: 3000
+  BriefImageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateBriefImageBucket
+    Properties:
+      Bucket: !Ref BriefImageBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadForBriefImages
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${BriefImageBucket.Arn}/*"
 Outputs:
   TableName:
     Value: !Ref CMHubTable
   TableArn:
     Value: !GetAtt CMHubTable.Arn
+  BriefImageBucketName:
+    Condition: CreateBriefImageBucket
+    Value: !Ref BriefImageBucket
+  BriefImagePublicBaseUrl:
+    Condition: CreateBriefImageBucket
+    Value: !Sub "https://${BriefImageBucket}.s3.${AWS::Region}.amazonaws.com"

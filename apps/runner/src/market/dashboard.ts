@@ -1,5 +1,16 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { AgentConfig, BriefPost, CategoryGroup, RegionSlug, RunWindow, categoryForPortfolio, getBriefDayKey, indicesForRegion } from "@proof/shared";
+import {
+  AgentConfig,
+  BriefPost,
+  CategoryGroup,
+  RegionSlug,
+  RunWindow,
+  categoryForPortfolio,
+  getBriefDayKey,
+  indicesForRegion,
+  makeCategoryPlaceholderDataUrl,
+  validateBriefV2Record
+} from "@proof/shared";
 import { documentClient, tableName } from "../db/client.js";
 import { normalizeForDedupe } from "../ingest/url-normalize.js";
 import { generateMarketBrief } from "../llm/market-openai.js";
@@ -8,8 +19,10 @@ import { publishBrief, logRunResult } from "../publish/dynamo.js";
 import { validateBrief } from "../publish/validate.js";
 import { validateMarketNumericClaims } from "../publish/factuality.js";
 import { attachEvidenceToMarketBrief } from "../publish/evidence.js";
-import { findBestImageFromSources, findImageFromPage } from "../images/image-scraper.js";
 import { IngestResult } from "../ingest/fetch.js";
+import { cacheHeroImageToS3 } from "../media/cache-hero-image.js";
+import { buildTopStories, deriveDeltaSinceLastRun, normalizeNewsStatus } from "../brief-v2.js";
+import { getLatestPublishedBrief } from "../db/previous-brief.js";
 
 interface RunResult {
   agentId: string;
@@ -60,6 +73,14 @@ function shortlistWithCategoryCoverage(candidates: MarketCandidate[], requiredCo
   return chosen;
 }
 
+function heroBucketConfig() {
+  const bucket = process.env.BRIEF_IMAGE_S3_BUCKET?.trim();
+  const bucketRegion = process.env.BRIEF_IMAGE_S3_REGION?.trim() || process.env.AWS_REGION?.trim();
+  const publicBaseUrl = process.env.BRIEF_IMAGE_PUBLIC_BASE_URL?.trim();
+  if (!bucket || !bucketRegion || !publicBaseUrl) return null;
+  return { bucket, bucketRegion, publicBaseUrl };
+}
+
 export async function runMarketDashboard(
   agent: AgentConfig,
   region: RegionSlug,
@@ -68,6 +89,11 @@ export async function runMarketDashboard(
 ): Promise<RunResult> {
   try {
     const briefDay = getBriefDayKey(region, new Date());
+    const previousBrief = await getLatestPublishedBrief({
+      portfolio: agent.portfolio,
+      region,
+      beforeIso: new Date().toISOString()
+    });
     const lookbackDays = agent.lookbackDays ?? 2;
     const since = new Date();
     since.setDate(since.getDate() - Math.max(lookbackDays, 1));
@@ -204,42 +230,66 @@ export async function runMarketDashboard(
     }
 
     const validated = validatedBrief;
+    const selectedArticles = validated.selectedArticles ?? [];
+    const topStories = buildTopStories(selectedArticles);
+    const newsStatus = normalizeNewsStatus("ok", topStories);
+    const deltaSinceLastRun = deriveDeltaSinceLastRun({
+      currentDelta: validated.deltaSinceLastRun,
+      topStories,
+      previousBrief
+    });
 
-    const enrichedArticles = await Promise.all(
-      (validated.selectedArticles || []).map(async (article) => {
-        if (article.imageUrl && article.imageUrl.startsWith("http")) {
-          return article;
-        }
-        const scraped = await findImageFromPage(article.url);
-        if (scraped?.url) {
-          return { ...article, imageUrl: scraped.url, imageAlt: scraped.alt ?? article.imageAlt };
-        }
-        return article;
-      })
+    const heroBySourceUrl = selectedArticles.find(
+      (article) => article.url === validated.heroImageSourceUrl && article.imageUrl
     );
+    const firstWithImage = selectedArticles.find((article) => article.imageUrl);
+    const fallbackSource = selectedArticles.find((article) => article.url === validated.heroImageSourceUrl) ?? selectedArticles[0];
+    const heroCandidate = heroBySourceUrl ?? firstWithImage ?? fallbackSource;
+    const sourceArticleIndex = heroCandidate?.sourceIndex ?? 1;
 
-    const heroFromSelection = enrichedArticles.find((a) => a.url === validated.heroImageSourceUrl) || enrichedArticles[0];
-    let heroImageUrl = heroFromSelection?.imageUrl || validated.heroImageUrl;
-    let heroImageAlt = validated.heroImageAlt || heroFromSelection?.title || validated.title;
+    const cacheConfig = heroBucketConfig();
+    const cachedHero = cacheConfig && heroCandidate?.imageUrl
+      ? await cacheHeroImageToS3({
+          ogImageUrl: heroCandidate.imageUrl,
+          categorySlug: agent.portfolio,
+          region,
+          publishedDateISO: validated.publishedAt,
+          articleIndex: sourceArticleIndex,
+          bucket: cacheConfig.bucket,
+          bucketRegion: cacheConfig.bucketRegion,
+          publicBaseUrl: cacheConfig.publicBaseUrl
+        })
+      : null;
 
-    if (!heroImageUrl) {
-      const scrapedHero = await findBestImageFromSources(
-        enrichedArticles.map((a) => ({ url: a.url, title: a.title, publisher: a.sourceName }))
-      );
-      heroImageUrl = scrapedHero?.url;
-      heroImageAlt = heroImageAlt || scrapedHero?.alt || validated.title;
-    }
+    const heroImageUrl = cachedHero?.url ?? makeCategoryPlaceholderDataUrl(agent.label);
+    const heroImageAlt =
+      validated.heroImageAlt?.trim() || heroCandidate?.imageAlt?.trim() || heroCandidate?.title || validated.title;
 
-    const published = {
+    const published: BriefPost = {
       ...validated,
       agentId: agent.id,
-      generationStatus: "published" as const,
+      generationStatus: "published",
       briefDay,
-      selectedArticles: enrichedArticles,
+      version: "v2",
+      newsStatus,
+      selectedArticles,
+      topStories,
+      deltaSinceLastRun,
+      heroImage: {
+        url: heroImageUrl,
+        alt: heroImageAlt,
+        sourceArticleIndex,
+        cacheKey: cachedHero?.cacheKey
+      },
       heroImageUrl,
-      heroImageSourceUrl: heroFromSelection?.url || validated.heroImageSourceUrl,
+      heroImageSourceUrl: heroCandidate?.url || validated.heroImageSourceUrl,
       heroImageAlt
     };
+
+    const v2Validation = validateBriefV2Record(published, { hasPreviousBrief: Boolean(previousBrief) });
+    if (!v2Validation.ok) {
+      throw new Error(`BriefV2 validation failed: ${v2Validation.issues.join("; ")}`);
+    }
 
     const ingestStub: IngestResult = { 
       articles: [], 

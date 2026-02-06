@@ -2,7 +2,9 @@ import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import {
   BriefPost,
   buildSourceId,
-  normalizeBriefSources
+  normalizeBriefSources,
+  toBriefViewModelV2,
+  validateBriefV2Record
 } from "@proof/shared";
 import { documentClient, tableName } from "./db/client.js";
 
@@ -24,7 +26,7 @@ async function fetchRecentBriefs(limit: number): Promise<BriefPost[]> {
   return (result.Items ?? []) as BriefPost[];
 }
 
-function validateBriefIntegrity(brief: BriefPost): string[] {
+function validateBriefIntegrity(brief: BriefPost, hasPreviousBrief: boolean): string[] {
   const issues: string[] = [];
   const sources = normalizeBriefSources(brief.sources);
   const sourceIds = new Set(sources.map((s) => s.sourceId));
@@ -62,6 +64,14 @@ function validateBriefIntegrity(brief: BriefPost): string[] {
     }
   }
 
+  const viewModel = toBriefViewModelV2(brief);
+  if (!viewModel.heroImage.url) {
+    issues.push("view model missing hero image URL");
+  }
+
+  const v2Validation = validateBriefV2Record(brief, { hasPreviousBrief });
+  issues.push(...v2Validation.issues);
+
   return issues;
 }
 
@@ -73,8 +83,23 @@ async function main() {
   }
 
   let totalIssues = 0;
-  for (const brief of briefs) {
-    const issues = validateBriefIntegrity(brief);
+  const byPortfolioRegion = new Map<string, BriefPost[]>();
+  const sorted = [...briefs].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  for (const brief of sorted) {
+    const key = `${brief.portfolio}::${brief.region}`;
+    const list = byPortfolioRegion.get(key) ?? [];
+    list.push(brief);
+    byPortfolioRegion.set(key, list);
+  }
+
+  for (const brief of sorted) {
+    const key = `${brief.portfolio}::${brief.region}`;
+    const list = byPortfolioRegion.get(key) ?? [];
+    const index = list.findIndex((item) => item.postId === brief.postId);
+    const hasPreviousBrief = index >= 0 && index < list.length - 1;
+
+    const issues = validateBriefIntegrity(brief, hasPreviousBrief);
     if (issues.length > 0) {
       totalIssues += issues.length;
       console.log(

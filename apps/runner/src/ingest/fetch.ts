@@ -150,6 +150,21 @@ const BASE_REGULATORY_PACK: Record<RegionSlug, AgentFeed[]> = {
   ]
 };
 
+const GENERAL_CONTEXT_FEEDS: Record<RegionSlug, AgentFeed[]> = {
+  "us-mx-la-lng": [
+    { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
+    { name: "Oil & Gas Journal", url: "https://www.ogj.com/rss", type: "rss" },
+    { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
+    { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" }
+  ],
+  "au": [
+    { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
+    { name: "Energy Voice", url: "https://www.energyvoice.com/feed/", type: "rss" },
+    { name: "Australian Mining", url: "https://www.australianmining.com.au/feed/", type: "rss" },
+    { name: "Process Online", url: "https://www.processonline.com.au/feed/", type: "rss" }
+  ]
+};
+
 function normalizeFeedUrl(url: string): string {
   try {
     return new URL(url).toString();
@@ -193,6 +208,63 @@ function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[
   if (category === "services") return SERVICES_FALLBACK;
   if (category === "facility") return FACILITY_FALLBACK;
   return [];
+}
+
+export async function fetchGeneralContextArticles(params: {
+  region: RegionSlug;
+  agentId: string;
+  maxArticles?: number;
+}): Promise<ArticleDetail[]> {
+  const target = Math.max(1, Math.min(params.maxArticles ?? 3, 3));
+  const attemptedFeeds = new Set<string>();
+  const feeds = dedupeFeeds([
+    ...(GENERAL_CONTEXT_FEEDS[params.region] ?? []),
+    ...getBaseRegulatoryFeeds(params.region).slice(0, 2)
+  ]);
+
+  if (feeds.length === 0) return [];
+
+  const collected = await fetchFromFeeds(feeds, target * 4, attemptedFeeds, {
+    agentId: `${params.agentId}:context`,
+    region: params.region
+  });
+
+  const deduped = dedupeArticles(collected).slice(0, target * 4);
+  if (deduped.length === 0) return [];
+
+  const details: ArticleDetail[] = await Promise.all(
+    deduped.slice(0, target * 3).map(async (candidate) => {
+      try {
+        const extracted = await fetchArticleDetails(candidate.url);
+        const content = extracted.content ?? candidate.summary;
+        const contentLength = (content ?? "").trim().length;
+        return {
+          title: extracted.title || candidate.title,
+          url: candidate.url,
+          published: candidate.published ?? extracted.publishedAt,
+          summary: extracted.description ?? candidate.summary,
+          content,
+          ogImageUrl: extracted.ogImageUrl,
+          sourceName: extracted.sourceName || candidate.sourceName,
+          contentStatus: contentLength >= MIN_CONTENT_LEN ? "ok" : "thin"
+        } satisfies ArticleDetail;
+      } catch (error) {
+        console.warn(`[${params.agentId}/${params.region}] context article extraction failed`, (error as Error).message);
+        const contentLength = (candidate.summary ?? "").trim().length;
+        return {
+          title: candidate.title,
+          url: candidate.url,
+          published: candidate.published,
+          summary: candidate.summary,
+          content: candidate.summary,
+          sourceName: candidate.sourceName,
+          contentStatus: contentLength >= MIN_CONTENT_LEN ? "ok" : "thin"
+        } satisfies ArticleDetail;
+      }
+    })
+  );
+
+  return details.slice(0, target);
 }
 
 /**

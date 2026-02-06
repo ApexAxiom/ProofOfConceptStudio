@@ -1,4 +1,5 @@
 import { RegionSlug } from "./regions.js";
+import type { BriefV2, BriefV2HeroImage, BriefV2NewsStatus, BriefV2TopStory } from "./brief-v2.js";
 
 export type RunWindow = "apac" | "international";
 
@@ -269,6 +270,21 @@ export interface BriefPost {
   /** Exact URL of the article the hero image came from */
   heroImageSourceUrl?: string;
   heroImageAlt?: string;
+
+  /** Brief payload version marker */
+  version?: BriefV2["version"];
+
+  /** Brief v2 status for thin-news handling */
+  newsStatus?: BriefV2NewsStatus;
+
+  /** Explicit note for fallback-context days */
+  contextNote?: string;
+
+  /** Pre-mapped top stories for v2 rendering */
+  topStories?: BriefV2TopStory[];
+
+  /** Cached hero image payload for v2 rendering */
+  heroImage?: BriefV2HeroImage;
   
   scannedSources?: string[];
   tags?: string[];

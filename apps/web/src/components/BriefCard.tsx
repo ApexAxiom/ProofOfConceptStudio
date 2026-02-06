@@ -64,8 +64,10 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
     : undefined;
   const category = categoryForPortfolio(brief.portfolio);
   const categoryMeta = CATEGORY_META[category];
-  const heroImageAlt = brief.heroImageAlt?.trim() || brief.title;
-  const heroImageUrl = extractValidUrl(brief.heroImageUrl);
+  const heroImageAlt = brief.heroImage?.alt?.trim() || brief.heroImageAlt?.trim() || brief.title;
+  const heroImageUrl = brief.heroImage?.url?.startsWith("data:image/")
+    ? brief.heroImage.url
+    : extractValidUrl(brief.heroImage?.url ?? brief.heroImageUrl);
   const signals = inferSignals(brief);
 
   return (

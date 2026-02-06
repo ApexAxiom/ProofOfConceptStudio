@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AgentConfig, BriefPost, RegionSlug, RunWindow, buildSourceId, getBriefDayKey } from "@proof/shared";
+import { AgentConfig, BriefPost, RegionSlug, RunWindow, buildSourceId, getBriefDayKey, makeCategoryPlaceholderDataUrl } from "@proof/shared";
 
 export type PlaceholderReason = "no-updates" | "generation-failed";
 
@@ -57,6 +57,8 @@ export function buildPlaceholderBrief(options: {
     runWindow: options.runWindow,
     status: "published",
     generationStatus: options.reason,
+    version: "v2",
+    newsStatus: "thin-category",
     publishedAt,
     briefDay,
     summary: statusLine,
@@ -81,6 +83,15 @@ ${sourceLines}
 `,
     sources: sourceHints,
     selectedArticles: [],
+    topStories: [],
+    deltaSinceLastRun: [],
+    heroImage: {
+      url: makeCategoryPlaceholderDataUrl(options.agent.label),
+      alt: `${options.agent.label} - Daily Intel Report`,
+      sourceArticleIndex: 1
+    },
+    heroImageUrl: makeCategoryPlaceholderDataUrl(options.agent.label),
+    heroImageAlt: `${options.agent.label} - Daily Intel Report`,
     tags: [
       "system-placeholder",
       options.reason,
@@ -120,10 +131,19 @@ export function buildCarryForwardBrief(options: {
     runWindow: options.runWindow,
     status: "published",
     generationStatus: options.reason,
+    version: "v2",
+    newsStatus: "thin-category",
     publishedAt,
     briefDay,
     summary,
     bodyMarkdown: `> ${statusLine}\n\n${options.previousBrief.bodyMarkdown}`,
+    heroImage: options.previousBrief.heroImage ?? {
+      url: makeCategoryPlaceholderDataUrl(options.agent.label),
+      alt: `${options.agent.label} - Daily Intel Report`,
+      sourceArticleIndex: 1
+    },
+    heroImageUrl: options.previousBrief.heroImage?.url ?? options.previousBrief.heroImageUrl ?? makeCategoryPlaceholderDataUrl(options.agent.label),
+    heroImageAlt: options.previousBrief.heroImage?.alt ?? options.previousBrief.heroImageAlt ?? `${options.agent.label} - Daily Intel Report`,
     tags: Array.from(new Set([...(options.previousBrief.tags ?? []), "carry-forward", options.reason]))
   };
 }

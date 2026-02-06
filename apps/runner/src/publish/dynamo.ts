@@ -48,6 +48,7 @@ export function buildDynamoItem(
 
     // Brief data
     ...brief,
+    version: brief.version ?? "v2",
 
     // Ensure selectedArticles is properly stored
     selectedArticles: brief.selectedArticles?.map((article) => {

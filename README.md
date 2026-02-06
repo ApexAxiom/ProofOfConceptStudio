@@ -41,6 +41,7 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 - `DDB_ENDPOINT` for local DynamoDB testing
 - `CORS_ORIGINS` comma-separated allowed origins for API CORS
 - `BING_IMAGE_KEY`/`BING_IMAGE_ENDPOINT` for optional Bing image fallback when scraping article images
+- `BRIEF_IMAGE_S3_BUCKET`/`BRIEF_IMAGE_S3_REGION`/`BRIEF_IMAGE_PUBLIC_BASE_URL` for cached brief hero images
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
@@ -103,6 +104,9 @@ Runner
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (recommended: `gpt-4o-mini` for App Runner)
 - `CRON_SECRET`
+- `BRIEF_IMAGE_S3_BUCKET` (required for cached hero images)
+- `BRIEF_IMAGE_S3_REGION` (required for cached hero images)
+- `BRIEF_IMAGE_PUBLIC_BASE_URL` (required for cached hero images)
 - `EVIDENCE_SIMILARITY_THRESHOLD` (optional; default 0.14)
 - `EVIDENCE_AUTO_MATCH_THRESHOLD` (optional; default 0.2)
 
@@ -149,8 +153,9 @@ Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-d
 - Mode: cross-category dashboard that aggregates recently published category briefs per region to produce an executive market overview and procurement actions.
 
 ## Images
-- Article and hero images are scraped directly from source pages (OpenGraph/Twitter/meta + prominent content images) with realistic browser headers.
-- The web app proxies images through `/api/image-proxy` using a Chrome-like user agent with a retry that drops the referer when needed.
+- Runner caches hero images to S3 using deterministic keys: `brief-hero/{category}/{region}/{YYYY-MM-DD}/{articleIndex}-{sha256(url)}.{ext}`.
+- If source image caching fails, runner writes an SVG placeholder image: `{CATEGORY} - Daily Intel Report`.
+- Brief pages render stored `heroImage.url`; web still supports `/api/image-proxy` for http/https image rendering.
 
 ## AWS Secrets Manager Integration
 

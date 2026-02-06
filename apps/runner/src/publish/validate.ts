@@ -162,9 +162,13 @@ function validateHeroImage(brief: BriefPost, allowedUrls: Set<string>, issues: s
     issues.push(`Hero image source URL not in allowed list: ${brief.heroImageSourceUrl}`);
   }
   
-  // If we have a hero image URL, it should be HTTPS
-  if (brief.heroImageUrl && !brief.heroImageUrl.startsWith("https://")) {
-    issues.push("Hero image URL must be HTTPS");
+  // Hero image URL should either be cached HTTPS or a local data URI placeholder.
+  if (brief.heroImageUrl && !brief.heroImageUrl.startsWith("https://") && !brief.heroImageUrl.startsWith("data:image/")) {
+    issues.push("Hero image URL must be HTTPS or data:image/");
+  }
+
+  if (brief.version === "v2" && !brief.heroImage?.url) {
+    issues.push("BriefV2 records must include heroImage.url");
   }
 }
 

@@ -13,6 +13,11 @@ export function getProxiedImageUrl(url: string | undefined | null): string {
   if (trimmedUrl.startsWith("/")) {
     return trimmedUrl;
   }
+
+  // Inline SVG/data placeholders can be rendered directly.
+  if (trimmedUrl.startsWith("data:image/")) {
+    return trimmedUrl;
+  }
   
   // Only proxy http/https URLs
   if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {

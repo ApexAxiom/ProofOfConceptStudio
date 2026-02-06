@@ -13,3 +13,4 @@ export * from "./portfolio-catalog.js";
 export * from "./bootstrap-secrets.js";
 export * from "./source-utils.js";
 export * from "./agent-registry.js";
+export * from "./brief-v2.js";

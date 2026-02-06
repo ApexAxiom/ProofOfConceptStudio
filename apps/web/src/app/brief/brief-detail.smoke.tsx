@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BriefDetailContent } from "./BriefDetailContent";
 import { BriefPost } from "@proof/shared";
@@ -127,7 +128,8 @@ const html = renderToStaticMarkup(<BriefDetailContent brief={brief} />);
 
 assert(html.includes("Summary"));
 assert(html.includes("Impact"));
-assert(html.includes("Possible actions"));
+assert(html.includes("Possible Actions"));
+assert(html.includes("Top Stories"));
 assert(html.includes("Sources"));
 
 console.log("brief-detail.smoke passed");
