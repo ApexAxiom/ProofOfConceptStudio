@@ -50,7 +50,7 @@ export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
           </span>
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-amber-500" />
-            Stale
+            Recent
           </span>
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-red-500" />

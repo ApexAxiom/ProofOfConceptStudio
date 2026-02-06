@@ -127,7 +127,6 @@ export function makeCategoryPlaceholderDataUrl(categoryLabel: string): string {
   const fallbackCategory = categoryLabel.trim() || "Category";
   const safeCategory = fallbackCategory.slice(0, 52).toUpperCase();
   const title = `${safeCategory} - Daily Intel Report`;
-  const subtitle = "Brief image unavailable; cached placeholder rendered.";
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="${escapeXml(
     title
@@ -140,11 +139,8 @@ export function makeCategoryPlaceholderDataUrl(categoryLabel: string): string {
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
   <rect x="52" y="52" width="1096" height="526" rx="24" fill="none" stroke="#334155" stroke-width="2"/>
-  <text x="600" y="305" text-anchor="middle" fill="#f8fafc" font-size="48" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${escapeXml(
+  <text x="600" y="320" text-anchor="middle" fill="#f8fafc" font-size="48" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${escapeXml(
     title
-  )}</text>
-  <text x="600" y="360" text-anchor="middle" fill="#94a3b8" font-size="24" font-family="Segoe UI, Arial, sans-serif">${escapeXml(
-    subtitle
   )}</text>
 </svg>`;
 

@@ -189,29 +189,42 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
   }
 
   const requiredCount = Math.min(requiredArticleCount(input.agent), Math.max(1, input.articles.length));
-  const firstPrompt = buildProcurementPrompt(input, requiredCount);
-  const rawFirst = await requestJsonCompletion(client, firstPrompt);
-  let parsed: ProcurementOutput;
+  let parsed: ProcurementOutput | undefined;
+  let repairIssues = input.repairIssues;
+  let previousJson = input.previousJson;
+  let lastParseIssues: string[] = [];
 
-  try {
-    parsed = parseProcurementOutput(rawFirst, {
-      requiredCount,
-      maxArticleIndex: input.articles.length
-    });
-  } catch (error) {
-    const repairPrompt = buildProcurementPrompt(
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const prompt = buildProcurementPrompt(
       {
         ...input,
-        repairIssues: toIssueList(error),
-        previousJson: rawFirst
+        repairIssues,
+        previousJson
       },
       requiredCount
     );
-    const rawRepair = await requestJsonCompletion(client, repairPrompt);
-    parsed = parseProcurementOutput(rawRepair, {
-      requiredCount,
-      maxArticleIndex: input.articles.length
-    });
+    const raw = await requestJsonCompletion(client, prompt);
+    try {
+      parsed = parseProcurementOutput(raw, {
+        requiredCount,
+        maxArticleIndex: input.articles.length
+      });
+      break;
+    } catch (error) {
+      lastParseIssues = toIssueList(error);
+      repairIssues = lastParseIssues;
+      previousJson = raw;
+    }
+  }
+
+  if (!parsed) {
+    throw new Error(
+      JSON.stringify(
+        lastParseIssues.length > 0
+          ? lastParseIssues
+          : ["Procurement output could not be parsed after retries"]
+      )
+    );
   }
 
   const now = new Date().toISOString();

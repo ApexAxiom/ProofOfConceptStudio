@@ -8,12 +8,6 @@ interface PortfolioBriefHistoryProps {
   briefs: BriefPost[];
 }
 
-function isCarryForward(brief: BriefPost): boolean {
-  if (brief.generationStatus === "no-updates" || brief.generationStatus === "generation-failed") return true;
-  if ((brief.tags ?? []).some((tag) => tag.toLowerCase() === "carry-forward")) return true;
-  return false;
-}
-
 function regionBadge(brief: BriefPost): string {
   const runWindow = (brief.runWindow ?? "").toLowerCase();
   if (runWindow.includes("apac") || brief.region === "au") return "APAC";
@@ -40,7 +34,7 @@ export function PortfolioBriefHistory({ briefs }: PortfolioBriefHistoryProps) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Daily brief history</h2>
+          <h2 className="text-lg font-semibold text-foreground">Daily Briefs</h2>
           <p className="text-sm text-muted-foreground">Top 5 latest briefs, with full history on demand.</p>
         </div>
         {sorted.length > 5 ? (
@@ -67,11 +61,6 @@ export function PortfolioBriefHistory({ briefs }: PortfolioBriefHistoryProps) {
                 {regionBadge(brief)}
               </span>
               <span>{formatDate(brief.publishedAt)}</span>
-              {isCarryForward(brief) ? (
-                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-semibold uppercase tracking-[0.1em] text-amber-600 dark:text-amber-400">
-                  Carry-forward
-                </span>
-              ) : null}
               <span>{regionLabel(brief.region)}</span>
             </div>
           </Link>

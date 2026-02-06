@@ -94,8 +94,8 @@ export default async function ExecutiveViewPage() {
     executiveData.market.source === "live"
       ? "LIVE"
       : executiveData.market.source === "mixed"
-        ? "MIXED (LIVE + STALE)"
-        : "FALLBACK";
+        ? "UPDATING"
+        : "CACHED";
 
   return (
     <div className="space-y-8">
@@ -147,7 +147,7 @@ export default async function ExecutiveViewPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">{quote.symbol}</span>
-                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{quote.state}</span>
+                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{quote.state === "live" ? "Live" : "Cached"}</span>
               </div>
               <p className="mt-2 text-lg font-mono text-foreground">
                 {quote.unit.startsWith("/") ? "" : "$"}

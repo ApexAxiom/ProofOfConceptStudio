@@ -55,13 +55,13 @@ function statusMeta(data: PriceData[]) {
   }
   if (live > 0) {
     return {
-      label: "MIXED (LIVE + STALE)",
+      label: "UPDATING",
       tone: "text-amber-600 dark:text-amber-400 bg-amber-500/10"
     };
   }
   return {
-    label: "STALE/FALLBACK",
-    tone: "text-rose-600 dark:text-rose-400 bg-rose-500/10"
+    label: "CACHED",
+    tone: "text-muted-foreground bg-muted/30"
   };
 }
 
@@ -87,22 +87,22 @@ function GridItem({ data }: { data: PriceData }) {
       href={data.sourceUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex flex-col gap-1 rounded-lg border border-border bg-background p-3 hover:border-primary/30 hover:bg-secondary/30 transition-all"
+      className="group flex flex-col gap-0.5 rounded-md border border-border bg-background p-2.5 hover:border-primary/30 hover:bg-secondary/30 transition-all"
     >
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-foreground text-sm">{data.symbol}</span>
+        <span className="font-semibold text-foreground text-xs">{data.symbol}</span>
         <ChangeBadge changePercent={data.changePercent} />
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-foreground font-mono text-lg font-medium">
+        <span className="text-foreground font-mono text-base font-medium">
           {data.unit.startsWith("/") ? "" : "$"}
           {formatPrice(data.price)}
         </span>
-        {data.unit ? <span className="text-xs text-muted-foreground">{data.unit}</span> : null}
+        {data.unit ? <span className="text-[10px] text-muted-foreground">{data.unit}</span> : null}
       </div>
-      <span className="text-xs text-muted-foreground truncate">{data.name}</span>
-      <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-        {data.state === "live" ? "Live" : data.state === "stale" ? "Stale" : "Fallback"}
+      <span className="text-[11px] text-muted-foreground truncate">{data.name}</span>
+      <span className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+        {data.state === "live" ? "Live" : "Cached"}
       </span>
     </a>
   );
@@ -177,9 +177,9 @@ export function PortfolioMarketTicker({
       return (
         <div className="space-y-3">
           {showHeader ? <div className="h-5 w-32 animate-pulse rounded bg-muted/50" /> : null}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {Array.from({ length: limit }).map((_, i) => (
-              <div key={i} className="h-20 animate-pulse rounded-lg bg-muted/50" />
+              <div key={i} className="h-16 animate-pulse rounded-md bg-muted/50" />
             ))}
           </div>
         </div>
@@ -210,17 +210,17 @@ export function PortfolioMarketTicker({
         {showHeader ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">Market Indices</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground">Market Indices</h3>
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${status.tone}`}>{status.label}</span>
             </div>
             {lastUpdated ? (
-              <span className="text-xs text-muted-foreground font-mono">
+              <span className="text-[11px] text-muted-foreground font-mono">
                 Last update: {formatTimestampWithTimezones(lastUpdated)}
               </span>
             ) : null}
           </div>
         ) : null}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {displayData.map((item) => (
             <GridItem key={`${item.symbol}:${item.sourceUrl}`} data={item} />
           ))}
@@ -260,4 +260,3 @@ export function PortfolioMarketTicker({
     </div>
   );
 }
-

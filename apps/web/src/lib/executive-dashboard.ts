@@ -116,7 +116,7 @@ const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
       publishedAt: new Date().toISOString(),
       category: "Woodside",
       region: "woodside",
-      summary: "Temporary fallback while live RSS feed refreshes."
+      summary: "Feed refresh in progress."
     }
   ],
   apac: [

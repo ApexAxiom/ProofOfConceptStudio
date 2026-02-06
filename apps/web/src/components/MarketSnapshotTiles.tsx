@@ -54,7 +54,7 @@ export function MarketSnapshotTiles({ items }: { items: BriefMarketSnapshotItem[
               </div>
               {(item.dataState || item.isFallback) && (
                 <p className="text-xs text-amber-500">
-                  Data state: {item.dataState ?? (item.isFallback ? "fallback" : "live")}
+                  Data state: {item.dataState ?? (item.isFallback ? "cached" : "live")}
                 </p>
               )}
             </div>

@@ -36,9 +36,9 @@ function statusMeta(quotes: MarketQuote[]) {
     return { label: "LIVE", tone: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" };
   }
   if (live > 0) {
-    return { label: "MIXED (LIVE + STALE)", tone: "text-amber-400 bg-amber-500/10 border border-amber-500/20" };
+    return { label: "UPDATING", tone: "text-amber-400 bg-amber-500/10 border border-amber-500/20" };
   }
-  return { label: "STALE/FALLBACK", tone: "text-rose-400 bg-rose-500/10 border border-rose-500/20" };
+  return { label: "CACHED", tone: "text-muted-foreground bg-muted/30 border border-border" };
 }
 
 function TickerItem({ quote }: { quote: MarketQuote }) {

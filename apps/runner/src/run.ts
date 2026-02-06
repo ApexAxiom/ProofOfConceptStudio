@@ -636,14 +636,32 @@ export async function runAgent(
     // Step 5: Generate brief using LLM
     console.log(`[${agentId}/${region}] Generating brief with ${articleInputs.length} articles...`);
     console.log(`[${agentId}/${region}] Article content lengths: ${articleInputs.map(a => (a.content?.length ?? 0)).join(", ")}`);
-    let brief = await generateBrief({
-      agent,
-      region,
-      runWindow,
-      articles: articleInputs,
-      indices,
-      previousBrief: previousBriefPrompt
-    });
+    let brief: BriefPost;
+    try {
+      brief = await generateBrief({
+        agent,
+        region,
+        runWindow,
+        articles: articleInputs,
+        indices,
+        previousBrief: previousBriefPrompt
+      });
+    } catch (generationError) {
+      const message = (generationError as Error).message;
+      console.error(`[${agentId}/${region}] Brief generation failed before validation:`, generationError);
+      const fallback = await publishFallbackBrief({
+        agent,
+        region,
+        runWindow,
+        runId: runIdentifier,
+        reason: "generation-failed",
+        previousBrief,
+        ingestResult
+      });
+      if (fallback.ok) return { ...fallback, error: message };
+      await logRunResult(runIdentifier, agent.id, region, "failed", message);
+      return { agentId: agent.id, region, ok: false, status: "failed", error: message };
+    }
     try {
       const marketSnapshot = await fetchPortfolioSnapshot(agent.portfolio);
       if (marketSnapshot.length > 0) {

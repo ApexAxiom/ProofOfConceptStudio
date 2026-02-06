@@ -31,10 +31,9 @@ function deriveWhatsHappening(briefs: BriefPost[]): {
   const latest = briefs[0];
   if (!latest) {
     return {
-      summary:
-        "Baseline coverage is active for this portfolio while the next full intelligence cycle is published.",
-      impact: ["Coverage monitoring is active across both regions for this portfolio in today’s cycle."],
-      actions: ["Review latest portfolio news and source signals while baseline continuity is maintained."]
+      summary: "Daily intelligence update is being prepared for this portfolio.",
+      impact: ["Signal monitoring remains active across both regions for this portfolio."],
+      actions: ["Review latest portfolio news and source signals while the next published update completes."]
     };
   }
 
@@ -68,26 +67,26 @@ function fallbackHistory(portfolio: string): BriefPost[] {
   return [
     {
       postId: `baseline-${portfolio}-au`,
-      title: `${portfolioLabel(portfolio)} — Baseline brief pending`,
+      title: `${portfolioLabel(portfolio)} — Daily intelligence update pending`,
       region: "au",
       portfolio,
       runWindow: "apac",
       status: "published",
       publishedAt: now,
-      summary: "Baseline brief is being initialized.",
-      bodyMarkdown: "Baseline brief is being initialized.",
+      summary: "Daily intelligence update is being initialized.",
+      bodyMarkdown: "Daily intelligence update is being initialized.",
       tags: ["baseline"]
     },
     {
       postId: `baseline-${portfolio}-intl`,
-      title: `${portfolioLabel(portfolio)} — Baseline brief pending`,
+      title: `${portfolioLabel(portfolio)} — Daily intelligence update pending`,
       region: "us-mx-la-lng",
       portfolio,
       runWindow: "international",
       status: "published",
       publishedAt: now,
-      summary: "Baseline brief is being initialized.",
-      bodyMarkdown: "Baseline brief is being initialized.",
+      summary: "Daily intelligence update is being initialized.",
+      bodyMarkdown: "Daily intelligence update is being initialized.",
       tags: ["baseline"]
     }
   ];
@@ -134,47 +133,52 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
   return (
     <div className="space-y-8">
       <header className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Link href="/" className="hover:text-primary transition-colors">
                 Executive View
               </Link>
               <span>/</span>
-              <span>{portfolioLabel(portfolio)}</span>
+              <span>Portfolio Intelligence</span>
             </div>
             <h1 className="mt-2 text-2xl font-semibold text-foreground">{portfolioLabel(portfolio)}</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{portfolioDef.description}</p>
           </div>
-          <Link href={`/chat?portfolio=${portfolio}`} className="btn-secondary text-sm">
-            Ask AI
-          </Link>
+          <div className="flex min-w-[280px] flex-col items-stretch gap-2 sm:min-w-[360px]">
+            <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
+              <Link
+                href={`/portfolio/${portfolio}?briefRegion=au`}
+                className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
+                  selectedRegion === "au" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                APAC
+              </Link>
+              <Link
+                href={`/portfolio/${portfolio}?briefRegion=us-mx-la-lng`}
+                className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
+                  selectedRegion === "us-mx-la-lng"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                International (US/Mexico/Senegal)
+              </Link>
+            </div>
+            <Link href={`/chat?portfolio=${portfolio}`} className="btn-secondary text-sm text-center">
+              Ask AI
+            </Link>
+          </div>
         </div>
       </header>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-foreground">Latest Brief By Region</h2>
-          <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
-            <Link
-              href={`/portfolio/${portfolio}?briefRegion=au`}
-              className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
-                selectedRegion === "au" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              APAC
-            </Link>
-            <Link
-              href={`/portfolio/${portfolio}?briefRegion=us-mx-la-lng`}
-              className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
-                selectedRegion === "us-mx-la-lng"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              International (US/Mexico/Senegal)
-            </Link>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-foreground">Daily Intelligence Update</h2>
+          <p className="text-sm text-muted-foreground">
+            {selectedRegion === "au" ? "APAC view" : "International view"} for this portfolio.
+          </p>
         </div>
 
         {activeBriefView ? (
@@ -190,11 +194,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 {regionLabel(activeBriefView.region)} · {activeBriefView.dateLabel}
               </p>
               <h3 className="text-xl font-semibold text-foreground">{activeBriefView.title}</h3>
-              {activeBriefView.contextNote ? (
-                <p className="rounded-md border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
-                  {activeBriefView.contextNote}
-                </p>
-              ) : null}
+              <p className="text-sm text-foreground">{insight.summary}</p>
             </div>
             {activeBriefView.deltaBullets.length > 0 ? (
               <ul className="space-y-1 text-sm text-muted-foreground">
@@ -206,6 +206,30 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 ))}
               </ul>
             ) : null}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Impact</h3>
+                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                  {insight.impact.map((item, idx) => (
+                    <li key={`${item}-${idx}`} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Possible actions</h3>
+                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                  {insight.actions.map((item, idx) => (
+                    <li key={`${item}-${idx}`} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               {activeBriefView.topStories.slice(0, 3).map((story, idx) => (
                 <article key={`${story.url}-${idx}`} className="rounded-lg border border-border bg-background p-3">
@@ -225,68 +249,34 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
             </Link>
           </article>
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">
-            No published brief is available for this region yet. Coverage fallback is still active for this cycle.
-          </p>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        <PortfolioMarketTicker portfolio={portfolio} variant="grid" limit={6} showHeader />
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold text-foreground">What’s happening</h2>
-        <p className="mt-3 text-sm text-foreground">{insight.summary}</p>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Impact</h3>
-            <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-              {insight.impact.map((item, idx) => (
-                <li key={`${item}-${idx}`} className="flex gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Possible actions</h3>
-            <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-              {insight.actions.map((item, idx) => (
-                <li key={`${item}-${idx}`} className="flex gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        {history.length > 0 ? (
-          <PortfolioBriefHistory briefs={history} />
-        ) : (
-          <div className="space-y-2 rounded-lg border border-border bg-background p-4">
-            <h2 className="text-lg font-semibold text-foreground">Daily brief history</h2>
-            <p className="text-sm text-muted-foreground">Coverage fallback records are queued for this category.</p>
-            {fallbackHistory(portfolio).map((item) => (
-              <div key={item.postId} className="rounded-md border border-border bg-card p-3">
-                <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {regionLabel(item.region)} · {new Date(item.publishedAt).toLocaleDateString("en-US")}
-                </p>
+          <div className="mt-4 space-y-4">
+            <p className="text-sm text-foreground">{insight.summary}</p>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Impact</h3>
+                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                  {insight.impact.map((item, idx) => (
+                    <li key={`${item}-${idx}`} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Possible actions</h3>
+                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                  {insight.actions.map((item, idx) => (
+                    <li key={`${item}-${idx}`} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         )}
-        {history.length > 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Latest published: {new Date(history[0].publishedAt).toLocaleDateString("en-US")} ·{" "}
-            {regionLabel(history[0].region)}
-          </p>
-        ) : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
@@ -312,6 +302,35 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
             <p className="text-sm text-muted-foreground">News feed refresh in progress. Check back in the next run cycle.</p>
           ) : null}
         </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <PortfolioMarketTicker portfolio={portfolio} variant="grid" limit={4} showHeader />
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        {history.length > 0 ? (
+          <PortfolioBriefHistory briefs={history} />
+        ) : (
+          <div className="space-y-2 rounded-lg border border-border bg-background p-4">
+            <h2 className="text-lg font-semibold text-foreground">Daily brief history</h2>
+            <p className="text-sm text-muted-foreground">Previous briefs are listed below.</p>
+            {fallbackHistory(portfolio).map((item) => (
+              <div key={item.postId} className="rounded-md border border-border bg-card p-3">
+                <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {regionLabel(item.region)} · {new Date(item.publishedAt).toLocaleDateString("en-US")}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        {history.length > 0 ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Latest published: {new Date(history[0].publishedAt).toLocaleDateString("en-US")} ·{" "}
+            {regionLabel(history[0].region)}
+          </p>
+        ) : null}
       </section>
     </div>
   );

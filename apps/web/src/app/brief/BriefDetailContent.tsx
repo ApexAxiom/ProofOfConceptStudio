@@ -193,7 +193,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
         </div>
         {isCarryForward ? (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Carry-forward edition: published today because no material update was detected or the automated refresh was unavailable.
+            Published today from the most recent available data.
           </p>
         ) : null}
         {view.contextNote ? (
@@ -286,7 +286,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details>
+        <details open>
           <summary className="cursor-pointer text-lg font-semibold text-foreground">Impact</summary>
           {reportImpactGroups.length > 0 ? (
             <div className="mt-3 space-y-4">
@@ -318,7 +318,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details>
+        <details open>
           <summary className="cursor-pointer text-lg font-semibold text-foreground">Possible Actions</summary>
           {reportActionGroups.length > 0 ? (
             <div className="mt-3 space-y-4">
@@ -357,7 +357,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details>
+        <details open>
           <summary className="cursor-pointer text-lg font-semibold text-foreground">Sources</summary>
           <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
             {sources.map((source, idx) => (

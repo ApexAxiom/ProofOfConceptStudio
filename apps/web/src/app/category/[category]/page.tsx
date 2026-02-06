@@ -99,7 +99,7 @@ export default async function CategoryDashboard({ params, searchParams }: Catego
           </article>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">
-            No published brief is available for this region yet. A coverage fallback will appear in the next cycle.
+            No published brief is available for this region yet. Content will appear in the next cycle.
           </p>
         )}
       </section>

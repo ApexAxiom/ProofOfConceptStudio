@@ -32,10 +32,10 @@ export function buildPlaceholderBrief(options: {
   ).slice(0, 8);
 
   const statusLine = options.baseline
-    ? "Baseline coverage is active while the first full intelligence cycle initializes for this portfolio/region."
+    ? "Coverage is active while the first full intelligence cycle initializes for this portfolio/region."
     : options.reason === "no-updates"
-      ? "No material change detected today. Carry-forward baseline remains in effect."
-      : "Automated refresh was unavailable in this cycle. Baseline coverage remains active.";
+      ? "No material change detected today. Previous coverage remains in effect."
+      : "Automated refresh was unavailable in this cycle. Previous coverage remains active.";
 
   const title = options.baseline
     ? `${options.agent.label} baseline coverage activated for today's cycle`
@@ -94,7 +94,7 @@ ${sourceLines}
     heroImageAlt: `${options.agent.label} - Daily Intel Report`,
     tags: [
       "system-placeholder",
-      options.reason,
+      options.reason === "carry-forward" ? "previous" : options.reason,
       ...(options.baseline ? ["baseline"] : [])
     ]
   };
@@ -116,8 +116,8 @@ export function buildCarryForwardBrief(options: {
   const briefDay = getBriefDayKey(options.region, now);
   const statusLine =
     options.reason === "no-updates"
-      ? "No material change detected today. Carrying forward the most recent brief."
-      : "Automated refresh was unavailable this cycle. Carrying forward the most recent brief.";
+      ? "No material change detected today. Using the most recent brief."
+      : "Automated refresh was unavailable this cycle. Using the most recent brief.";
 
   const baseSummary = options.previousBrief.summary?.trim();
   const summary = baseSummary ? `${statusLine} ${baseSummary}` : statusLine;
@@ -144,6 +144,6 @@ export function buildCarryForwardBrief(options: {
     },
     heroImageUrl: options.previousBrief.heroImage?.url ?? options.previousBrief.heroImageUrl ?? makeCategoryPlaceholderDataUrl(options.agent.label),
     heroImageAlt: options.previousBrief.heroImage?.alt ?? options.previousBrief.heroImageAlt ?? `${options.agent.label} - Daily Intel Report`,
-    tags: Array.from(new Set([...(options.previousBrief.tags ?? []), "carry-forward", options.reason]))
+    tags: Array.from(new Set([...(options.previousBrief.tags ?? []).filter((t) => t !== "carry-forward"), "previous", options.reason === "carry-forward" ? "previous" : options.reason]))
   };
 }

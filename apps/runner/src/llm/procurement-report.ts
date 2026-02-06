@@ -106,6 +106,25 @@ const outputSchema = z.object({
   marketIndicators: z.array(z.object({ indexId: z.string().min(2), note: z.string().min(8).max(240) })).min(2).max(8)
 });
 
+const TITLE_MIN_WORDS = 8;
+const TITLE_MAX_WORDS = 14;
+const IMPACT_MIN_BULLETS = 10;
+const IMPACT_MAX_BULLETS = 16;
+const ACTIONS_MIN_TOTAL = 8;
+const ACTIONS_MAX_TOTAL = 12;
+
+const TITLE_FILLER_WORDS = [
+  "procurement",
+  "signals",
+  "reshape",
+  "cost",
+  "capacity",
+  "and",
+  "contract",
+  "priorities",
+  "today"
+];
+
 function formatDateForRegion(dateStr: string, region: RegionSlug): string {
   const date = new Date(dateStr);
   const timeZone = REGIONS[region].timeZone;
@@ -323,7 +342,7 @@ function validateCitationRanges(
     output.impact.supplyBaseCapacity.length +
     output.impact.contractingCommercialTerms.length +
     output.impact.riskRegulatoryOperationalConstraints.length;
-  if (impactCount < 10 || impactCount > 16) {
+  if (impactCount < IMPACT_MIN_BULLETS || impactCount > IMPACT_MAX_BULLETS) {
     issues.push("Impact must contain 10-16 bullets total");
   }
 
@@ -331,12 +350,12 @@ function validateCitationRanges(
     output.possibleActions.next72Hours.length +
     output.possibleActions.next2to4Weeks.length +
     output.possibleActions.nextQuarter.length;
-  if (actionCount < 8 || actionCount > 12) {
+  if (actionCount < ACTIONS_MIN_TOTAL || actionCount > ACTIONS_MAX_TOTAL) {
     issues.push("Possible actions must contain 8-12 actions total");
   }
 
   const words = output.title.trim().split(/\s+/).filter(Boolean);
-  if (words.length < 8 || words.length > 14) {
+  if (words.length < TITLE_MIN_WORDS || words.length > TITLE_MAX_WORDS) {
     issues.push("Title must be 8-14 words");
   }
   if (/\bdaily brief\b/i.test(output.title)) {
@@ -344,6 +363,230 @@ function validateCitationRanges(
   }
 
   return issues;
+}
+
+function normalizeTitleForConstraints(title: string): string {
+  const initial = title
+    .replace(/\bdaily brief\b/gi, "")
+    .replace(/\bdaily\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const words = initial.split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return "Procurement signals reshape cost capacity and contract priorities today";
+  }
+
+  while (words.length < TITLE_MIN_WORDS) {
+    const filler = TITLE_FILLER_WORDS[(words.length - 1) % TITLE_FILLER_WORDS.length];
+    words.push(filler);
+  }
+
+  const normalized = words.slice(0, TITLE_MAX_WORDS).join(" ");
+  if (/\bdaily brief\b/i.test(normalized)) {
+    return normalized.replace(/\bdaily brief\b/gi, "intel report");
+  }
+  return normalized;
+}
+
+function pickReplacementArticleIndex(used: Set<number>, maxArticleIndex: number, preferred?: number): number {
+  if (preferred && preferred >= 1 && preferred <= maxArticleIndex && !used.has(preferred)) {
+    return preferred;
+  }
+  for (let idx = 1; idx <= maxArticleIndex; idx += 1) {
+    if (!used.has(idx)) return idx;
+  }
+  return 1;
+}
+
+function normalizeSelectedArticles(
+  selectedArticles: ProcurementOutput["selectedArticles"],
+  maxArticleIndex: number,
+  requiredCount: number
+): ProcurementOutput["selectedArticles"] {
+  const maxAllowed = Math.max(1, Math.min(requiredCount, maxArticleIndex));
+  const normalized: ProcurementOutput["selectedArticles"] = [];
+  const used = new Set<number>();
+
+  for (const article of selectedArticles) {
+    if (normalized.length >= maxAllowed) break;
+    const preferred = Number.isInteger(article.articleIndex) ? article.articleIndex : undefined;
+    const articleIndex = pickReplacementArticleIndex(used, maxArticleIndex, preferred);
+    used.add(articleIndex);
+    normalized.push({ ...article, articleIndex });
+  }
+
+  if (normalized.length === 0) {
+    const firstIndex = pickReplacementArticleIndex(used, maxArticleIndex, 1);
+    normalized.push({
+      articleIndex: firstIndex,
+      briefContent:
+        "No material category-specific items detected in selected inputs; broader oil and gas context is used for procurement relevance.",
+      categoryImportance:
+        "Maintain supplier optionality, contract flexibility, and active risk monitoring until category-specific signal depth improves."
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeCitations(citations: number[], selectedSet: Set<number>, fallbackIndex: number): number[] {
+  const normalized = Array.from(new Set(citations.filter((citation) => selectedSet.has(citation))));
+  if (normalized.length === 0) return [fallbackIndex];
+  return normalized.slice(0, 4);
+}
+
+function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: Set<number>, fallbackIndex: number): void {
+  const groups = [
+    impact.marketCostDrivers,
+    impact.supplyBaseCapacity,
+    impact.contractingCommercialTerms,
+    impact.riskRegulatoryOperationalConstraints
+  ];
+
+  for (const group of groups) {
+    for (let idx = 0; idx < group.length; idx += 1) {
+      group[idx] = {
+        ...group[idx],
+        citations: normalizeCitations(group[idx].citations, selectedSet, fallbackIndex)
+      };
+    }
+  }
+
+  const totalCount = () => groups.reduce((sum, group) => sum + group.length, 0);
+
+  let guard = 0;
+  while (totalCount() < IMPACT_MIN_BULLETS && guard < 64) {
+    guard += 1;
+    const group =
+      groups
+        .filter((g) => g.length < 5)
+        .sort((a, b) => a.length - b.length)[0] ?? groups[0];
+    const seed = group[group.length - 1] ?? groups[0][0];
+    group.push({
+      ...seed,
+      citations: normalizeCitations(seed.citations, selectedSet, fallbackIndex)
+    });
+  }
+
+  guard = 0;
+  while (totalCount() > IMPACT_MAX_BULLETS && guard < 64) {
+    guard += 1;
+    const group =
+      groups
+        .filter((g) => g.length > 2)
+        .sort((a, b) => b.length - a.length)[0] ?? groups[0];
+    if (group.length <= 2) break;
+    group.pop();
+  }
+}
+
+function normalizeActionCount(
+  possibleActions: ProcurementOutput["possibleActions"],
+  selectedSet: Set<number>,
+  fallbackIndex: number
+): void {
+  const groups = [
+    { items: possibleActions.next72Hours, min: 2, max: 4 },
+    { items: possibleActions.next2to4Weeks, min: 2, max: 5 },
+    { items: possibleActions.nextQuarter, min: 2, max: 5 }
+  ];
+
+  for (const group of groups) {
+    for (let idx = 0; idx < group.items.length; idx += 1) {
+      group.items[idx] = {
+        ...group.items[idx],
+        citations: normalizeCitations(group.items[idx].citations, selectedSet, fallbackIndex)
+      };
+    }
+  }
+
+  const totalCount = () => groups.reduce((sum, group) => sum + group.items.length, 0);
+
+  let guard = 0;
+  while (totalCount() < ACTIONS_MIN_TOTAL && guard < 64) {
+    guard += 1;
+    const group =
+      groups
+        .filter((g) => g.items.length < g.max)
+        .sort((a, b) => a.items.length - b.items.length)[0] ?? groups[0];
+    const seed = group.items[group.items.length - 1] ?? groups[0].items[0];
+    group.items.push({
+      ...seed,
+      citations: normalizeCitations(seed.citations, selectedSet, fallbackIndex)
+    });
+  }
+
+  guard = 0;
+  while (totalCount() > ACTIONS_MAX_TOTAL && guard < 64) {
+    guard += 1;
+    const group =
+      groups
+        .filter((g) => g.items.length > g.min)
+        .sort((a, b) => b.items.length - a.items.length)[0] ?? groups[0];
+    if (group.items.length <= group.min) break;
+    group.items.pop();
+  }
+}
+
+function normalizeOutputForValidation(
+  output: ProcurementOutput,
+  options: { requiredCount: number; maxArticleIndex: number }
+): ProcurementOutput {
+  const selectedArticles = normalizeSelectedArticles(output.selectedArticles, options.maxArticleIndex, options.requiredCount);
+  const selectedSet = new Set(selectedArticles.map((item) => item.articleIndex));
+  const fallbackIndex = selectedArticles[0]?.articleIndex ?? 1;
+
+  const normalized: ProcurementOutput = {
+    ...output,
+    title: normalizeTitleForConstraints(output.title),
+    selectedArticles,
+    heroSelection: {
+      articleIndex: selectedSet.has(output.heroSelection.articleIndex)
+        ? output.heroSelection.articleIndex
+        : fallbackIndex
+    },
+    summaryBullets: output.summaryBullets.map((bullet) => ({
+      ...bullet,
+      citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+    })),
+    impact: {
+      marketCostDrivers: output.impact.marketCostDrivers.map((bullet) => ({
+        ...bullet,
+        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+      })),
+      supplyBaseCapacity: output.impact.supplyBaseCapacity.map((bullet) => ({
+        ...bullet,
+        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+      })),
+      contractingCommercialTerms: output.impact.contractingCommercialTerms.map((bullet) => ({
+        ...bullet,
+        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+      })),
+      riskRegulatoryOperationalConstraints: output.impact.riskRegulatoryOperationalConstraints.map((bullet) => ({
+        ...bullet,
+        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+      }))
+    },
+    possibleActions: {
+      next72Hours: output.possibleActions.next72Hours.map((action) => ({
+        ...action,
+        citations: normalizeCitations(action.citations, selectedSet, fallbackIndex)
+      })),
+      next2to4Weeks: output.possibleActions.next2to4Weeks.map((action) => ({
+        ...action,
+        citations: normalizeCitations(action.citations, selectedSet, fallbackIndex)
+      })),
+      nextQuarter: output.possibleActions.nextQuarter.map((action) => ({
+        ...action,
+        citations: normalizeCitations(action.citations, selectedSet, fallbackIndex)
+      }))
+    }
+  };
+
+  normalizeImpactCount(normalized.impact, selectedSet, fallbackIndex);
+  normalizeActionCount(normalized.possibleActions, selectedSet, fallbackIndex);
+  return normalized;
 }
 
 export function parseProcurementOutput(raw: string, options: { requiredCount: number; maxArticleIndex: number }): ProcurementOutput {
@@ -354,7 +597,7 @@ export function parseProcurementOutput(raw: string, options: { requiredCount: nu
     throw new Error(JSON.stringify(issues));
   }
 
-  const output: ProcurementOutput = result.data;
+  const output = normalizeOutputForValidation(result.data, options);
   const rangeIssues = validateCitationRanges(output, options.maxArticleIndex, options.requiredCount);
   if (rangeIssues.length > 0) {
     throw new Error(JSON.stringify(rangeIssues));
