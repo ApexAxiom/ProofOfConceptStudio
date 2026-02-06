@@ -82,9 +82,11 @@
 .headerActions {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: flex-end;
   gap: var(--space-3);
-  min-width: min(100%, 430px);
+  margin-left: auto;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .segmentControl {
@@ -94,6 +96,8 @@
   background: var(--surface-2);
   padding: 4px;
   width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .segmentLink {
@@ -389,13 +393,14 @@
   }
 
   .headerActions {
-    min-width: 0;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
+    margin-left: auto;
+    align-items: flex-end;
   }
 
   .askAiButton {
-    align-self: stretch;
-    text-align: center;
+    align-self: flex-end;
   }
 }
 
@@ -417,7 +422,7 @@
   }
 
   .segmentControl {
-    width: 100%;
-    overflow-x: auto;
+    width: fit-content;
+    max-width: 100%;
   }
 }

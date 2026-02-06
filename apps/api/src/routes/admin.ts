@@ -17,6 +17,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const body = request.body as any;
     const agentId = body.agentId;
     const force = body.force === true;
+    const parsedBatchSize = Number(body.batchSize);
+    const batchSize = Number.isFinite(parsedBatchSize) && parsedBatchSize > 0 ? Math.floor(parsedBatchSize) : undefined;
 
     if (agentId) {
       const region = (body.region as RegionSlug) ?? "us-mx-la-lng";
@@ -37,6 +39,14 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const region = (body.region as RegionSlug) ?? "us-mx-la-lng";
     const runWindow = body.runWindow || runWindowForRegion(region);
     const payload: Record<string, unknown> = { force };
+    if (batchSize) {
+      payload.batchSize = batchSize;
+    } else if (!agentId) {
+      payload.batchSize = 3;
+    }
+    if (Number.isInteger(body.batchIndex)) payload.batchIndex = Number(body.batchIndex);
+    if (Number.isInteger(body.batchCount)) payload.batchCount = Number(body.batchCount);
+    if (Array.isArray(body.agentIds)) payload.agentIds = body.agentIds;
     if (regions?.length) {
       payload.regions = regions;
     } else {

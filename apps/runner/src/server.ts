@@ -26,6 +26,15 @@ function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinut
   return diff <= toleranceMinutes;
 }
 
+function chunkAgentIds(agentIds: string[], batchSize: number): string[][] {
+  const chunks: string[][] = [];
+  if (batchSize <= 0) return chunks;
+  for (let i = 0; i < agentIds.length; i += batchSize) {
+    chunks.push(agentIds.slice(i, i + batchSize));
+  }
+  return chunks;
+}
+
 async function main() {
   // Load secrets from AWS Secrets Manager before starting the server
   await initializeSecrets();
@@ -94,6 +103,7 @@ async function main() {
     const agentIds = Array.isArray(body?.agentIds) ? body.agentIds : undefined;
     const batchIndex = Number.isInteger(body?.batchIndex) ? Number(body.batchIndex) : undefined;
     const batchCount = Number.isInteger(body?.batchCount) ? Number(body.batchCount) : undefined;
+    const batchSize = Number.isInteger(body?.batchSize) && Number(body.batchSize) > 0 ? Number(body.batchSize) : undefined;
 
     const requestedRegions = regionInput
       ?.map((r: string) => r as RegionSlug)
@@ -122,6 +132,115 @@ async function main() {
     }
 
     const allAgentIds = loadAgents().map((agent) => agent.id);
+    const shouldAutoBatchBySize =
+      !agentIds?.length &&
+      batchIndex === undefined &&
+      batchCount === undefined &&
+      typeof batchSize === "number" &&
+      batchSize > 0;
+
+    if (shouldAutoBatchBySize) {
+      const sortedAgentIds = Array.from(new Set(allAgentIds)).sort((a, b) => a.localeCompare(b));
+      const batches = chunkAgentIds(sortedAgentIds, batchSize);
+      const waitForCompletion = body.waitForCompletion === true;
+
+      fastify.log.info(
+        {
+          runId,
+          mode: "batch-size",
+          batchSize,
+          batchCount: batches.length,
+          totalAgents: sortedAgentIds.length
+        },
+        "cron batch-size selection"
+      );
+
+      if (waitForCompletion) {
+        const aggregatedResults = [];
+        for (let batchIdx = 0; batchIdx < batches.length; batchIdx += 1) {
+          const batchAgents = batches[batchIdx];
+          fastify.log.info({ runId, batchIdx, batchSize: batchAgents.length }, "cron batch-size run started");
+          const batchRunResults = await Promise.all(
+            targetRegions.map((target: RegionRun) =>
+              handleCron(target.runWindow, {
+                runId,
+                scheduled: body.scheduled === true,
+                regions: [target.region],
+                agentIds: batchAgents
+              })
+            )
+          );
+          aggregatedResults.push({
+            batchIndex: batchIdx,
+            agentIds: batchAgents,
+            regions: targetRegions.map((r: RegionRun) => r.region),
+            runResults: batchRunResults
+          });
+          fastify.log.info({ runId, batchIdx, batchSize: batchAgents.length }, "cron batch-size run completed");
+        }
+
+        reply.code(200).send({
+          ok: true,
+          accepted: true,
+          runId,
+          regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow })),
+          batching: {
+            mode: "batch-size",
+            batchSize,
+            batchCount: batches.length,
+            totalAgents: sortedAgentIds.length
+          },
+          results: aggregatedResults
+        });
+        return;
+      }
+
+      reply.code(202).send({
+        ok: true,
+        accepted: true,
+        runId,
+        regions: targetRegions.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow })),
+        batching: {
+          mode: "batch-size",
+          batchSize,
+          batchCount: batches.length,
+          totalAgents: sortedAgentIds.length
+        }
+      });
+
+      setImmediate(() => {
+        (async () => {
+          for (let batchIdx = 0; batchIdx < batches.length; batchIdx += 1) {
+            const batchAgents = batches[batchIdx];
+            fastify.log.info({ runId, batchIdx, batchSize: batchAgents.length }, "cron batch-size run started");
+            const batchRunResults = await Promise.all(
+              targetRegions.map((target: RegionRun) =>
+                handleCron(target.runWindow, {
+                  runId,
+                  scheduled: body.scheduled === true,
+                  regions: [target.region],
+                  agentIds: batchAgents
+                })
+              )
+            );
+            fastify.log.info(
+              {
+                runId,
+                batchIdx,
+                results: batchRunResults.map((result) => ({
+                  ok: result.ok,
+                  missingCount: result.missingCount,
+                  missingAgentIds: result.missingAgentIds
+                }))
+              },
+              "cron batch-size run completed"
+            );
+          }
+        })().catch((err) => fastify.log.error(err));
+      });
+      return;
+    }
+
     const selection = selectAgentIdsForRun({ agentIds, batchIndex, batchCount, allAgentIds });
     const selectedAgentIds = selection.agentIds;
 

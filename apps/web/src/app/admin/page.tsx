@@ -42,9 +42,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
 
   const runRequest = async (payload: {
-    runWindow: string;
+    runWindow?: string;
     region: string;
+    regions?: string[];
     agentId?: string;
+    batchSize?: number;
   }) => {
     const res = await fetch("/api/admin/run", {
       method: "POST",
@@ -75,16 +77,35 @@ export default function AdminPage() {
     setLoading(true);
     setMessage("");
     try {
-      const results = [];
-      for (const window of ["apac", "international"]) {
+      if (agentId) {
+        const results = [];
+        for (const window of ["apac", "international"]) {
+          const targetRegion = window === "apac" ? "au" : "us-mx-la-lng";
+          const result = await runRequest({
+            runWindow: window,
+            region: targetRegion,
+            agentId
+          });
+          results.push(result);
+        }
+        setMessage(JSON.stringify({ results }, null, 2));
+      } else {
         const result = await runRequest({
-          runWindow: window,
           region,
-          agentId: agentId || undefined
+          regions: ["au", "us-mx-la-lng"],
+          batchSize: 3
         });
-        results.push(result);
+        setMessage(
+          JSON.stringify(
+            {
+              ...result,
+              note: "Run accepted. All portfolios dispatched in batches of 3."
+            },
+            null,
+            2
+          )
+        );
       }
-      setMessage(JSON.stringify({ results }, null, 2));
     } catch (err) {
       setMessage("Failed to trigger run. Check console for details.");
     }
@@ -231,7 +252,7 @@ export default function AdminPage() {
             ) : (
               <>
                 <PlayIcon />
-                Run All Windows
+                Run All Portfolios
               </>
             )}
           </button>
@@ -243,7 +264,7 @@ export default function AdminPage() {
             Load Feed Health
           </button>
           <span className="text-sm text-muted-foreground">
-            {!adminToken && "Enter admin token to enable"}
+            {!adminToken ? "Enter admin token to enable" : "All-portfolio runs dispatch in batches of 3."}
           </span>
         </div>
       </div>

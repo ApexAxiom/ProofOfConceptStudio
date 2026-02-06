@@ -60,7 +60,7 @@ function statusMeta(data: PriceData[]) {
     };
   }
   return {
-    label: "CACHED",
+    label: "UPDATED",
     tone: "text-muted-foreground bg-muted/30"
   };
 }
@@ -87,23 +87,20 @@ function GridItem({ data }: { data: PriceData }) {
       href={data.sourceUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex flex-col gap-0.5 rounded-md border border-border bg-background p-2.5 hover:border-primary/30 hover:bg-secondary/30 transition-all"
+      className="group flex min-w-0 flex-col gap-1 rounded-md border border-border bg-background p-2 hover:border-primary/30 hover:bg-secondary/30 transition-all"
     >
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-foreground text-xs">{data.symbol}</span>
+        <span className="font-semibold text-foreground text-xs truncate">{data.symbol}</span>
         <ChangeBadge changePercent={data.changePercent} />
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-foreground font-mono text-base font-medium">
+      <div className="flex min-w-0 items-baseline gap-1">
+        <span className="text-foreground font-mono text-sm font-medium">
           {data.unit.startsWith("/") ? "" : "$"}
           {formatPrice(data.price)}
         </span>
         {data.unit ? <span className="text-[10px] text-muted-foreground">{data.unit}</span> : null}
       </div>
-      <span className="text-[11px] text-muted-foreground truncate">{data.name}</span>
-      <span className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-        {data.state === "live" ? "Live" : "Cached"}
-      </span>
+      <span className="text-[10px] text-muted-foreground truncate">{data.name}</span>
     </a>
   );
 }
@@ -177,7 +174,7 @@ export function PortfolioMarketTicker({
       return (
         <div className="space-y-3">
           {showHeader ? <div className="h-5 w-32 animate-pulse rounded bg-muted/50" /> : null}
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
             {Array.from({ length: limit }).map((_, i) => (
               <div key={i} className="h-16 animate-pulse rounded-md bg-muted/50" />
             ))}
@@ -211,7 +208,7 @@ export function PortfolioMarketTicker({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground">Market Indices</h3>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${status.tone}`}>{status.label}</span>
+              {status.label ? <span className={`text-[10px] px-2 py-0.5 rounded-full ${status.tone}`}>{status.label}</span> : null}
             </div>
             {lastUpdated ? (
               <span className="text-[11px] text-muted-foreground font-mono">
@@ -220,7 +217,7 @@ export function PortfolioMarketTicker({
             ) : null}
           </div>
         ) : null}
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
           {displayData.map((item) => (
             <GridItem key={`${item.symbol}:${item.sourceUrl}`} data={item} />
           ))}

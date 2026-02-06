@@ -18,8 +18,12 @@ export async function POST(request: Request) {
       region: body.region,
       regions: body.regions,
       agentId: body.agentId,
+      agentIds: body.agentIds,
       scheduled: body.scheduled,
-      force: body.force
+      force: body.force,
+      batchSize: body.batchSize,
+      batchIndex: body.batchIndex,
+      batchCount: body.batchCount
     })
   });
   const json = await res.json();

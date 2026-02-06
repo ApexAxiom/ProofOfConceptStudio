@@ -26,12 +26,36 @@ interface SourceRow {
   retrievedAt?: string;
 }
 
+const OPERATIONAL_PHRASES: RegExp[] = [
+  /^brief generation failed\.?/i,
+  /^carrying forward the most recent brief\.?/i,
+  /^no material change detected today\.?/i,
+  /^automated refresh was unavailable(?: this cycle)?\.?/i,
+  /^using the most recent brief\.?/i,
+  /^daily intelligence update is being (prepared|initialized)\.?/i,
+  /^baseline coverage is active(?: while.*)?\.?/i,
+  /^latest available intelligence snapshot(?: for this region)?\.?/i
+];
+
+function sanitizeInsightText(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  let cleaned = value.replace(/\s+/g, " ").trim();
+  for (const phrase of OPERATIONAL_PHRASES) {
+    cleaned = cleaned.replace(phrase, "").trim();
+  }
+  cleaned = cleaned.replace(/^[,;:. -]+/, "").trim();
+  if (!cleaned) return undefined;
+  if (/^(no material|no published|no update|pending update)/i.test(cleaned)) return undefined;
+  return cleaned;
+}
+
 function uniqueStrings(values: Array<string | undefined>): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const value of values) {
-    if (!value) continue;
-    const key = value.trim();
+    const sanitized = sanitizeInsightText(value);
+    if (!sanitized) continue;
+    const key = sanitized.trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
     result.push(key);
@@ -47,15 +71,15 @@ function deriveWhatsHappening(briefs: BriefPost[]): {
   const latest = briefs[0];
   if (!latest) {
     return {
-      summary: "Daily intelligence update is being prepared for this portfolio.",
-      impact: ["Signal monitoring remains active across both regions for this portfolio."],
-      actions: ["Review latest portfolio news and source signals while the next published update completes."]
+      summary: "Latest portfolio signals are summarized from monitored market and source coverage.",
+      impact: ["Recent source signals are tracked for this portfolio across configured regions."],
+      actions: ["Review latest portfolio news and prioritize follow-up actions tied to current supplier and market moves."]
     };
   }
 
   const summary =
-    latest.summary?.trim() ||
-    latest.decisionSummary?.topMove?.trim() ||
+    sanitizeInsightText(latest.summary?.trim()) ||
+    sanitizeInsightText(latest.decisionSummary?.topMove?.trim()) ||
     "Latest market and category movement is reflected in today’s published brief.";
 
   const impact = uniqueStrings([
@@ -83,26 +107,26 @@ function fallbackHistory(portfolio: string): BriefPost[] {
   return [
     {
       postId: `baseline-${portfolio}-au`,
-      title: `${portfolioLabel(portfolio)} — Daily intelligence update pending`,
+      title: `${portfolioLabel(portfolio)} — Intelligence snapshot`,
       region: "au",
       portfolio,
       runWindow: "apac",
       status: "published",
       publishedAt: now,
-      summary: "Daily intelligence update is being initialized.",
-      bodyMarkdown: "Daily intelligence update is being initialized.",
+      summary: "Latest available intelligence snapshot for this region.",
+      bodyMarkdown: "Latest available intelligence snapshot for this region.",
       tags: ["baseline"]
     },
     {
       postId: `baseline-${portfolio}-intl`,
-      title: `${portfolioLabel(portfolio)} — Daily intelligence update pending`,
+      title: `${portfolioLabel(portfolio)} — Intelligence snapshot`,
       region: "us-mx-la-lng",
       portfolio,
       runWindow: "international",
       status: "published",
       publishedAt: now,
-      summary: "Daily intelligence update is being initialized.",
-      bodyMarkdown: "Daily intelligence update is being initialized.",
+      summary: "Latest available intelligence snapshot for this region.",
+      bodyMarkdown: "Latest available intelligence snapshot for this region.",
       tags: ["baseline"]
     }
   ];
@@ -222,6 +246,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
   const normalizedSources = normalizeSources(activeBrief?.sources);
   const visibleSources = normalizedSources.slice(0, 8);
   const hiddenSources = normalizedSources.slice(8);
+  const hasRenderableHero = Boolean(activeBriefView?.heroImage?.url?.startsWith("https://"));
 
   return (
     <div className={styles.dashboard}>
@@ -281,16 +306,18 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 </p>
                 <h3 className={styles.headline}>{activeBriefView.title}</h3>
                 <p className={styles.lede}>{insight.summary}</p>
-                <img
-                  src={activeBriefView.heroImage.url}
-                  alt={activeBriefView.heroImage.alt}
-                  className={styles.heroImage}
-                  loading="lazy"
-                />
+                {hasRenderableHero ? (
+                  <img
+                    src={activeBriefView.heroImage.url}
+                    alt={activeBriefView.heroImage.alt}
+                    className={styles.heroImage}
+                    loading="lazy"
+                  />
+                ) : null}
               </>
             ) : (
               <>
-                <p className={styles.metaLine}>{selectedRegion === "au" ? "APAC" : "International"} · Pending update</p>
+                <p className={styles.metaLine}>{selectedRegion === "au" ? "APAC" : "International"} · Latest signal set</p>
                 <h3 className={styles.headline}>Daily intelligence update</h3>
                 <p className={styles.lede}>{insight.summary}</p>
               </>
@@ -451,7 +478,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                   href={`/brief/${brief.postId}`}
                   external={false}
                   meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
-                  note={brief.summary}
+                  note={sanitizeInsightText(brief.summary)}
                   className={styles.listRow}
                   titleClassName={styles.rowTitle}
                   metaClassName={styles.rowMeta}
@@ -470,7 +497,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                       href={`/brief/${brief.postId}`}
                       external={false}
                       meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
-                      note={brief.summary}
+                      note={sanitizeInsightText(brief.summary)}
                       className={styles.listRow}
                       titleClassName={styles.rowTitle}
                       metaClassName={styles.rowMeta}
