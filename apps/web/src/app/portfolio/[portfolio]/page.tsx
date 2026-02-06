@@ -1,13 +1,29 @@
 import Link from "next/link";
-import { BriefPost, RegionSlug, findPortfolio, portfolioLabel, regionLabel, toBriefViewModelV2 } from "@proof/shared";
+import {
+  BriefPost,
+  BriefSourceInput,
+  RegionSlug,
+  findPortfolio,
+  portfolioLabel,
+  regionLabel,
+  toBriefViewModelV2
+} from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 import { getPortfolioNews } from "../../../lib/portfolio-news";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
-import { PortfolioBriefHistory } from "../../../components/PortfolioBriefHistory";
+import { DashboardCard, ListRow } from "../../../components/portfolio-dashboard";
+import styles from "./portfolio-dashboard.module.css";
 
 interface PortfolioOverviewPageProps {
   params: Promise<{ portfolio: string }>;
   searchParams?: Promise<{ briefRegion?: string }>;
+}
+
+interface SourceRow {
+  url: string;
+  title: string;
+  publishedAt?: string;
+  retrievedAt?: string;
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -92,6 +108,68 @@ function fallbackHistory(portfolio: string): BriefPost[] {
   ];
 }
 
+function shortDate(iso?: string): string {
+  if (!iso) return "Date n/a";
+  const value = new Date(iso);
+  if (Number.isNaN(value.getTime())) return "Date n/a";
+  return value.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function sourceLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "source";
+  }
+}
+
+function normalizeSources(sources?: BriefPost["sources"]): SourceRow[] {
+  if (!Array.isArray(sources)) return [];
+
+  const seen = new Set<string>();
+  const rows: SourceRow[] = [];
+
+  for (const source of sources) {
+    let row: SourceRow | null = null;
+
+    if (typeof source === "string") {
+      const url = source.trim();
+      if (url) {
+        row = { url, title: sourceLabelFromUrl(url) };
+      }
+    } else if (source && typeof source === "object") {
+      const typed = source as Exclude<BriefSourceInput, string>;
+      const url = typeof typed.url === "string" ? typed.url.trim() : "";
+      if (url) {
+        const title =
+          typeof typed.title === "string" && typed.title.trim().length > 0
+            ? typed.title.trim()
+            : sourceLabelFromUrl(url);
+        row = {
+          url,
+          title,
+          publishedAt: typeof typed.publishedAt === "string" ? typed.publishedAt : undefined,
+          retrievedAt: typeof typed.retrievedAt === "string" ? typed.retrievedAt : undefined
+        };
+      }
+    }
+
+    if (!row) continue;
+    const key = row.url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function regionBadge(brief: BriefPost): string {
+  const runWindow = (brief.runWindow ?? "").toLowerCase();
+  if (runWindow.includes("apac") || brief.region === "au") return "APAC";
+  return "INTL";
+}
+
 /**
  * Category overview page for a selected portfolio.
  */
@@ -120,8 +198,9 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
     getPortfolioNews(portfolio, 12).catch(() => [])
   ]);
 
-  const history = [...auBriefs, ...intlBriefs]
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  const history = [...auBriefs, ...intlBriefs].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
   const insight = deriveWhatsHappening(history);
   const latestByRegion: Record<RegionSlug, BriefPost | undefined> = {
     au: auBriefs[0],
@@ -130,208 +209,345 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
   const activeBrief = latestByRegion[selectedRegion];
   const activeBriefView = activeBrief ? toBriefViewModelV2(activeBrief, { defaultRegion: selectedRegion }) : null;
 
+  const displayBriefs = history.length > 0 ? history : fallbackHistory(portfolio);
+
+  const visibleImpact = insight.impact.slice(0, 4);
+  const hiddenImpact = insight.impact.slice(4);
+  const visibleActions = insight.actions.slice(0, 4);
+  const hiddenActions = insight.actions.slice(4);
+  const visibleNews = portfolioNews.slice(0, 8);
+  const hiddenNews = portfolioNews.slice(8);
+  const visibleBriefs = displayBriefs.slice(0, 6);
+  const hiddenBriefs = displayBriefs.slice(6);
+  const normalizedSources = normalizeSources(activeBrief?.sources);
+  const visibleSources = normalizedSources.slice(0, 8);
+  const hiddenSources = normalizedSources.slice(8);
+
   return (
-    <div className="space-y-8">
-      <header className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className={styles.dashboard}>
+      <header className={styles.stickyHeader}>
+        <div className={styles.headerRow}>
           <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link href="/" className="hover:text-primary transition-colors">
+            <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
+              <Link href="/" className={`${styles.breadcrumbLink} ${styles.focusable}`}>
                 Executive View
               </Link>
               <span>/</span>
-              <span>Portfolio Intelligence</span>
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold text-foreground">{portfolioLabel(portfolio)}</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{portfolioDef.description}</p>
+              <Link href="/portfolios" className={`${styles.breadcrumbLink} ${styles.focusable}`}>
+                Portfolios
+              </Link>
+              <span>/</span>
+              <span>{portfolioLabel(portfolio)}</span>
+            </nav>
+            <h1 className={styles.title}>{portfolioLabel(portfolio)}</h1>
+            <p className={styles.description}>{portfolioDef.description}</p>
           </div>
-          <div className="flex min-w-[280px] flex-col items-stretch gap-2 sm:min-w-[360px]">
-            <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
+
+          <div className={styles.headerActions}>
+            <nav className={styles.segmentControl} aria-label="Brief region selector">
               <Link
                 href={`/portfolio/${portfolio}?briefRegion=au`}
-                className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
-                  selectedRegion === "au" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`${styles.segmentLink} ${styles.focusable} ${selectedRegion === "au" ? styles.segmentLinkActive : ""}`}
               >
                 APAC
               </Link>
               <Link
                 href={`/portfolio/${portfolio}?briefRegion=us-mx-la-lng`}
-                className={`rounded-md px-3 py-1.5 font-semibold transition-colors ${
-                  selectedRegion === "us-mx-la-lng"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`${styles.segmentLink} ${styles.focusable} ${selectedRegion === "us-mx-la-lng" ? styles.segmentLinkActive : ""}`}
               >
                 International (US/Mexico/Senegal)
               </Link>
-            </div>
-            <Link href={`/chat?portfolio=${portfolio}`} className="btn-secondary text-sm text-center">
+            </nav>
+            <Link href={`/chat?portfolio=${portfolio}`} className={`btn-primary ${styles.askAiButton} ${styles.focusable}`}>
               Ask AI
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-foreground">Daily Intelligence Update</h2>
-          <p className="text-sm text-muted-foreground">
-            {selectedRegion === "au" ? "APAC view" : "International view"} for this portfolio.
-          </p>
+      <main className={styles.contentGrid}>
+        <div className={styles.primaryColumn}>
+          <DashboardCard
+            title="Daily Intelligence Update"
+            subtitle={selectedRegion === "au" ? "APAC view" : "International view"}
+            className={styles.card}
+            headerClassName={styles.cardHeader}
+            bodyClassName={styles.cardBody}
+          >
+            {activeBriefView ? (
+              <>
+                <p className={styles.metaLine}>
+                  {regionLabel(activeBriefView.region)} · {activeBriefView.dateLabel}
+                </p>
+                <h3 className={styles.headline}>{activeBriefView.title}</h3>
+                <p className={styles.lede}>{insight.summary}</p>
+                <img
+                  src={activeBriefView.heroImage.url}
+                  alt={activeBriefView.heroImage.alt}
+                  className={styles.heroImage}
+                  loading="lazy"
+                />
+              </>
+            ) : (
+              <>
+                <p className={styles.metaLine}>{selectedRegion === "au" ? "APAC" : "International"} · Pending update</p>
+                <h3 className={styles.headline}>Daily intelligence update</h3>
+                <p className={styles.lede}>{insight.summary}</p>
+              </>
+            )}
+
+            <section className={styles.subSection}>
+              <h4 className={styles.subSectionTitle}>What changed</h4>
+              {visibleImpact.length > 0 ? (
+                <ul className={styles.bulletList}>
+                  {visibleImpact.map((item, idx) => (
+                    <li key={`${item}-${idx}`} className={styles.bulletItem}>
+                      <span className={styles.bulletDot} aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.emptyState}>No major deltas were captured in the latest run.</p>
+              )}
+              {hiddenImpact.length > 0 ? (
+                <details className={styles.details}>
+                  <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more changes</summary>
+                  <ul className={`${styles.bulletList} mt-3`}>
+                    {hiddenImpact.map((item, idx) => (
+                      <li key={`${item}-${idx}`} className={styles.bulletItem}>
+                        <span className={styles.bulletDot} aria-hidden />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </section>
+
+            <section className={styles.subSection}>
+              <h4 className={styles.subSectionTitle}>Top Stories</h4>
+              {activeBriefView?.topStories?.length ? (
+                <div className={styles.listStack}>
+                  {activeBriefView.topStories.map((story, idx) => (
+                    <ListRow
+                      key={`${story.url}-${idx}`}
+                      title={story.title}
+                      href={story.url}
+                      meta={`${story.sourceName ?? "source"} · ${shortDate(story.publishedAt)}`}
+                      note={story.categoryImportance ?? story.briefContent}
+                      className={styles.listRow}
+                      titleClassName={styles.rowTitle}
+                      metaClassName={styles.rowMeta}
+                      noteClassName={styles.rowNote}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.emptyState}>Top stories will populate after the next published run.</p>
+              )}
+            </section>
+
+            {activeBrief ? (
+              <div className="mt-5">
+                <Link href={`/brief/${activeBrief.postId}`} className={`btn-secondary text-sm ${styles.focusable}`}>
+                  Open Full Brief
+                </Link>
+              </div>
+            ) : null}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Latest Portfolio News"
+            subtitle="Scoped to this category’s configured sources and query terms."
+            className={styles.card}
+            headerClassName={styles.cardHeader}
+            bodyClassName={styles.cardBody}
+          >
+            {visibleNews.length > 0 ? (
+              <div className={styles.listStack}>
+                {visibleNews.map((article) => (
+                  <ListRow
+                    key={article.url}
+                    title={article.title}
+                    href={article.url}
+                    meta={`${article.source} · ${shortDate(article.publishedAt)} · ${article.region}`}
+                    note={article.summary}
+                    className={styles.listRow}
+                    titleClassName={styles.rowTitle}
+                    metaClassName={styles.rowMeta}
+                    noteClassName={styles.rowNote}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyState}>News feed refresh in progress. Check back in the next run cycle.</p>
+            )}
+
+            {hiddenNews.length > 0 ? (
+              <details className={styles.details}>
+                <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more news</summary>
+                <div className={`${styles.listStack} mt-3`}>
+                  {hiddenNews.map((article) => (
+                    <ListRow
+                      key={article.url}
+                      title={article.title}
+                      href={article.url}
+                      meta={`${article.source} · ${shortDate(article.publishedAt)} · ${article.region}`}
+                      note={article.summary}
+                      className={styles.listRow}
+                      titleClassName={styles.rowTitle}
+                      metaClassName={styles.rowMeta}
+                      noteClassName={styles.rowNote}
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </DashboardCard>
         </div>
 
-        {activeBriefView ? (
-          <article className="mt-4 space-y-4">
-            <img
-              src={activeBriefView.heroImage.url}
-              alt={activeBriefView.heroImage.alt}
-              className="h-52 w-full rounded-lg border border-border bg-background object-cover sm:h-64"
-              loading="lazy"
-            />
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                {regionLabel(activeBriefView.region)} · {activeBriefView.dateLabel}
-              </p>
-              <h3 className="text-xl font-semibold text-foreground">{activeBriefView.title}</h3>
-              <p className="text-sm text-foreground">{insight.summary}</p>
+        <aside className={styles.railColumn}>
+          <DashboardCard
+            title="Possible Actions"
+            subtitle="Current execution priorities from the latest brief signal set."
+            className={styles.card}
+            headerClassName={styles.cardHeader}
+            bodyClassName={styles.cardBody}
+          >
+            <ol className={styles.actionsList}>
+              {visibleActions.map((item, idx) => (
+                <li key={`${item}-${idx}`} className={styles.actionItem}>
+                  {item}
+                </li>
+              ))}
+            </ol>
+            {hiddenActions.length > 0 ? (
+              <details className={styles.details}>
+                <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more actions</summary>
+                <ol className={`${styles.actionsList} mt-3`} start={visibleActions.length + 1}>
+                  {hiddenActions.map((item, idx) => (
+                    <li key={`${item}-${idx}`} className={styles.actionItem}>
+                      {item}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Daily Briefs"
+            subtitle="Recent published briefs for this portfolio."
+            className={styles.card}
+            headerClassName={styles.cardHeader}
+            bodyClassName={styles.cardBody}
+          >
+            <div className={styles.listStack}>
+              {visibleBriefs.map((brief) => (
+                <ListRow
+                  key={brief.postId}
+                  title={brief.title}
+                  href={`/brief/${brief.postId}`}
+                  external={false}
+                  meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
+                  note={brief.summary}
+                  className={styles.listRow}
+                  titleClassName={styles.rowTitle}
+                  metaClassName={styles.rowMeta}
+                  noteClassName={styles.rowNote}
+                />
+              ))}
             </div>
-            {activeBriefView.deltaBullets.length > 0 ? (
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                {activeBriefView.deltaBullets.map((item, idx) => (
-                  <li key={`${item}-${idx}`} className="flex gap-2">
-                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                    <span>{item}</span>
+            {hiddenBriefs.length > 0 ? (
+              <details className={styles.details}>
+                <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more briefs</summary>
+                <div className={`${styles.listStack} mt-3`}>
+                  {hiddenBriefs.map((brief) => (
+                    <ListRow
+                      key={brief.postId}
+                      title={brief.title}
+                      href={`/brief/${brief.postId}`}
+                      external={false}
+                      meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
+                      note={brief.summary}
+                      className={styles.listRow}
+                      titleClassName={styles.rowTitle}
+                      metaClassName={styles.rowMeta}
+                      noteClassName={styles.rowNote}
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Market Indices"
+            subtitle="Compact market snapshot for this category."
+            className={styles.card}
+            headerClassName={styles.cardHeader}
+            bodyClassName={styles.cardBody}
+          >
+            <PortfolioMarketTicker portfolio={portfolio} variant="grid" limit={4} showHeader={false} />
+          </DashboardCard>
+        </aside>
+
+        <div className={styles.fullWidth}>
+          <DashboardCard
+            title="Sources"
+            subtitle="Source set attached to the active regional brief."
+            className={styles.card}
+            headerClassName={styles.cardHeader}
+            bodyClassName={styles.cardBody}
+          >
+            {visibleSources.length > 0 ? (
+              <ul className={styles.sourcesGrid}>
+                {visibleSources.map((source) => (
+                  <li key={source.url} className={styles.sourceItem}>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className={`${styles.sourceLink} ${styles.focusable}`}
+                    >
+                      {source.title}
+                    </a>
+                    <p className={styles.sourceMeta}>
+                      {sourceLabelFromUrl(source.url)} · {shortDate(source.publishedAt ?? source.retrievedAt)}
+                    </p>
                   </li>
                 ))}
               </ul>
+            ) : (
+              <p className={styles.emptyState}>No source list is available for the selected regional brief yet.</p>
+            )}
+
+            {hiddenSources.length > 0 ? (
+              <details className={styles.details}>
+                <summary className={`${styles.detailsSummary} ${styles.focusable}`}>Show more sources</summary>
+                <ul className={`${styles.sourcesGrid} mt-3`}>
+                  {hiddenSources.map((source) => (
+                    <li key={source.url} className={styles.sourceItem}>
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className={`${styles.sourceLink} ${styles.focusable}`}
+                      >
+                        {source.title}
+                      </a>
+                      <p className={styles.sourceMeta}>
+                        {sourceLabelFromUrl(source.url)} · {shortDate(source.publishedAt ?? source.retrievedAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ) : null}
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Impact</h3>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  {insight.impact.map((item, idx) => (
-                    <li key={`${item}-${idx}`} className="flex gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Possible actions</h3>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  {insight.actions.map((item, idx) => (
-                    <li key={`${item}-${idx}`} className="flex gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {activeBriefView.topStories.slice(0, 3).map((story, idx) => (
-                <article key={`${story.url}-${idx}`} className="rounded-lg border border-border bg-background p-3">
-                  <a href={story.url} target="_blank" rel="noreferrer noopener" className="text-sm font-semibold text-foreground hover:text-primary">
-                    {story.title}
-                  </a>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {story.sourceName ?? "source"} ·{" "}
-                    {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "n.d."}
-                  </p>
-                  {story.categoryImportance ? <p className="mt-2 text-xs text-muted-foreground">{story.categoryImportance}</p> : null}
-                </article>
-              ))}
-            </div>
-            <Link href={`/brief/${activeBrief.postId}`} className="btn-secondary text-sm">
-              Open Full Brief
-            </Link>
-          </article>
-        ) : (
-          <div className="mt-4 space-y-4">
-            <p className="text-sm text-foreground">{insight.summary}</p>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Impact</h3>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  {insight.impact.map((item, idx) => (
-                    <li key={`${item}-${idx}`} className="flex gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Possible actions</h3>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  {insight.actions.map((item, idx) => (
-                    <li key={`${item}-${idx}`} className="flex gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold text-foreground">Latest portfolio news</h2>
-        <p className="text-sm text-muted-foreground">Scoped to this category’s configured sources and query terms.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {portfolioNews.map((article) => (
-            <a
-              key={article.url}
-              href={article.url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
-            >
-              <p className="text-sm font-semibold text-foreground line-clamp-2">{article.title}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {article.source} ·{" "}
-                {new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </p>
-            </a>
-          ))}
-          {portfolioNews.length === 0 ? (
-            <p className="text-sm text-muted-foreground">News feed refresh in progress. Check back in the next run cycle.</p>
-          ) : null}
+          </DashboardCard>
         </div>
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        <PortfolioMarketTicker portfolio={portfolio} variant="grid" limit={4} showHeader />
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        {history.length > 0 ? (
-          <PortfolioBriefHistory briefs={history} />
-        ) : (
-          <div className="space-y-2 rounded-lg border border-border bg-background p-4">
-            <h2 className="text-lg font-semibold text-foreground">Daily brief history</h2>
-            <p className="text-sm text-muted-foreground">Previous briefs are listed below.</p>
-            {fallbackHistory(portfolio).map((item) => (
-              <div key={item.postId} className="rounded-md border border-border bg-card p-3">
-                <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {regionLabel(item.region)} · {new Date(item.publishedAt).toLocaleDateString("en-US")}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-        {history.length > 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Latest published: {new Date(history[0].publishedAt).toLocaleDateString("en-US")} ·{" "}
-            {regionLabel(history[0].region)}
-          </p>
-        ) : null}
-      </section>
+      </main>
     </div>
   );
 }
