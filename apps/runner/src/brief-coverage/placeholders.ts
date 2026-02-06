@@ -94,7 +94,7 @@ ${sourceLines}
     heroImageAlt: `${options.agent.label} - Daily Intel Report`,
     tags: [
       "system-placeholder",
-      options.reason === "carry-forward" ? "previous" : options.reason,
+      options.reason,
       ...(options.baseline ? ["baseline"] : [])
     ]
   };
@@ -144,6 +144,6 @@ export function buildCarryForwardBrief(options: {
     },
     heroImageUrl: options.previousBrief.heroImage?.url ?? options.previousBrief.heroImageUrl ?? makeCategoryPlaceholderDataUrl(options.agent.label),
     heroImageAlt: options.previousBrief.heroImage?.alt ?? options.previousBrief.heroImageAlt ?? `${options.agent.label} - Daily Intel Report`,
-    tags: Array.from(new Set([...(options.previousBrief.tags ?? []).filter((t) => t !== "carry-forward"), "previous", options.reason === "carry-forward" ? "previous" : options.reason]))
+    tags: Array.from(new Set([...(options.previousBrief.tags ?? []).filter((t) => t !== "carry-forward"), "previous", options.reason]))
   };
 }
