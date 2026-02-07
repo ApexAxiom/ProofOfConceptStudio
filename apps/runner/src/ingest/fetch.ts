@@ -1,4 +1,13 @@
-import { AgentConfig, AgentFeed, RegionSlug, RunWindow, keywordsForPortfolio, categoryForPortfolio, getGoogleNewsFeeds } from "@proof/shared";
+import {
+  AgentConfig,
+  AgentFeed,
+  RegionSlug,
+  RunWindow,
+  keywordsForPortfolio,
+  categoryForPortfolio,
+  getGoogleNewsFeeds,
+  getPortfolioSources
+} from "@proof/shared";
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
@@ -32,6 +41,10 @@ const COMMON_EXCLUDE_KEYWORDS = [
   "lottery",
   "horoscope"
 ];
+
+const GOOGLE_NEWS_HOST = "news.google.com";
+const GOOGLE_NEWS_ENABLED = (process.env.GOOGLE_NEWS_ENABLED ?? "false").toLowerCase() === "true";
+let loggedGoogleDisabled = false;
 
 /**
  * Build primary/secondary keyword packs for a portfolio.
@@ -80,8 +93,7 @@ const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
     { name: "EIA Today in Energy", url: "https://www.eia.gov/rss/todayinenergy.xml", type: "rss" },
     { name: "EIA Press Releases", url: "https://www.eia.gov/rss/press_rss.xml", type: "rss" },
     { name: "Federal Register (Energy)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=energy", type: "rss" },
-    { name: "Federal Register (Oil & Gas)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=oil%20gas", type: "rss" },
-    { name: "Google News - offshore drilling LNG", url: "https://news.google.com/rss/search?q=offshore%20drilling%20LNG&hl=en-US&gl=US&ceid=US:en&when=7d", type: "rss" }
+    { name: "Federal Register (Oil & Gas)", url: "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=oil%20gas", type: "rss" }
   ],
   "au": [
     { name: "Offshore Energy", url: "https://www.offshore-energy.biz/feed/", type: "rss" },
@@ -89,8 +101,7 @@ const ENERGY_FALLBACK: Record<RegionSlug, AgentFeed[]> = {
     { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" },
     { name: "Rigzone", url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", type: "rss" },
     { name: "DISR News", url: "https://www.industry.gov.au/news.xml", type: "rss" },
-    { name: "WA Gov Announcements", url: "https://www.wa.gov.au/rss/announcements/export/171", type: "rss" },
-    { name: "Google News - Australia offshore drilling LNG", url: "https://news.google.com/rss/search?q=Australia%20offshore%20drilling%20LNG&hl=en-AU&gl=AU&ceid=AU:en&when=7d", type: "rss" }
+    { name: "WA Gov Announcements", url: "https://www.wa.gov.au/rss/announcements/export/171", type: "rss" }
   ]
 };
 
@@ -116,7 +127,7 @@ const STEEL_FALLBACK: AgentFeed[] = [
   { name: "MetalMiner", url: "https://agmetalminer.com/metal-prices/feed/", type: "rss" },
   { name: "Manufacturers Monthly", url: "https://www.manmonthly.com.au/feed/", type: "rss" },
   { name: "American Iron and Steel Institute", url: "https://www.steel.org/news/", type: "web" },
-  { name: "World Oil", url: "https://www.worldoil.com/rss/news", type: "rss" }
+  { name: "World Oil", url: "https://www.worldoil.com/rss", type: "rss" }
 ];
 
 const SERVICES_FALLBACK: AgentFeed[] = [
@@ -128,11 +139,10 @@ const SERVICES_FALLBACK: AgentFeed[] = [
 ];
 
 const FACILITY_FALLBACK: AgentFeed[] = [
-  { name: "FacilitiesNet", url: "https://www.facilitiesnet.com/rss/maintenancenews.aspx", type: "rss" },
-  { name: "Buildings.com", url: "https://www.buildings.com/rss.xml", type: "rss" },
+  { name: "Waste Today Magazine", url: "https://www.wastetodaymagazine.com/rss/", type: "rss" },
   { name: "Facility Executive", url: "https://facilityexecutive.com/feed/", type: "rss" },
   { name: "Waste360", url: "https://www.waste360.com/rss.xml", type: "rss" },
-  { name: "EHS Today", url: "https://www.ehstoday.com/rss", type: "rss" }
+  { name: "OSHA News Releases", url: "https://www.osha.gov/news/newsreleases", type: "web" }
 ];
 
 const BASE_REGULATORY_PACK: Record<RegionSlug, AgentFeed[]> = {
@@ -190,11 +200,53 @@ function dedupeFeeds(feeds: AgentFeed[]): AgentFeed[] {
   });
 }
 
+function isGoogleNewsFeed(feed: AgentFeed): boolean {
+  try {
+    return new URL(feed.url).hostname.replace(/^www\./, "").toLowerCase() === GOOGLE_NEWS_HOST;
+  } catch {
+    return false;
+  }
+}
+
+function prioritizeFeeds(feeds: AgentFeed[]): AgentFeed[] {
+  const core: AgentFeed[] = [];
+  const supplemental: AgentFeed[] = [];
+  for (const feed of feeds) {
+    if (isGoogleNewsFeed(feed)) {
+      supplemental.push(feed);
+      continue;
+    }
+    core.push(feed);
+  }
+  return [...core, ...supplemental];
+}
+
+function regionToPortfolioRegion(region: RegionSlug): "apac" | "intl" {
+  return region === "au" ? "apac" : "intl";
+}
+
+function getPortfolioRssFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
+  return getPortfolioSources(portfolioSlug, regionToPortfolioRegion(region))
+    .filter((source) => Boolean(source.rssUrl))
+    .map((source) => ({
+      name: source.name,
+      url: source.rssUrl ?? source.url,
+      type: "rss" as const
+    }));
+}
+
 function getBaseRegulatoryFeeds(region: RegionSlug): AgentFeed[] {
   return BASE_REGULATORY_PACK[region] ?? [];
 }
 
 function getGoogleNewsFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[] {
+  if (!GOOGLE_NEWS_ENABLED) {
+    if (!loggedGoogleDisabled) {
+      loggedGoogleDisabled = true;
+      console.log("Google News supplemental feeds are disabled (set GOOGLE_NEWS_ENABLED=true to enable).");
+    }
+    return [];
+  }
   const mappedRegion = region === "au" ? "apac" : "intl";
   const sources = getGoogleNewsFeeds(portfolioSlug, mappedRegion);
   return sources.map((source) => ({
@@ -306,11 +358,14 @@ async function fetchFromFeeds(
   const feedAttempts: FeedAttempt[] = [];
 
   for (const feed of feeds) {
+    if (collected.length >= maxArticles) break;
+
     const checkedAt = new Date().toISOString();
     attemptedFeeds.add(feed.url);
     try {
       if (feed.type === "rss") {
         const items = await fetchRss(feed);
+        const remaining = Math.max(0, maxArticles - collected.length);
         feedAttempts.push({
           url: feed.url,
           name: feed.name,
@@ -321,7 +376,7 @@ async function fetchFromFeeds(
           itemCount: items.length
         });
         collected.push(
-          ...items.slice(0, maxArticles).map((i: any) => ({
+          ...items.slice(0, remaining).map((i: any) => ({
             title: i.title,
             url: i.link,
             published: i.pubDate,
@@ -345,7 +400,8 @@ async function fetchFromFeeds(
           );
         }
       } else {
-        const links = await shallowScrape(feed.url, maxArticles);
+        const remaining = Math.max(0, maxArticles - collected.length);
+        const links = await shallowScrape(feed.url, remaining);
         feedAttempts.push({
           url: feed.url,
           name: feed.name,
@@ -437,10 +493,14 @@ export async function ingestAgent(
   region: RegionSlug,
   options?: { runWindow?: RunWindow; runDate?: string }
 ) {
-  const feeds = dedupeFeeds([
-    ...(agent.feedsByRegion[region] ?? []),
-    ...getBaseRegulatoryFeeds(region)
-  ]);
+  const configuredFeeds = (agent.feedsByRegion[region] ?? []).filter((feed) => GOOGLE_NEWS_ENABLED || !isGoogleNewsFeed(feed));
+  const feeds = prioritizeFeeds(
+    dedupeFeeds([
+      ...configuredFeeds,
+      ...getPortfolioRssFeeds(region, agent.portfolio),
+      ...getBaseRegulatoryFeeds(region)
+    ])
+  );
   const minArticlesNeeded = Math.max(agent.articlesPerRun ?? 3, 3) * 2; // Need at least 2x required articles
   
   // Step 1: Fetch from primary feeds
@@ -457,14 +517,14 @@ export async function ingestAgent(
   // Step 2: If not enough articles, use fallback feeds
   if (collected.length < minArticlesNeeded) {
     console.log(`[${agent.id}/${region}] Not enough articles (${collected.length}), trying fallback feeds...`);
-    const fallbackFeeds = dedupeFeeds([
+    const fallbackFeeds = prioritizeFeeds(dedupeFeeds([
       ...getFallbackFeeds(region, agent.portfolio),
-      ...getGoogleNewsFallbackFeeds(region, agent.portfolio)
-    ]);
+      ...getPortfolioRssFeeds(region, agent.portfolio)
+    ]));
     
     // Filter out feeds we already tried
     const primaryUrls = new Set(feeds.map((f) => f.url));
-    const newFallbacks = fallbackFeeds.filter((f) => !primaryUrls.has(f.url));
+    const newFallbacks = fallbackFeeds.filter((f) => !primaryUrls.has(f.url) && !attemptedFeeds.has(f.url));
     
     if (newFallbacks.length > 0) {
       const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider, attemptedFeeds, {
@@ -476,6 +536,23 @@ export async function ingestAgent(
       });
       collected = [...collected, ...fallbackArticles];
       console.log(`[${agent.id}/${region}] After fallback feeds: ${collected.length} articles`);
+    }
+
+    if (collected.length < minArticlesNeeded) {
+      const googleFallbackFeeds = dedupeFeeds(getGoogleNewsFallbackFeeds(region, agent.portfolio)).filter(
+        (feed) => !primaryUrls.has(feed.url) && !attemptedFeeds.has(feed.url)
+      );
+      if (googleFallbackFeeds.length > 0) {
+        const googleArticles = await fetchFromFeeds(googleFallbackFeeds, agent.maxArticlesToConsider, attemptedFeeds, {
+          agentId: agent.id,
+          portfolio: agent.portfolio,
+          region,
+          runWindow: options?.runWindow,
+          runDate: options?.runDate
+        });
+        collected = [...collected, ...googleArticles];
+        console.log(`[${agent.id}/${region}] After supplemental Google feeds: ${collected.length} articles`);
+      }
     }
   }
   

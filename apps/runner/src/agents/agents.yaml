@@ -160,7 +160,7 @@
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Offshore Energy, url: https://www.offshore-energy.biz/feed/, type: rss }
-      - { name: Safe Work Australia News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
+      - { name: SafeWork NSW News, url: https://www.safework.nsw.gov.au/news, type: web }
       - { name: NOPSEMA, url: https://www.nopsema.gov.au/, type: web }
       - { name: Google News - subsea Australia offshore, url: https://news.google.com/rss/search?q=subsea%20Australia%20offshore&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
       - { name: Google News - SURF Australia offshore, url: https://news.google.com/rss/search?q=SURF%20Australia%20offshore&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
@@ -174,7 +174,7 @@
   feedsByRegion:
     us-mx-la-lng:
       - { name: Hydrocarbon Engineering, url: https://www.hydrocarbonengineering.com/, type: web }
-      - { name: LNG Industry, url: https://www.lngindustry.com/, type: web }
+      - { name: LNG Prime, url: https://www.lngprime.com/feed, type: rss }
       - { name: World Oil, url: https://www.worldoil.com/, type: web }
       - { name: Oil & Gas Journal, url: https://www.ogj.com/, type: web }
       - { name: Pipeline Journal, url: https://www.pipeline-journal.net/rss.xml, type: rss }
@@ -299,7 +299,7 @@
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
       - { name: Daily Cargo News (DCN), url: https://www.thedcn.com.au/, type: web }
       - { name: Australian Aviation, url: https://australianaviation.com.au/feed/, type: rss }
-      - { name: Safe Work Australia News, url: https://www.safeworkaustralia.gov.au/media-centre/news, type: web }
+      - { name: SafeWork NSW News, url: https://www.safework.nsw.gov.au/news, type: web }
       - { name: Google News - offshore vessel Australia LNG, url: https://news.google.com/rss/search?q=offshore%20vessel%20Australia%20LNG&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
       - { name: Google News - aviation logistics Australia oil gas, url: https://news.google.com/rss/search?q=aviation%20logistics%20Australia%20oil%20gas&hl=en-AU&gl=AU&ceid=AU:en, type: rss }
 - id: site-services-facilities
@@ -325,7 +325,7 @@
     au:
       - { name: DISR News, url: https://www.industry.gov.au/news.xml, type: rss }
       - { name: WA Gov Announcements, url: https://www.wa.gov.au/rss/announcements/export/171, type: rss }
-      - { name: Waste Management Review, url: https://wastemanagementreview.com.au/feed/, type: rss }
+      - { name: Waste Today Magazine, url: https://www.wastetodaymagazine.com/rss/, type: rss }
       - { name: Inside Waste, url: https://www.insidewaste.com.au/feed/, type: rss }
       - { name: Australian Mining, url: https://www.australianmining.com.au/feed/, type: rss }
       - { name: Manufacturers Monthly, url: https://www.manmonthly.com.au/feed/, type: rss }

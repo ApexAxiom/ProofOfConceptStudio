@@ -14,6 +14,12 @@ interface AgentRegionAudit {
   totalFeeds: number;
   usableFeeds: number;
   failingFeeds: number;
+  coreFeeds: number;
+  coreUsableFeeds: number;
+  coreFailingFeeds: number;
+  supplementalFeeds: number;
+  supplementalUsableFeeds: number;
+  supplementalFailingFeeds: number;
 }
 
 interface FailedFeed {
@@ -22,14 +28,50 @@ interface FailedFeed {
   name: string;
   url: string;
   reason: string;
+  supplemental: boolean;
 }
 
 interface AuditOptions {
-  minFeeds: number;
-  minUsable: number;
+  minCoreFeeds: number;
+  minCoreUsable: number;
   timeoutMs: number;
   concurrency: number;
   maxFailureLines: number;
+}
+
+type RunnerAgent = ReturnType<typeof loadAgents>[number];
+const GOOGLE_NEWS_ENABLED = (process.env.GOOGLE_NEWS_ENABLED ?? "false").toLowerCase() === "true";
+
+function normalizeFeedUrl(url: string): string {
+  try {
+    return new URL(url).toString();
+  } catch {
+    return url.trim();
+  }
+}
+
+function dedupeFeeds(feeds: AgentFeed[]): AgentFeed[] {
+  const seen = new Set<string>();
+  return feeds.filter((feed) => {
+    const key = normalizeFeedUrl(feed.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isSupplementalFeed(feed: AgentFeed): boolean {
+  try {
+    const host = new URL(feed.url).hostname.replace(/^www\./, "").toLowerCase();
+    return host === "news.google.com";
+  } catch {
+    return false;
+  }
+}
+
+function getRuntimeFeeds(agent: RunnerAgent, region: RegionSlug): AgentFeed[] {
+  const configured = agent.feedsByRegion[region] ?? [];
+  return dedupeFeeds(configured.filter((feed) => GOOGLE_NEWS_ENABLED || !isSupplementalFeed(feed)));
 }
 
 function parseNumberArg(name: string, fallback: number): number {
@@ -41,10 +83,20 @@ function parseNumberArg(name: string, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
 
+function parseNumberArgAliases(names: string[], fallback: number): number {
+  for (const name of names) {
+    const value = parseNumberArg(name, Number.NaN);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return fallback;
+}
+
 function readOptions(): AuditOptions {
+  const minCoreFeedsDefault = Number(process.env.FEED_AUDIT_MIN_CORE_FEEDS ?? process.env.FEED_AUDIT_MIN_FEEDS ?? 5);
+  const minCoreUsableDefault = Number(process.env.FEED_AUDIT_MIN_CORE_USABLE ?? process.env.FEED_AUDIT_MIN_USABLE ?? 4);
   return {
-    minFeeds: parseNumberArg("min-feeds", Number(process.env.FEED_AUDIT_MIN_FEEDS ?? 10)),
-    minUsable: parseNumberArg("min-usable", Number(process.env.FEED_AUDIT_MIN_USABLE ?? 8)),
+    minCoreFeeds: parseNumberArgAliases(["min-core-feeds", "min-feeds"], minCoreFeedsDefault),
+    minCoreUsable: parseNumberArgAliases(["min-core-usable", "min-usable"], minCoreUsableDefault),
     timeoutMs: parseNumberArg("timeout-ms", Number(process.env.FEED_AUDIT_TIMEOUT_MS ?? 8_000)),
     concurrency: parseNumberArg("concurrency", Number(process.env.FEED_AUDIT_CONCURRENCY ?? 8)),
     maxFailureLines: parseNumberArg("max-failures", Number(process.env.FEED_AUDIT_MAX_FAILURES ?? 120))
@@ -148,14 +200,20 @@ async function main() {
 
   for (const agent of agents) {
     for (const region of regions) {
-      const feeds = agent.feedsByRegion[region] ?? [];
+      const feeds = getRuntimeFeeds(agent, region);
       const checks = await runWithConcurrency(feeds, options.concurrency, async (feed) => {
         const result = await checkFeed(feed, options.timeoutMs);
-        return { feed, result };
+        return { feed, result, supplemental: isSupplementalFeed(feed) };
       });
 
       const usableFeeds = checks.filter((entry) => entry.result.ok).length;
       const failingFeeds = checks.length - usableFeeds;
+      const coreChecks = checks.filter((entry) => !entry.supplemental);
+      const supplementalChecks = checks.filter((entry) => entry.supplemental);
+      const coreUsableFeeds = coreChecks.filter((entry) => entry.result.ok).length;
+      const coreFailingFeeds = coreChecks.length - coreUsableFeeds;
+      const supplementalUsableFeeds = supplementalChecks.filter((entry) => entry.result.ok).length;
+      const supplementalFailingFeeds = supplementalChecks.length - supplementalUsableFeeds;
 
       for (const entry of checks) {
         if (entry.result.ok) continue;
@@ -164,7 +222,8 @@ async function main() {
           region,
           name: entry.feed.name,
           url: entry.feed.url,
-          reason: entry.result.reason ?? "unknown error"
+          reason: entry.result.reason ?? "unknown error",
+          supplemental: entry.supplemental
         });
       }
 
@@ -173,17 +232,23 @@ async function main() {
         region,
         totalFeeds: feeds.length,
         usableFeeds,
-        failingFeeds
+        failingFeeds,
+        coreFeeds: coreChecks.length,
+        coreUsableFeeds,
+        coreFailingFeeds,
+        supplementalFeeds: supplementalChecks.length,
+        supplementalUsableFeeds,
+        supplementalFailingFeeds
       });
 
-      if (feeds.length < options.minFeeds) {
+      if (coreChecks.length < options.minCoreFeeds) {
         coverageIssues.push(
-          `${agent.id}/${region} has ${feeds.length} feeds (minimum ${options.minFeeds} required)`
+          `${agent.id}/${region} has ${coreChecks.length} core feeds (minimum ${options.minCoreFeeds} required)`
         );
       }
-      if (usableFeeds < options.minUsable) {
+      if (coreUsableFeeds < options.minCoreUsable) {
         coverageIssues.push(
-          `${agent.id}/${region} has ${usableFeeds} usable feeds (minimum ${options.minUsable} required)`
+          `${agent.id}/${region} has ${coreUsableFeeds} usable core feeds (minimum ${options.minCoreUsable} required)`
         );
       }
     }
@@ -192,6 +257,11 @@ async function main() {
   const totalFeeds = summaryRows.reduce((sum, row) => sum + row.totalFeeds, 0);
   const totalUsable = summaryRows.reduce((sum, row) => sum + row.usableFeeds, 0);
   const totalFailing = summaryRows.reduce((sum, row) => sum + row.failingFeeds, 0);
+  const totalCoreFeeds = summaryRows.reduce((sum, row) => sum + row.coreFeeds, 0);
+  const totalCoreUsable = summaryRows.reduce((sum, row) => sum + row.coreUsableFeeds, 0);
+  const totalCoreFailing = summaryRows.reduce((sum, row) => sum + row.coreFailingFeeds, 0);
+  const totalSupplementalFeeds = summaryRows.reduce((sum, row) => sum + row.supplementalFeeds, 0);
+  const totalSupplementalFailing = summaryRows.reduce((sum, row) => sum + row.supplementalFailingFeeds, 0);
 
   console.log("Feed Audit Summary");
   console.log("==================");
@@ -199,14 +269,18 @@ async function main() {
   console.log(`Total feeds checked: ${totalFeeds}`);
   console.log(`Usable feeds: ${totalUsable}`);
   console.log(`Failing feeds: ${totalFailing}`);
+  console.log(`Core feeds: ${totalCoreFeeds} (usable=${totalCoreUsable}, failing=${totalCoreFailing})`);
+  console.log(`Supplemental feeds: ${totalSupplementalFeeds} (failing=${totalSupplementalFailing})`);
   console.log("");
   console.log("Per Agent/Region");
   console.log("----------------");
   for (const row of summaryRows) {
     console.log(
-      `${row.agentId.padEnd(38)} ${row.region.padEnd(13)} feeds=${String(row.totalFeeds).padStart(2)} usable=${String(
+      `${row.agentId.padEnd(38)} ${row.region.padEnd(13)} total=${String(row.totalFeeds).padStart(2)} usable=${String(
         row.usableFeeds
-      ).padStart(2)} failing=${String(row.failingFeeds).padStart(2)}`
+      ).padStart(2)} failing=${String(row.failingFeeds).padStart(2)} core=${String(row.coreUsableFeeds).padStart(2)}/${String(
+        row.coreFeeds
+      ).padStart(2)} supplementalFailing=${String(row.supplementalFailingFeeds).padStart(2)}`
     );
   }
 
@@ -216,7 +290,9 @@ async function main() {
     console.log("-----------------------------------------");
     for (const failure of failures.slice(0, options.maxFailureLines)) {
       console.log(
-        `[${failure.agentId}/${failure.region}] ${failure.name} :: ${failure.reason} :: ${failure.url}`
+        `[${failure.agentId}/${failure.region}] ${failure.name} :: ${failure.reason} :: ${failure.url} :: ${
+          failure.supplemental ? "supplemental" : "core"
+        }`
       );
     }
   }

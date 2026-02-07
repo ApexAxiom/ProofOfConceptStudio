@@ -61,7 +61,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "World Oil", url: "https://www.worldoil.com/", region: "intl" },
       { name: "Oil & Gas Journal", url: "https://www.ogj.com/", region: "intl" },
       { name: "Offshore Magazine", url: "https://www.offshore-mag.com/", region: "intl" },
-      { name: "Energy Voice", url: "https://www.energyvoice.com/", region: "intl" },
+      { name: "SPE JPT", url: "https://jpt.spe.org/", region: "intl" },
       { name: "Drilling Contractor (IADC)", url: "https://drillingcontractor.org/", region: "both" },
       { name: "Energy News Bulletin", url: "https://www.energynewsbulletin.net/", region: "apac" },
       { name: "Energy Today (AU)", url: "https://www.energytodaymag.com.au/", region: "apac" },
@@ -83,7 +83,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "Rigzone", url: "https://www.rigzone.com/", region: "both" },
       { name: "World Oil", url: "https://www.worldoil.com/", region: "intl" },
       { name: "Journal of Petroleum Technology", url: "https://jpt.spe.org/", region: "both" },
-      { name: "Halliburton Newsroom", url: "https://www.halliburton.com/en/newsroom.html", region: "both" },
+      { name: "Halliburton", url: "https://www.halliburton.com/", region: "both" },
       { name: "SLB Newsroom", url: "https://www.slb.com/newsroom", region: "both" },
       { name: "Baker Hughes News", url: "https://www.bakerhughes.com/company/newsroom", region: "both" },
       { name: "Energy News Bulletin", url: "https://www.energynewsbulletin.net/", region: "apac" },
@@ -100,12 +100,12 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
   // Wells Materials & OCTG
   "wells-materials-octg": {
     sources: [
-      { name: "SteelBenchmarker", url: "https://steelbenchmarker.com/", region: "both" },
+      { name: "MetalMiner", url: "https://agmetalminer.com/", region: "both", rssUrl: "https://agmetalminer.com/feed/" },
       { name: "SteelGuru", url: "https://www.steelguru.com/", region: "both" },
-      { name: "S&P Global Metals", url: "https://www.spglobal.com/commodityinsights/en/commodities/metals", region: "both" },
+      { name: "Argus Metals News", url: "https://www.argusmedia.com/en/news-and-insights/latest-market-news", region: "both" },
       { name: "Mysteel Global", url: "https://www.mysteel.net/", region: "apac" },
       { name: "CME HRC Steel", url: "https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html", region: "intl" },
-      { name: "LME Ferrous", url: "https://www.lme.com/en/metals/ferrous", region: "both" },
+      { name: "Mining.com", url: "https://www.mining.com/", region: "both", rssUrl: "https://www.mining.com/feed/" },
       { name: "Tenaris", url: "https://www.tenaris.com/", region: "both" },
       { name: "Vallourec", url: "https://www.vallourec.com/", region: "both" },
       { name: "Australian Steel Institute", url: "https://www.steel.org.au/news-and-events/news/", region: "apac" },
@@ -124,7 +124,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "Rigzone", url: "https://www.rigzone.com/", region: "both" },
       { name: "Hart Energy", url: "https://www.hartenergy.com/", region: "intl" },
       { name: "SLB Newsroom", url: "https://www.slb.com/newsroom", region: "both" },
-      { name: "Halliburton Newsroom", url: "https://www.halliburton.com/en/newsroom.html", region: "both" },
+      { name: "Halliburton", url: "https://www.halliburton.com/", region: "both" },
       { name: "Energy News Bulletin", url: "https://www.energynewsbulletin.net/", region: "apac" },
       { name: "EIA - DUC Report", url: "https://www.eia.gov/petroleum/drilling/", region: "intl" },
     ],
@@ -160,8 +160,8 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "Subsea World News", url: "https://www.offshore-energy.biz/subsea/", region: "both", rssUrl: "https://www.offshore-energy.biz/feed/" },
       { name: "Offshore Technology", url: "https://www.offshore-technology.com/", region: "both" },
       { name: "Maritime Executive", url: "https://www.maritime-executive.com/", region: "both" },
-      { name: "Subsea 7 News", url: "https://www.subsea7.com/en/media/news.html", region: "both" },
-      { name: "TechnipFMC", url: "https://www.technipfmc.com/", region: "both" },
+      { name: "Saipem Press Releases", url: "https://www.saipem.com/en/media/press-releases", region: "both" },
+      { name: "OneSubsea News", url: "https://www.onesubsea.com/news", region: "both" },
       { name: "Subsea Energy Australia", url: "https://subseaenergy.org.au/", region: "apac" },
     ],
     indices: [
@@ -175,7 +175,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
   "projects-epc-epcm-construction": {
     sources: [
       { name: "Engineering News-Record", url: "https://www.enr.com/", region: "intl" },
-      { name: "LNG Industry", url: "https://www.lngindustry.com/", region: "both", rssUrl: "https://www.lngindustry.com/rss/" },
+      { name: "LNG Prime", url: "https://www.lngprime.com/", region: "both", rssUrl: "https://www.lngprime.com/feed" },
       { name: "Hydrocarbon Engineering", url: "https://www.hydrocarbonengineering.com/", region: "both" },
       { name: "World Oil", url: "https://www.worldoil.com/", region: "intl" },
       { name: "Global Construction Review", url: "https://www.globalconstructionreview.com/", region: "both" },
@@ -201,7 +201,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "Siemens Energy News", url: "https://www.siemens-energy.com/global/en/news.html", region: "both" },
       { name: "GE Vernova News", url: "https://www.gevernova.com/news", region: "both" },
       { name: "Baker Hughes News", url: "https://www.bakerhughes.com/company/newsroom", region: "both" },
-      { name: "Sulzer News", url: "https://www.sulzer.com/en/shared/news", region: "both" },
+      { name: "Pumps & Systems", url: "https://www.pumpsandsystems.com/", region: "both", rssUrl: "https://www.pumpsandsystems.com/rss.xml" },
       { name: "Process Online (AU)", url: "https://www.processonline.com.au/", region: "apac" },
     ],
     indices: [
@@ -215,12 +215,12 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
   "ops-maintenance-services": {
     sources: [
       { name: "Reliabilityweb", url: "https://reliabilityweb.com/", region: "both" },
-      { name: "Maintenance World", url: "https://maintenance.org/", region: "both" },
+      { name: "Inspectioneering RSS", url: "https://inspectioneering.com/", region: "both", rssUrl: "https://inspectioneering.com/rss" },
       { name: "EHS Today", url: "https://www.ehstoday.com/", region: "intl" },
       { name: "Plant Engineering", url: "https://www.plantengineering.com/", region: "both" },
       { name: "Inspectioneering", url: "https://inspectioneering.com/", region: "intl" },
       { name: "NOPSEMA", url: "https://www.nopsema.gov.au/", region: "apac" },
-      { name: "Safe Work Australia", url: "https://www.safeworkaustralia.gov.au/media-centre/news", region: "apac" },
+      { name: "SafeWork NSW News", url: "https://www.safework.nsw.gov.au/news", region: "apac" },
       { name: "OSHA News", url: "https://www.osha.gov/news/newsreleases", region: "intl" },
     ],
     indices: [
@@ -233,7 +233,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
   "mro-site-consumables": {
     sources: [
       { name: "Valve World", url: "https://valve-world.net/", region: "both" },
-      { name: "Industrial Distribution", url: "https://www.inddist.com/", region: "intl" },
+      { name: "MRO Magazine", url: "https://www.mromagazine.com/", region: "intl", rssUrl: "https://www.mromagazine.com/feed/" },
       { name: "Supply Chain Dive", url: "https://www.supplychaindive.com/", region: "both" },
       { name: "Pumps & Systems", url: "https://www.pumpsandsystems.com/", region: "both" },
       { name: "Fluid Power Journal", url: "https://fluidpowerjournal.com/", region: "intl" },
@@ -258,7 +258,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "Vertical Magazine", url: "https://verticalmag.com/", region: "both" },
       { name: "Daily Cargo News (AU)", url: "https://www.thedcn.com.au/", region: "apac" },
       { name: "Shipping Australia", url: "https://shippingaustralia.com.au/", region: "apac" },
-      { name: "Australian Aviation", url: "https://australianaviation.com.au/", region: "apac" },
+      { name: "Australian Aviation", url: "https://australianaviation.com.au/", region: "apac", rssUrl: "https://australianaviation.com.au/feed/" },
     ],
     indices: [
       ...shippingIndices,
@@ -272,14 +272,14 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
   "site-services-facilities": {
     sources: [
       { name: "IFMA", url: "https://www.ifma.org/", region: "both" },
-      { name: "Facility Executive", url: "https://facilityexecutive.com/", region: "intl" },
-      { name: "Waste360", url: "https://www.waste360.com/", region: "intl" },
+      { name: "Facility Executive", url: "https://facilityexecutive.com/", region: "intl", rssUrl: "https://facilityexecutive.com/feed/" },
+      { name: "Waste360", url: "https://www.waste360.com/", region: "intl", rssUrl: "https://www.waste360.com/rss.xml" },
       { name: "Security Magazine", url: "https://www.securitymagazine.com/", region: "intl" },
       { name: "EHS Today", url: "https://www.ehstoday.com/", region: "intl" },
       { name: "OSHA News", url: "https://www.osha.gov/news/newsreleases", region: "intl" },
       { name: "FM Magazine (AU)", url: "https://www.fmmagazine.com.au/", region: "apac" },
-      { name: "Waste Management Review (AU)", url: "https://wastemanagementreview.com.au/", region: "apac" },
-      { name: "Safe Work Australia", url: "https://www.safeworkaustralia.gov.au/media-centre/news", region: "apac" },
+      { name: "Inside Waste (AU)", url: "https://www.insidewaste.com.au/", region: "apac", rssUrl: "https://www.insidewaste.com.au/feed/" },
+      { name: "SafeWork NSW News", url: "https://www.safework.nsw.gov.au/news", region: "apac" },
     ],
     indices: [
       { symbol: "WM", name: "Waste Management", yahooSymbol: "WM", unit: "", fallbackPrice: 185, sourceUrl: "https://finance.yahoo.com/quote/WM" },
@@ -293,7 +293,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
     sources: [
       { name: "Reuters Energy", url: "https://www.reuters.com/business/energy/", region: "both" },
       { name: "MarketWatch Energy", url: "https://www.marketwatch.com/investing/futures/crude-oil", region: "both" },
-      { name: "LNG Industry", url: "https://www.lngindustry.com/", region: "both", rssUrl: "https://www.lngindustry.com/rss/" },
+      { name: "LNG Prime", url: "https://www.lngprime.com/", region: "both", rssUrl: "https://www.lngprime.com/feed" },
       { name: "S&P Global Energy", url: "https://www.spglobal.com/commodityinsights/en/commodities/energy", region: "both" },
       { name: "EIA Today in Energy", url: "https://www.eia.gov/todayinenergy/", region: "intl", rssUrl: "https://www.eia.gov/rss/todayinenergy.xml" },
       { name: "EIA Press Releases", url: "https://www.eia.gov/pressroom/releases.php", region: "intl", rssUrl: "https://www.eia.gov/rss/press_rss.xml" },
@@ -310,7 +310,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
   // IT, Telecom & Cyber
   "it-telecom-cyber": {
     sources: [
-      { name: "Dark Reading", url: "https://www.darkreading.com/", region: "both" },
+      { name: "Dark Reading", url: "https://www.darkreading.com/", region: "both", rssUrl: "https://www.darkreading.com/rss.xml" },
       { name: "CyberScoop", url: "https://www.cyberscoop.com/", region: "intl" },
       { name: "BleepingComputer", url: "https://www.bleepingcomputer.com/", region: "both" },
       { name: "The Hacker News", url: "https://thehackernews.com/", region: "both" },
@@ -335,9 +335,9 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "SHRM News", url: "https://www.shrm.org/topics-tools/news", region: "intl" },
       { name: "Consulting.us", url: "https://www.consulting.us/news", region: "intl" },
       { name: "Accounting Today", url: "https://www.accountingtoday.com/", region: "intl" },
-      { name: "HRM Online (AU)", url: "https://www.hrmonline.com.au/", region: "apac" },
+      { name: "HR Leader (AU)", url: "https://www.hrleader.com.au/", region: "apac" },
       { name: "Fair Work Ombudsman (AU)", url: "https://www.fairwork.gov.au/newsroom/news", region: "apac" },
-      { name: "Consultancy.com.au", url: "https://www.consultancy.com.au/news", region: "apac" },
+      { name: "SmartCompany (AU)", url: "https://www.smartcompany.com.au/", region: "apac" },
       { name: "Lawyers Weekly (AU)", url: "https://www.lawyersweekly.com.au/", region: "apac" },
     ],
     indices: [

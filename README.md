@@ -31,11 +31,11 @@ Scheduler/API → Runner /cron → Ingest feeds → Normalize/Dedupe → Rank/Se
 - `pnpm --filter runner run validate:smoke` – smoke the brief validator
 - `pnpm --filter runner run validate:briefs` – validate recent briefs for evidence/source integrity
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
-- `pnpm --filter runner run feeds:audit` – verify per-agent feed coverage (10+) and feed reachability
+- `pnpm --filter runner run feeds:audit` – verify per-agent core feed coverage/reachability (supplemental feeds are reported but do not fail thresholds)
 - `pnpm --filter runner run ingest:smoke` – smoke-test URL canonicalization, RSS parsing, ranking
 - `pnpm --filter runner run brief-v2:validate:smoke` – smoke-test v2 brief schema validation
 - `pnpm coverage:report` – portfolio × region coverage matrix (`has brief today` + latest published date + status)
-- `pnpm coverage:fill` – publish carry-forward/baseline briefs for any missing portfolio × region coverage for today
+- `pnpm coverage:fill` – publish carry-forward of the most recent real brief for missing portfolio × region coverage (no synthetic baseline output in production)
 - `pnpm backfill:brief-titles -- --dry-run` – preview headline-title backfill
 - `pnpm backfill:brief-upgrade -- --dry-run` – preview legacy brief upgrade to Summary/Impact/Possible actions/Sources format
 - `pnpm smoke:core` – smoke checks for latest-by-portfolio logic, fallback behavior, and executive payload
@@ -93,6 +93,7 @@ Each service directory must include its own `apprunner.yaml`, and the App Runner
   - API service: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4o-mini`, `ADMIN_TOKEN`
   - Runner: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4o-mini`, `CRON_SECRET`
   - Web: `API_BASE_URL` (set after the API is deployed)
+  - Use one shared Secrets Manager secret (or synced env vars) for API + runner so `OPENAI_API_KEY` is consistently available to both services.
 
 ### Environment Variables
 Shared
@@ -211,6 +212,7 @@ Create a secret in AWS Secrets Manager as a JSON object with keys matching the e
 - Environment variables take precedence over secrets (allows local overrides)
 - If `AWS_SECRET_NAME` is not set, the services fall back to environment variables only
 - Secrets are cached for 5 minutes by default to reduce API calls
+- In production, configure the same `AWS_SECRET_NAME` for both API and runner so chat + brief generation use the same OpenAI credential source.
 
 ### Required IAM Permissions
 The App Runner instance role needs permission to read the secret:
