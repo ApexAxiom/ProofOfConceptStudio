@@ -47,9 +47,9 @@ interface YahooQuote {
 
 const CACHE_DIR = path.join(process.cwd(), ".cache");
 const CACHE_FILE = path.join(CACHE_DIR, "market-quotes.json");
-const CACHE_FRESH_MS = 60 * 60 * 1000; // 1 hour
-const CACHE_STALE_MS = 2 * 60 * 60 * 1000; // 2 hours SWR window
 const RETRY_BACKOFF_MS = [300, 900, 1800];
+const MARKET_TIME_ZONE = "America/Chicago";
+const SNAPSHOT_HOURS = [9, 12, 16];
 
 const EXECUTIVE_SYMBOL_ORDER = [
   "WTI",
@@ -109,8 +109,7 @@ const QUOTE_DEFINITIONS: PortfolioIndex[] = (() => {
   return Array.from(byKey.values());
 })();
 
-let memoryCache: { snapshot: MarketSnapshot; refreshedAtMs: number } | null = null;
-let backgroundRefresh: Promise<MarketSnapshot> | null = null;
+let memoryCache: { snapshot: MarketSnapshot; refreshedAtMs: number; windowKey: string } | null = null;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -123,6 +122,72 @@ function sleep(ms: number): Promise<void> {
 function asNumber(value: unknown, fallback = 0): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   return fallback;
+}
+
+function getTimeZoneParts(date: Date, timeZone: string): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date);
+  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(lookup.year),
+    month: Number(lookup.month),
+    day: Number(lookup.day),
+    hour: Number(lookup.hour),
+    minute: Number(lookup.minute),
+    second: Number(lookup.second)
+  };
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
+  const parts = getTimeZoneParts(date, timeZone);
+  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return asUtc - date.getTime();
+}
+
+function toUtcMsForLocalTime(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string
+): number {
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+  const offset = getTimeZoneOffsetMs(utcGuess, timeZone);
+  return utcGuess.getTime() - offset;
+}
+
+function getSnapshotWindowKey(date: Date): string {
+  const nowMs = date.getTime();
+  const parts = getTimeZoneParts(date, MARKET_TIME_ZONE);
+  const [morningHour, noonHour, closeHour] = SNAPSHOT_HOURS;
+  const morningMs = toUtcMsForLocalTime(parts.year, parts.month, parts.day, morningHour, 0, MARKET_TIME_ZONE);
+  const noonMs = toUtcMsForLocalTime(parts.year, parts.month, parts.day, noonHour, 0, MARKET_TIME_ZONE);
+  const closeMs = toUtcMsForLocalTime(parts.year, parts.month, parts.day, closeHour, 0, MARKET_TIME_ZONE);
+
+  if (nowMs >= closeMs) return `${parts.year}-${parts.month}-${parts.day}-close`;
+  if (nowMs >= noonMs) return `${parts.year}-${parts.month}-${parts.day}-noon`;
+  if (nowMs >= morningMs) return `${parts.year}-${parts.month}-${parts.day}-morning`;
+
+  const middayMs = toUtcMsForLocalTime(parts.year, parts.month, parts.day, 12, 0, MARKET_TIME_ZONE);
+  const previousDayParts = getTimeZoneParts(new Date(middayMs - 24 * 60 * 60 * 1000), MARKET_TIME_ZONE);
+  return `${previousDayParts.year}-${previousDayParts.month}-${previousDayParts.day}-close`;
 }
 
 async function readStore(): Promise<MarketStore | null> {
@@ -221,6 +286,7 @@ function storeKey(index: PortfolioIndex): string {
 
 async function refreshSnapshot(): Promise<MarketSnapshot> {
   const generatedAt = nowIso();
+  const windowKey = getSnapshotWindowKey(new Date(generatedAt));
   const store = (await readStore()) ?? { savedAt: generatedAt, quotes: {} };
   const liveBySymbol = await fetchYahooQuotes(QUOTE_DEFINITIONS.map((index) => index.yahooSymbol));
   const nextStoredQuotes: Record<string, StoredQuote> = { ...store.quotes };
@@ -281,33 +347,25 @@ async function refreshSnapshot(): Promise<MarketSnapshot> {
 
   memoryCache = {
     snapshot,
-    refreshedAtMs: Date.now()
+    refreshedAtMs: Date.now(),
+    windowKey
   };
 
   return snapshot;
 }
 
 export async function getMarketSnapshot(): Promise<MarketSnapshot> {
-  const nowMs = Date.now();
+  const now = new Date();
+  const currentWindowKey = getSnapshotWindowKey(now);
   if (!memoryCache) {
     return refreshSnapshot();
   }
 
-  const age = nowMs - memoryCache.refreshedAtMs;
-  if (age <= CACHE_FRESH_MS) {
-    return memoryCache.snapshot;
+  if (memoryCache.windowKey !== currentWindowKey) {
+    return refreshSnapshot();
   }
 
-  if (age <= CACHE_STALE_MS) {
-    if (!backgroundRefresh) {
-      backgroundRefresh = refreshSnapshot().finally(() => {
-        backgroundRefresh = null;
-      });
-    }
-    return memoryCache.snapshot;
-  }
-
-  return refreshSnapshot();
+  return memoryCache.snapshot;
 }
 
 function quoteForIndex(index: PortfolioIndex, snapshot: MarketSnapshot): MarketQuote {
@@ -363,4 +421,3 @@ export async function getExecutiveMarketQuotes(): Promise<{
     source: snapshot.source
   };
 }
-

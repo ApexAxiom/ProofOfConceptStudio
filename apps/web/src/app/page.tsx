@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BriefPost, PORTFOLIOS, portfolioLabel, regionLabel } from "@proof/shared";
 import { fetchLatest } from "../lib/api";
 import { ExecutiveArticle, getExecutiveDashboardData } from "../lib/executive-dashboard";
-import { formatTimestampWithTimezones } from "../lib/format-time";
+import { formatDateWithTimezone } from "../lib/format-time";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +32,6 @@ function NewsCard({ article }: { article: ExecutiveArticle }) {
       className="rounded-lg border border-border bg-background p-4 transition hover:border-primary/40"
     >
       <p className="text-sm font-semibold text-foreground line-clamp-2">{article.title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {article.domain ?? article.source} ·{" "}
-        {new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-      </p>
     </a>
   );
 }
@@ -43,7 +39,7 @@ function NewsCard({ article }: { article: ExecutiveArticle }) {
 function sectionTimestamp(label: string, iso: string) {
   return (
     <span className="text-xs font-mono text-muted-foreground">
-      {label}: {formatTimestampWithTimezones(iso)}
+      {label}: {formatDateWithTimezone(iso)}
     </span>
   );
 }
@@ -92,12 +88,26 @@ export default async function ExecutiveViewPage() {
     .filter((article) => !isArticleDuplicate(article, seenArticleUrls))
     .slice(0, 6);
 
-  const marketStatusLabel =
-    executiveData.market.source === "live"
+  const chicagoNow = new Date();
+  const chicagoHour = Number(
+    chicagoNow.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "2-digit", hour12: false })
+  );
+  const chicagoWeekday = chicagoNow.toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short" });
+  const isWeekend = chicagoWeekday === "Sat" || chicagoWeekday === "Sun";
+  const marketClosed = isWeekend || chicagoHour < 9 || chicagoHour >= 16;
+  const marketCloseLabel = new Date(executiveData.market.lastUpdated).toLocaleDateString("en-US", {
+    timeZone: "America/Chicago",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+  const marketStatusLabel = marketClosed
+    ? `CLOSED ${marketCloseLabel}`
+    : executiveData.market.source === "live"
       ? "LIVE"
       : executiveData.market.source === "mixed"
         ? "UPDATING"
-        : "CACHED";
+        : "CHECKING";
 
   return (
     <div className="space-y-8">
@@ -121,15 +131,18 @@ export default async function ExecutiveViewPage() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">Market Indices</h2>
             <p className="text-sm text-muted-foreground">Procurement-relevant commodities and macro benchmarks.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Snapshots: 9:00 AM · 12:00 PM · Close (4:00 PM) CST</p>
           </div>
           <div className="flex items-center gap-2">
             <span
               className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
-                executiveData.market.source === "live"
-                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-                  : executiveData.market.source === "mixed"
-                    ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
-                    : "text-rose-600 dark:text-rose-400 bg-rose-500/10"
+                marketClosed
+                  ? "text-slate-600 dark:text-slate-300 bg-slate-500/10"
+                  : executiveData.market.source === "live"
+                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                    : executiveData.market.source === "mixed"
+                      ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                      : "text-rose-600 dark:text-rose-400 bg-rose-500/10"
               }`}
             >
               {marketStatusLabel}
@@ -149,7 +162,9 @@ export default async function ExecutiveViewPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">{quote.symbol}</span>
-                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{quote.state === "live" ? "Live" : "Cached"}</span>
+                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  {marketClosed ? "Close" : quote.state === "live" ? "Live" : "Delayed"}
+                </span>
               </div>
               <p className="mt-2 text-lg font-mono text-foreground">
                 {quote.unit.startsWith("/") ? "" : "$"}
@@ -167,8 +182,7 @@ export default async function ExecutiveViewPage() {
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Woodside Current News</h2>
-            <p className="text-sm text-muted-foreground">Google News RSS search for Woodside Energy.</p>
+            <h2 className="text-lg font-semibold text-foreground">Woodside News</h2>
           </div>
           {sectionTimestamp("Last updated", executiveData.woodside.lastUpdated)}
         </div>
