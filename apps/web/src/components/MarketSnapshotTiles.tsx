@@ -26,7 +26,7 @@ export function MarketSnapshotTiles({ items }: { items: BriefMarketSnapshotItem[
         {items.map((item) => {
           const changePositive = item.change >= 0;
           const dataState = item.dataState ?? (item.isFallback ? "fallback" : "live");
-          const dataStateLabel = dataState === "cached" ? "delayed" : dataState;
+          const dataStateLabel = dataState === "stale" ? "delayed" : dataState;
           return (
             <div key={`${item.symbol}-${item.name}`} className="rounded-lg border border-border bg-background p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
