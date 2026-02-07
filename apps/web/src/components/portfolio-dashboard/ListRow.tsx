@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface ListRowProps {
   title: string;
   href?: string;
@@ -16,6 +18,7 @@ function joinClasses(...values: Array<string | undefined>): string {
 
 /**
  * Shared list row primitive for news, brief, and source lists.
+ * Uses Next.js Link for internal navigation and <a> for external links.
  */
 export function ListRow({
   title,
@@ -40,12 +43,23 @@ export function ListRow({
     return <article className={joinClasses(className)}>{content}</article>;
   }
 
+  // Use Next.js Link for internal routes (avoids full page reloads)
+  if (!external) {
+    return (
+      <article className={joinClasses(className)}>
+        <Link href={href} className="block focus-visible:outline-none">
+          {content}
+        </Link>
+      </article>
+    );
+  }
+
   return (
     <article className={joinClasses(className)}>
       <a
         href={href}
-        target={external ? "_blank" : undefined}
-        rel={external ? "noreferrer noopener" : undefined}
+        target="_blank"
+        rel="noreferrer noopener"
         className="block focus-visible:outline-none"
       >
         {content}

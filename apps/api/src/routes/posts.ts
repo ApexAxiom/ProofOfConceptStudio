@@ -34,9 +34,14 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     return latestPerPortfolio(posts);
   });
 
-  fastify.get<{ Params: { postId: string } }>("/:postId", async (request) => {
+  fastify.get<{ Params: { postId: string } }>("/:postId", async (request, reply) => {
     const { postId } = request.params;
-    return getPost(postId);
+    const post = await getPost(postId);
+    if (!post) {
+      reply.code(404).send({ error: "Post not found", postId });
+      return;
+    }
+    return post;
   });
 };
 

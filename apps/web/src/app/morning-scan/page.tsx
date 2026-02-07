@@ -3,6 +3,8 @@ import { fetchLatest } from "../../lib/api";
 import { getExecutiveDashboardData } from "../../lib/executive-dashboard";
 import { portfolioLabel, regionLabel } from "@proof/shared";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Morning Scan route preserved as a secondary daily triage view.
  */

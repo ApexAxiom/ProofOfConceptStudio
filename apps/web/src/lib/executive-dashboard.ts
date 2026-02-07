@@ -1,6 +1,7 @@
 import { getPortfolioSources } from "@proof/shared";
 import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
 import {
+  canonicalizeUrl,
   cleanText,
   dedupeNewsItems,
   extractDomain,
@@ -54,10 +55,10 @@ interface RssFeed {
   region: ExecutiveRegion;
 }
 
-const FEED_TIMEOUT_MS = 8_000;
-const MAX_ITEMS_PER_FEED = 6;
+const FEED_TIMEOUT_MS = 12_000;
+const MAX_ITEMS_PER_FEED = 8;
 const SECTION_LIMIT = 12;
-const MAX_ARTICLE_AGE_DAYS = 7;
+const MAX_ARTICLE_AGE_DAYS = 14;
 
 const WOODSIDE_FEEDS: RssFeed[] = [
   {
@@ -104,8 +105,10 @@ const INTERNATIONAL_FEEDS: RssFeed[] = [
   }
 ];
 
-const APAC_KEYWORDS = ["apac", "australia", "perth", "asia", "lng", "offshore"];
-const INTERNATIONAL_KEYWORDS = ["us", "united states", "mexico", "senegal", "houston", "lng", "gulf"];
+// Broader keyword sets to capture more relevant articles.
+// Articles only need to match ONE keyword to be included.
+const APAC_KEYWORDS = ["apac", "australia", "perth", "asia", "lng", "offshore", "woodside", "santos", "nws", "scarborough", "gas", "oil"];
+const INTERNATIONAL_KEYWORDS = ["us", "united states", "mexico", "senegal", "houston", "lng", "gulf", "gas", "oil", "permian", "energy", "crude"];
 
 const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
   woodside: [
@@ -163,6 +166,23 @@ function matchesKeywords(text: string, keywords: string[]): boolean {
   return keywords.some((keyword) => haystack.includes(keyword));
 }
 
+/**
+ * Resolves a single article URL with a per-item timeout.
+ * Returns the canonicalized raw URL if resolution fails.
+ */
+async function safeResolveUrl(rawUrl: string): Promise<string> {
+  try {
+    // Race resolution against a short per-item timeout
+    const result = await Promise.race([
+      resolvePublisherUrl(rawUrl),
+      new Promise<string>((resolve) => setTimeout(() => resolve(canonicalizeUrl(rawUrl)), 3_000))
+    ]);
+    return result;
+  } catch {
+    return canonicalizeUrl(rawUrl);
+  }
+}
+
 async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
@@ -174,7 +194,9 @@ async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
         "User-Agent": "Mozilla/5.0 (compatible; ProofOfConceptStudio/1.0)",
         Accept: "application/rss+xml, application/xml, text/xml"
       },
-      next: { revalidate: 3_600 }
+      // Use cache: "no-store" to avoid caching failures.
+      // The in-memory dedup and section limits handle freshness.
+      cache: "no-store"
     });
     if (!response.ok) return [];
 
@@ -191,7 +213,9 @@ async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
         const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
 
         if (!rawTitle || !rawLink || !looksFresh(publishedAt)) return null;
-        const resolvedUrl = await resolvePublisherUrl(rawLink);
+
+        // URL resolution is best-effort with per-item timeout
+        const resolvedUrl = await safeResolveUrl(rawLink);
         const { title, publisher } = splitPublisherFromTitle(rawTitle);
         const cleanTitle = cleanText(title);
         if (!cleanTitle || isLikelyJunkText(cleanTitle)) return null;
@@ -221,11 +245,22 @@ async function fetchRssFeed(feed: RssFeed): Promise<ExecutiveArticle[]> {
 
 async function collectSectionArticles(feeds: RssFeed[], keywords: string[]): Promise<ExecutiveArticle[]> {
   const buckets = await Promise.all(feeds.map((feed) => fetchRssFeed(feed)));
-  const merged = dedupeNewsItems(buckets.flat())
-    .filter((article) => matchesKeywords(`${article.title} ${article.summary ?? ""}`, keywords))
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, SECTION_LIMIT);
-  return merged;
+  const allArticles = dedupeNewsItems(buckets.flat())
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  // First pass: keyword-matched articles
+  const matched = allArticles.filter((article) =>
+    matchesKeywords(`${article.title} ${article.summary ?? ""}`, keywords)
+  );
+
+  // If keyword matching returns enough articles, use them.
+  if (matched.length >= 3) {
+    return matched.slice(0, SECTION_LIMIT);
+  }
+
+  // Otherwise, include all articles from the feeds (they were already configured
+  // for the correct region, so they're relevant even without keyword overlap).
+  return allArticles.slice(0, SECTION_LIMIT);
 }
 
 function sectionLastUpdated(articles: ExecutiveArticle[], fallback = new Date().toISOString()): string {

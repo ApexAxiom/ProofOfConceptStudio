@@ -4,6 +4,8 @@ import { fetchLatest } from "../lib/api";
 import { ExecutiveArticle, getExecutiveDashboardData } from "../lib/executive-dashboard";
 import { formatTimestampWithTimezones } from "../lib/format-time";
 
+export const dynamic = "force-dynamic";
+
 function formatPrice(price: number): string {
   if (price >= 1000) return price.toLocaleString("en-US", { maximumFractionDigits: 0 });
   if (price < 1) return price.toFixed(4);

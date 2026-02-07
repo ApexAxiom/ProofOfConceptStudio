@@ -14,6 +14,8 @@ import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker
 import { DashboardCard, ListRow } from "../../../components/portfolio-dashboard";
 import styles from "./portfolio-dashboard.module.css";
 
+export const dynamic = "force-dynamic";
+
 interface PortfolioOverviewPageProps {
   params: Promise<{ portfolio: string }>;
   searchParams?: Promise<{ briefRegion?: string }>;

@@ -95,14 +95,49 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
 
 /**
  * Fetch a single brief by id, falling back to bundled mock content if necessary.
+ * Validates the response body to avoid treating an API 200-with-null as a found post.
  */
 export async function fetchPost(postId: string): Promise<BriefPost | null> {
   try {
     const apiBaseUrl = await getApiBaseUrl();
     const res = await fetch(`${apiBaseUrl}/posts/${postId}`, { cache: "no-store" });
-    if (!res.ok) return getMockPost(postId);
-    return res.json();
+    if (!res.ok) {
+      // API explicitly said "not found" or errored — try mock
+      return getMockPost(postId);
+    }
+    const data = await res.json();
+    // Guard against API returning null/empty with 200 status
+    if (!data || typeof data !== "object" || !data.postId) {
+      return getMockPost(postId);
+    }
+    return data as BriefPost;
   } catch {
     return getMockPost(postId);
   }
+}
+
+/**
+ * Fetch a single brief by id, trying the region GSIs as a secondary lookup.
+ * This provides a resilient fallback when the primary PK query fails.
+ */
+export async function fetchPostWithFallback(postId: string): Promise<BriefPost | null> {
+  // Primary: direct post lookup
+  const post = await fetchPost(postId);
+  if (post) return post;
+
+  // Secondary: search through latest briefs from both regions to find the post.
+  // This handles edge cases where the API's PK lookup fails but the post exists in a GSI.
+  try {
+    const [auBriefs, intlBriefs] = await Promise.all([
+      fetchLatest("au"),
+      fetchLatest("us-mx-la-lng")
+    ]);
+    const allBriefs = [...auBriefs, ...intlBriefs];
+    const match = allBriefs.find((brief) => brief.postId === postId);
+    if (match) return match;
+  } catch {
+    // Ignore — we already tried the primary path
+  }
+
+  return getMockPost(postId);
 }
