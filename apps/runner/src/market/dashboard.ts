@@ -92,14 +92,16 @@ export async function runMarketDashboard(
   runId: string,
   options?: { dryRun?: boolean; runDate?: string }
 ): Promise<RunResult> {
+  let dryRun = false;
+  let runIdentity: BriefRunIdentity | null = null;
   try {
-    const dryRun = options?.dryRun ?? false;
+    dryRun = options?.dryRun ?? false;
     const runNow = options?.runDate ? new Date(options.runDate) : new Date();
     if (Number.isNaN(runNow.getTime())) {
       throw new Error(`Invalid runDate provided: ${options?.runDate}`);
     }
     const briefDay = getBriefDayKey(region, runNow);
-    const runIdentity: BriefRunIdentity = {
+    runIdentity = {
       briefDay,
       region,
       portfolio: agent.portfolio,
@@ -388,22 +390,24 @@ export async function runMarketDashboard(
   } catch (error) {
     console.error(`[${agent.id}/${region}] dashboard error`, error);
     await logRunResult(runId, agent.id, region, "failed", (error as Error).message);
-    await logBriefRunResult({
-      identity: runIdentity,
-      runId,
-      status: "failed",
-      finishedAt: new Date().toISOString(),
-      metrics: {
-        sourcesFetched: 0,
-        itemsCollected: 0,
-        itemsDeduped: 0,
-        itemsExtracted: 0,
-        itemsSelected: 0,
-        briefLength: 0
-      },
-      error: (error as Error).message,
-      dryRun
-    });
+    if (runIdentity) {
+      await logBriefRunResult({
+        identity: runIdentity,
+        runId,
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+        metrics: {
+          sourcesFetched: 0,
+          itemsCollected: 0,
+          itemsDeduped: 0,
+          itemsExtracted: 0,
+          itemsSelected: 0,
+          briefLength: 0
+        },
+        error: (error as Error).message,
+        dryRun
+      });
+    }
     return { agentId: agent.id, region, ok: false, status: "failed", error: (error as Error).message };
   }
 }

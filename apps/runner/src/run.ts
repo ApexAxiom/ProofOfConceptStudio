@@ -237,12 +237,12 @@ async function publishPlaceholder({
     return { agentId, region, ok: false, status: "failed", error };
   }
 
+  const runNow = runDate ? new Date(runDate) : new Date();
   const previousBrief = await getLatestPublishedBrief({
     portfolio: agent.portfolio,
     region,
     beforeIso: runNow.toISOString()
   });
-  const runNow = runDate ? new Date(runDate) : new Date();
   const briefDay = getBriefDayKey(region, runNow);
   const runIdentity: BriefRunIdentity = {
     briefDay,
@@ -606,6 +606,25 @@ export async function runAgent(
     scannedSources: [],
     metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 }
   };
+  let ingestSummary = {
+    scannedSourcesCount: 0,
+    metrics: emptyIngestResult.metrics
+  };
+  const buildMetrics = (params: {
+    selectedCount: number;
+    briefLength: number;
+    usage?: BriefPost["llmUsage"];
+  }): BriefRunMetrics => ({
+    sourcesFetched: ingestSummary.scannedSourcesCount,
+    itemsCollected: ingestSummary.metrics.collectedCount ?? 0,
+    itemsDeduped: ingestSummary.metrics.dedupedCount ?? 0,
+    itemsExtracted: ingestSummary.metrics.extractedCount ?? 0,
+    itemsSelected: params.selectedCount,
+    briefLength: params.briefLength,
+    promptTokens: params.usage?.promptTokens,
+    completionTokens: params.usage?.completionTokens,
+    totalTokens: params.usage?.totalTokens
+  });
 
   try {
     // Step 1: Ingest articles from all feeds
@@ -639,21 +658,10 @@ export async function runAgent(
     }
     
     const articles: ArticleSource[] = ingestResult.articles ?? [];
-    const buildMetrics = (params: {
-      selectedCount: number;
-      briefLength: number;
-      usage?: BriefPost["llmUsage"];
-    }): BriefRunMetrics => ({
-      sourcesFetched: ingestResult.scannedSources?.length ?? 0,
-      itemsCollected: ingestResult.metrics?.collectedCount ?? 0,
-      itemsDeduped: ingestResult.metrics?.dedupedCount ?? 0,
-      itemsExtracted: ingestResult.metrics?.extractedCount ?? 0,
-      itemsSelected: params.selectedCount,
-      briefLength: params.briefLength,
-      promptTokens: params.usage?.promptTokens,
-      completionTokens: params.usage?.completionTokens,
-      totalTokens: params.usage?.totalTokens
-    });
+    ingestSummary = {
+      scannedSourcesCount: ingestResult.scannedSources?.length ?? 0,
+      metrics: ingestResult.metrics ?? emptyIngestResult.metrics
+    };
     
     // Minimum articles required - at least 1, but preferably the configured amount
     const minRequired = Math.max(1, Math.min(agent.articlesPerRun ?? 3, 2));
