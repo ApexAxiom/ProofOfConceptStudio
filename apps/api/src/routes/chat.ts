@@ -28,6 +28,7 @@ const MAX_WEB_DOC_CHARS = 2200;
 const SEARCH_TIMEOUT_MS = 5000; // used by buildProofOfConceptContext
 const FALLBACK_MODELS = ["gpt-4o-mini"];
 const STATUS_CHECK_TTL_MS = Number(process.env.CHAT_STATUS_CACHE_MS ?? 60000);
+const STATUS_VERIFY_TIMEOUT_MS = Number(process.env.CHAT_STATUS_VERIFY_TIMEOUT_MS ?? 4000);
 const STATUS_VERIFY_ENABLED = process.env.CHAT_STATUS_VERIFY === "true";
 const FALLBACK_CONTEXT_ENABLED = process.env.CHAT_FALLBACK_CONTEXT === "true";
 const RATE_LIMIT_STATE = new Map<string, { tokens: number; lastRefillMs: number }>();
@@ -97,14 +98,22 @@ async function checkOpenAIAvailability(): Promise<{ ok: boolean; error?: string 
   }
 
   try {
-    await openai.models.list();
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("status_timeout")), STATUS_VERIFY_TIMEOUT_MS);
+      });
+      await Promise.race([openai.models.list(), timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     cachedStatus = { ok: true, checkedAt: now };
     return { ok: true };
   } catch (err) {
     const status = (err as { status?: number })?.status;
     const code = (err as { code?: string })?.code;
     const message = (err as Error)?.message ?? "openai_unavailable";
-    const error = status ? `http_${status}` : code || message;
+    const error = message === "status_timeout" ? "status_timeout" : status ? `http_${status}` : code || message;
     cachedStatus = { ok: false, error, checkedAt: now };
     return { ok: false, error };
   }

@@ -1,6 +1,6 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import client from "./dynamo.js";
-import { BriefPost, REGION_LIST, MOCK_POSTS, getBriefDayKey, normalizeBriefSources } from "@proof/shared";
+import { BriefPost, REGION_LIST, getBriefDayKey, isUserVisiblePlaceholderBrief, normalizeBriefSources } from "@proof/shared";
 
 const tableName = process.env.DDB_TABLE_NAME ?? "CMHub";
 const DEFAULT_REGION_FETCH_LIMIT = Number(process.env.POSTS_REGION_FETCH_LIMIT ?? 600);
@@ -19,6 +19,11 @@ function normalizeBrief(post: BriefPost): BriefPost {
     briefDay,
     sources: normalizeBriefSources(post.sources)
   };
+}
+
+function keepUserVisibleBrief(post: BriefPost): boolean {
+  if (post.status !== "published") return false;
+  return !isUserVisiblePlaceholderBrief(post);
 }
 
 function positiveInt(value: number, fallback: number): number {
@@ -56,7 +61,9 @@ async function queryPublishedPosts(params: {
 
     const pageItems = (page.Items ?? []) as BriefPost[];
     for (const item of pageItems) {
-      items.push(normalizeBrief(item));
+      const normalized = normalizeBrief(item);
+      if (!keepUserVisibleBrief(normalized)) continue;
+      items.push(normalized);
       if (items.length >= limit) {
         return items.slice(0, limit);
       }
@@ -109,7 +116,7 @@ async function fetchPortfolioFromDynamo(params: {
 
 export function latestPerPortfolio(posts: BriefPost[]): BriefPost[] {
   const latestByPortfolio = new Map<string, BriefPost>();
-  for (const post of sortByPublished(posts)) {
+  for (const post of sortByPublished(posts).filter(keepUserVisibleBrief)) {
     if (!latestByPortfolio.has(post.portfolio)) {
       latestByPortfolio.set(post.portfolio, post);
     }
@@ -118,19 +125,26 @@ export function latestPerPortfolio(posts: BriefPost[]): BriefPost[] {
 }
 
 /**
- * Load published briefs for a region, preferring DynamoDB and falling back to curated mock content.
+ * Load published briefs for a region from DynamoDB.
  */
 export async function getRegionPosts(region: string, limit = DEFAULT_REGION_FETCH_LIMIT): Promise<BriefPost[]> {
   const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
   if (!region || !validRegions.has(region)) return [];
   try {
     const live = await fetchRegionFromDynamo(region, limit);
-    if (live.length > 0) return sortByPublished(live);
+    return sortByPublished(live);
   } catch (err) {
-    console.warn("Falling back to mock posts for region", region, (err as Error).message);
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "posts_region_read_failed",
+        region,
+        reasonCode: "dynamo_read_failed",
+        error: (err as Error).message
+      })
+    );
   }
-  const mock = MOCK_POSTS.filter((p) => p.region === region && p.status === "published").map(normalizeBrief);
-  return sortByPublished(mock).slice(0, positiveInt(limit, DEFAULT_REGION_FETCH_LIMIT));
+  return [];
 }
 
 /**
@@ -169,9 +183,8 @@ export async function filterPosts(params: {
 }
 
 /**
- * Retrieve a specific brief by ID, returning mock content if live storage is unavailable.
- * Tries the main table PK query first, then falls back to scanning region indexes,
- * and finally checks curated mock content.
+ * Retrieve a specific brief by ID from DynamoDB.
+ * Tries the main table PK query first, then falls back to scanning region indexes.
  */
 export async function getPost(postId: string): Promise<BriefPost | null> {
   // Attempt 1: Direct PK lookup on the main table (fastest path)
@@ -188,7 +201,11 @@ export async function getPost(postId: string): Promise<BriefPost | null> {
       })
     );
     const found = (data.Items?.[0] as BriefPost) || null;
-    if (found) return normalizeBrief(found);
+    if (found) {
+      const normalized = normalizeBrief(found);
+      if (!keepUserVisibleBrief(normalized)) return null;
+      return normalized;
+    }
   } catch (err) {
     console.error(
       JSON.stringify({
@@ -221,6 +238,10 @@ export async function getPost(postId: string): Promise<BriefPost | null> {
       );
       const found = (data.Items?.[0] as BriefPost) || null;
       if (found) {
+        const normalized = normalizeBrief(found);
+        if (!keepUserVisibleBrief(normalized)) {
+          return null;
+        }
         console.warn(
           JSON.stringify({
             level: "warn",
@@ -229,7 +250,7 @@ export async function getPost(postId: string): Promise<BriefPost | null> {
             region
           })
         );
-        return normalizeBrief(found);
+        return normalized;
       }
     } catch (err) {
       console.warn(
@@ -243,10 +264,6 @@ export async function getPost(postId: string): Promise<BriefPost | null> {
       );
     }
   }
-
-  // Attempt 3: Curated mock content (development / bootstrapping fallback)
-  const fallback = MOCK_POSTS.find((p: BriefPost) => p.postId === postId);
-  if (fallback) return normalizeBrief(fallback);
 
   console.warn(
     JSON.stringify({

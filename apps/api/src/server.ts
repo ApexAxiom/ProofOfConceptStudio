@@ -17,7 +17,7 @@ async function main() {
     runnerBaseUrlPresent: Boolean(process.env.RUNNER_BASE_URL)
   });
 
-  const PORT = Number(process.env.PORT ?? 8080);
+const PORT = Number(process.env.PORT ?? 3001);
   const fastify = Fastify({ logger: true });
 
   const origins = process.env.CORS_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? [];
