@@ -66,7 +66,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
       { name: "Energy News Bulletin", url: "https://www.energynewsbulletin.net/", region: "apac" },
       { name: "Energy Today (AU)", url: "https://www.energytodaymag.com.au/", region: "apac" },
       { name: "NOPSEMA", url: "https://www.nopsema.gov.au/", region: "apac" },
-      { name: "NOPTA", url: "https://www.nopta.gov.au/", region: "apac" },
+      { name: "Geoscience Australia News", url: "https://www.ga.gov.au/news", region: "apac" },
       { name: "Baker Hughes Rig Count", url: "https://bakerhughesrigcount.gcs-web.com/rig-count-overview", region: "intl" },
       { name: "EIA Drilling Report", url: "https://www.eia.gov/petroleum/drilling/", region: "intl" },
     ],

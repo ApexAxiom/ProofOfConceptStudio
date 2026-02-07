@@ -161,7 +161,7 @@ const BASE_REGULATORY_PACK: Record<RegionSlug, AgentFeed[]> = {
     { name: "DISR News", url: "https://www.industry.gov.au/news", type: "web" },
     { name: "WA Government Announcements", url: "https://www.wa.gov.au/government/announcements", type: "web" },
     { name: "NOPSEMA News", url: "https://www.nopsema.gov.au/media/latest-news", type: "web" },
-    { name: "NOPTA News", url: "https://www.nopta.gov.au/news", type: "web" },
+    { name: "Geoscience Australia News", url: "https://www.ga.gov.au/news", type: "web" },
     { name: "AMSA Safety Updates", url: "https://www.amsa.gov.au/news-community/safety-and-environmental-updates", type: "web" },
     { name: "AEMO Newsroom", url: "https://www.aemo.com.au/newsroom", type: "web" }
   ]
