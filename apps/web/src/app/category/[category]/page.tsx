@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import { PORTFOLIOS, CATEGORY_META, CategoryGroup, RegionSlug, categoryForPortfolio, regionLabel, toBriefViewModelV2 } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
 
+export const dynamic = "force-dynamic";
+
 interface CategoryDashboardProps {
   params: Promise<{ category: string }>;
   searchParams?: Promise<{ briefRegion?: string }>;

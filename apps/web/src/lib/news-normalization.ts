@@ -120,10 +120,12 @@ export function canonicalizeUrl(rawUrl: string): string {
 
 async function resolveManualRedirect(url: string): Promise<string> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
+  // Reduced timeout: 3s per resolution (was 5s). Avoids cascading timeouts.
+  const timer = setTimeout(() => controller.abort(), 3_000);
   try {
     let current = url;
-    for (let i = 0; i < 3; i += 1) {
+    // Only follow up to 2 hops (was 3) to keep resolution fast.
+    for (let i = 0; i < 2; i += 1) {
       let response: Response;
       try {
         response = await fetch(current, {
@@ -136,15 +138,21 @@ async function resolveManualRedirect(url: string): Promise<string> {
           }
         });
       } catch {
-        response = await fetch(current, {
-          method: "GET",
-          redirect: "manual",
-          signal: controller.signal,
-          headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; ProofOfConceptStudio/1.0)",
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-          }
-        });
+        // HEAD failed, try GET as fallback
+        try {
+          response = await fetch(current, {
+            method: "GET",
+            redirect: "manual",
+            signal: controller.signal,
+            headers: {
+              "User-Agent": "Mozilla/5.0 (compatible; ProofOfConceptStudio/1.0)",
+              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          });
+        } catch {
+          // Both methods failed — return what we have
+          return canonicalizeUrl(current);
+        }
       }
 
       const location = response.headers.get("location");
@@ -161,6 +169,11 @@ async function resolveManualRedirect(url: string): Promise<string> {
   }
 }
 
+/**
+ * Resolves a publisher URL from a Google News redirect.
+ * Returns the canonicalized URL immediately if resolution fails or times out.
+ * Resolution is best-effort and never blocks the pipeline.
+ */
 export async function resolvePublisherUrl(rawUrl: string): Promise<string> {
   const initial = canonicalizeUrl(rawUrl);
   if (!initial) return rawUrl;
@@ -172,7 +185,14 @@ export async function resolvePublisherUrl(rawUrl: string): Promise<string> {
   try {
     const parsed = new URL(initial);
     if (isGoogleHost(parsed.hostname)) {
-      resolved = await resolveManualRedirect(initial);
+      // First, try to extract the destination from the URL query params (no network call needed).
+      const directTarget = normalizeGoogleTarget(parsed);
+      if (directTarget && !isGoogleHost(new URL(directTarget).hostname)) {
+        resolved = directTarget;
+      } else {
+        // Network resolution as a fallback — wrapped in a short timeout.
+        resolved = await resolveManualRedirect(initial);
+      }
     }
   } catch {
     resolved = initial;

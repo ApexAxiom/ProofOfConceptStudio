@@ -170,24 +170,90 @@ export async function filterPosts(params: {
 
 /**
  * Retrieve a specific brief by ID, returning mock content if live storage is unavailable.
+ * Tries the main table PK query first, then falls back to scanning region indexes,
+ * and finally checks curated mock content.
  */
 export async function getPost(postId: string): Promise<BriefPost | null> {
+  // Attempt 1: Direct PK lookup on the main table (fastest path)
   try {
-    const params: any = {
-      TableName: tableName,
-      KeyConditionExpression: "PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `POST#${postId}`
-      },
-      ScanIndexForward: false,
-      Limit: 1
-    };
-    const data = await client.send(new QueryCommand(params));
+    const data = await client.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: "PK = :pk",
+        ExpressionAttributeValues: {
+          ":pk": `POST#${postId}`
+        },
+        ScanIndexForward: false,
+        Limit: 1
+      })
+    );
     const found = (data.Items?.[0] as BriefPost) || null;
     if (found) return normalizeBrief(found);
   } catch (err) {
-    console.warn("Falling back to mock post", postId, (err as Error).message);
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "getPost_pk_query_failed",
+        postId,
+        error: (err as Error).message
+      })
+    );
   }
-  const fallback = MOCK_POSTS.find((p) => p.postId === postId);
-  return fallback ? normalizeBrief(fallback) : null;
+
+  // Attempt 2: Scan region GSIs to find the post by postId attribute.
+  // This covers cases where the PK format has changed or the direct query errored.
+  const validRegions = REGION_LIST.map((r: { slug: string }) => r.slug);
+  for (const region of validRegions) {
+    try {
+      const data = await client.send(
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: "GSI2",
+          KeyConditionExpression: "GSI2PK = :pk",
+          FilterExpression: "postId = :postId",
+          ExpressionAttributeValues: {
+            ":pk": `REGION#${region}`,
+            ":postId": postId
+          },
+          ScanIndexForward: false,
+          Limit: 1
+        })
+      );
+      const found = (data.Items?.[0] as BriefPost) || null;
+      if (found) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "getPost_found_via_gsi2_fallback",
+            postId,
+            region
+          })
+        );
+        return normalizeBrief(found);
+      }
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "getPost_gsi2_fallback_failed",
+          postId,
+          region,
+          error: (err as Error).message
+        })
+      );
+    }
+  }
+
+  // Attempt 3: Curated mock content (development / bootstrapping fallback)
+  const fallback = MOCK_POSTS.find((p: BriefPost) => p.postId === postId);
+  if (fallback) return normalizeBrief(fallback);
+
+  console.warn(
+    JSON.stringify({
+      level: "warn",
+      event: "getPost_not_found",
+      postId
+    })
+  );
+  return null;
 }

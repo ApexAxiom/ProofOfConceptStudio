@@ -10,6 +10,8 @@ import { fetchLatestByPortfolio } from "../../../lib/api";
 import { inferSignals } from "../../../lib/signals";
 import { cmEvidenceLink } from "../../../components/cm/cmEvidenceLink";
 
+export const dynamic = "force-dynamic";
+
 interface ActionEntry {
   portfolio: string;
   postId: string;

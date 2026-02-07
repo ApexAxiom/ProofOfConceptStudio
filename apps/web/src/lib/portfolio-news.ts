@@ -1,5 +1,6 @@
 import { getGoogleNewsFeeds, getPortfolioSources } from "@proof/shared";
 import {
+  canonicalizeUrl,
   cleanText,
   dedupeNewsItems,
   isLikelyJunkText,
@@ -16,10 +17,10 @@ export interface PortfolioNewsArticle {
   region: "APAC" | "INTL";
 }
 
-const FEED_TIMEOUT_MS = 8_000;
+const FEED_TIMEOUT_MS = 12_000;
 const MAX_FEEDS_PER_REGION = 6;
-const MAX_ITEMS_PER_FEED = 5;
-const MAX_AGE_DAYS = 7;
+const MAX_ITEMS_PER_FEED = 6;
+const MAX_AGE_DAYS = 14;
 
 function parseTag(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
@@ -40,6 +41,21 @@ function isFresh(iso: string): boolean {
   return Date.now() - ts <= MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 }
 
+/**
+ * Resolves a URL with a short per-item timeout, falling back to the canonicalized raw URL.
+ */
+async function safeResolveUrl(rawUrl: string): Promise<string> {
+  try {
+    const result = await Promise.race([
+      resolvePublisherUrl(rawUrl),
+      new Promise<string>((resolve) => setTimeout(() => resolve(canonicalizeUrl(rawUrl)), 3_000))
+    ]);
+    return result;
+  } catch {
+    return canonicalizeUrl(rawUrl);
+  }
+}
+
 async function fetchFeed(url: string, region: "APAC" | "INTL", sourceName: string): Promise<PortfolioNewsArticle[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
@@ -50,7 +66,7 @@ async function fetchFeed(url: string, region: "APAC" | "INTL", sourceName: strin
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; ProofOfConceptStudio/1.0)"
       },
-      next: { revalidate: 3_600 }
+      cache: "no-store"
     });
     if (!response.ok) return [];
 
@@ -68,7 +84,7 @@ async function fetchFeed(url: string, region: "APAC" | "INTL", sourceName: strin
         const publishedAt = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
         if (!isFresh(publishedAt)) return null;
 
-        const resolvedUrl = await resolvePublisherUrl(link);
+        const resolvedUrl = await safeResolveUrl(link);
         const { title, publisher } = splitPublisherFromTitle(rawTitle);
         const cleanTitle = cleanText(title);
         if (!cleanTitle || isLikelyJunkText(cleanTitle)) return null;

@@ -7,6 +7,8 @@ import { RegionSlug, REGIONS } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../lib/api";
 import { inferSignals } from "../../lib/signals";
 
+export const dynamic = "force-dynamic";
+
 export default async function RegionPage({
   params,
   searchParams
