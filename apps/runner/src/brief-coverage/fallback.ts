@@ -1,4 +1,4 @@
-import { AgentConfig, BriefPost, RegionSlug, RunWindow } from "@proof/shared";
+import { AgentConfig, BriefPost, RegionSlug, RunWindow, isPlaceholdersAllowed, isUserVisiblePlaceholderBrief } from "@proof/shared";
 import { PlaceholderReason, buildCarryForwardBrief, buildPlaceholderBrief } from "./placeholders.js";
 
 export function resolveFallbackBrief(options: {
@@ -8,8 +8,9 @@ export function resolveFallbackBrief(options: {
   reason: PlaceholderReason;
   previousBrief?: BriefPost | null;
   now?: Date;
-}): BriefPost {
-  if (options.previousBrief) {
+}): BriefPost | null {
+  if (options.previousBrief && !isUserVisiblePlaceholderBrief(options.previousBrief)) {
+    if (!isPlaceholdersAllowed()) return null;
     return buildCarryForwardBrief({
       agent: options.agent,
       region: options.region,
@@ -20,6 +21,8 @@ export function resolveFallbackBrief(options: {
     });
   }
 
+  if (!isPlaceholdersAllowed()) return null;
+
   return buildPlaceholderBrief({
     agent: options.agent,
     region: options.region,
@@ -29,4 +32,3 @@ export function resolveFallbackBrief(options: {
     now: options.now
   });
 }
-

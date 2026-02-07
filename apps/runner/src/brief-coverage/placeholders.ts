@@ -114,13 +114,6 @@ export function buildCarryForwardBrief(options: {
   const now = options.now ?? new Date();
   const publishedAt = now.toISOString();
   const briefDay = getBriefDayKey(options.region, now);
-  const statusLine =
-    options.reason === "no-updates"
-      ? "No material change detected today. Using the most recent brief."
-      : "Automated refresh was unavailable this cycle. Using the most recent brief.";
-
-  const baseSummary = options.previousBrief.summary?.trim();
-  const summary = baseSummary ? `${statusLine} ${baseSummary}` : statusLine;
 
   return {
     ...options.previousBrief,
@@ -135,8 +128,8 @@ export function buildCarryForwardBrief(options: {
     newsStatus: "thin-category",
     publishedAt,
     briefDay,
-    summary,
-    bodyMarkdown: `> ${statusLine}\n\n${options.previousBrief.bodyMarkdown}`,
+    summary: options.previousBrief.summary,
+    bodyMarkdown: options.previousBrief.bodyMarkdown,
     heroImage: options.previousBrief.heroImage ?? {
       url: makeCategoryPlaceholderDataUrl(options.agent.label),
       alt: `${options.agent.label} - Daily Intel Report`,
@@ -144,6 +137,6 @@ export function buildCarryForwardBrief(options: {
     },
     heroImageUrl: options.previousBrief.heroImage?.url ?? options.previousBrief.heroImageUrl ?? makeCategoryPlaceholderDataUrl(options.agent.label),
     heroImageAlt: options.previousBrief.heroImage?.alt ?? options.previousBrief.heroImageAlt ?? `${options.agent.label} - Daily Intel Report`,
-    tags: Array.from(new Set([...(options.previousBrief.tags ?? []).filter((t) => t !== "carry-forward"), "previous", options.reason]))
+    tags: Array.from(new Set([...(options.previousBrief.tags ?? []), "carry-forward", options.reason]))
   };
 }

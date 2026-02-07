@@ -26,7 +26,7 @@ const previousBrief: BriefPost = {
   publishedAt: "2026-02-04T00:00:00.000Z",
   summary: "Previous summary",
   bodyMarkdown: "Previous markdown",
-  sources: ["https://example.com/source"],
+  sources: ["https://www.reuters.com/world/energy/market-update-2026-02-04/"],
   tags: ["published"]
 };
 
@@ -38,9 +38,10 @@ const carryForward = resolveFallbackBrief({
   previousBrief
 });
 
+assert.ok(carryForward);
 assert.equal(carryForward.portfolio, previousBrief.portfolio);
 assert.equal(carryForward.generationStatus, "no-updates");
-assert.ok(carryForward.summary?.toLowerCase().includes("no material change"));
+assert.equal(carryForward.summary, previousBrief.summary);
 assert.ok(carryForward.tags?.includes("carry-forward"));
 
 const baseline = resolveFallbackBrief({
@@ -51,9 +52,38 @@ const baseline = resolveFallbackBrief({
   previousBrief: null
 });
 
+assert.ok(baseline);
 assert.equal(baseline.generationStatus, "generation-failed");
-assert.ok(baseline.summary?.toLowerCase().includes("baseline coverage"));
+assert.ok(baseline.summary?.toLowerCase().includes("coverage is active"));
 assert.ok((baseline.sources ?? []).length > 0);
 assert.ok(baseline.tags?.includes("baseline"));
+
+const originalNodeEnv = process.env.NODE_ENV;
+const originalPlaceholderFlag = process.env.PLACEHOLDER_CONTENT_ENABLED;
+const originalAllowFlag = process.env.ALLOW_PLACEHOLDER_CONTENT;
+process.env.NODE_ENV = "production";
+delete process.env.PLACEHOLDER_CONTENT_ENABLED;
+delete process.env.ALLOW_PLACEHOLDER_CONTENT;
+
+const prodBaseline = resolveFallbackBrief({
+  agent,
+  region: "au",
+  runWindow: "apac",
+  reason: "generation-failed",
+  previousBrief: null
+});
+assert.equal(prodBaseline, null);
+
+process.env.NODE_ENV = originalNodeEnv;
+if (originalPlaceholderFlag === undefined) {
+  delete process.env.PLACEHOLDER_CONTENT_ENABLED;
+} else {
+  process.env.PLACEHOLDER_CONTENT_ENABLED = originalPlaceholderFlag;
+}
+if (originalAllowFlag === undefined) {
+  delete process.env.ALLOW_PLACEHOLDER_CONTENT;
+} else {
+  process.env.ALLOW_PLACEHOLDER_CONTENT = originalAllowFlag;
+}
 
 console.log("fallback.smoke passed");

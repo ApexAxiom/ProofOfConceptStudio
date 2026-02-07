@@ -43,7 +43,7 @@ async function main() {
     console.warn("WARN: Using BOOTSTRAP_CRON_SECRET because CRON_SECRET env var is not set. Set CRON_SECRET to override.");
   }
 
-  const PORT = Number(process.env.PORT ?? 8080);
+  const PORT = Number(process.env.PORT ?? 3002);
   const CRON_SECRET = getCronSecret();
 
   const fastify = Fastify({ logger: true });
@@ -90,7 +90,7 @@ async function main() {
 
     const runId = crypto.randomUUID();
     if (!process.env.OPENAI_API_KEY) {
-      fastify.log.warn({ runId }, "OPENAI_API_KEY is not configured; fallback briefs may be published.");
+      fastify.log.warn({ runId }, "OPENAI_API_KEY is not configured; runs may complete with no-update/failed statuses.");
     }
     const body = (request.body as any) || {};
     const now = new Date();

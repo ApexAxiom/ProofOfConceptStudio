@@ -1,4 +1,4 @@
-import { AgentConfig, AgentFeed, RegionSlug, keywordsForPortfolio, categoryForPortfolio, getGoogleNewsFeeds } from "@proof/shared";
+import { AgentConfig, AgentFeed, RegionSlug, RunWindow, keywordsForPortfolio, categoryForPortfolio, getGoogleNewsFeeds } from "@proof/shared";
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
@@ -220,6 +220,9 @@ function getFallbackFeeds(region: RegionSlug, portfolioSlug: string): AgentFeed[
 export async function fetchGeneralContextArticles(params: {
   region: RegionSlug;
   agentId: string;
+  portfolio?: string;
+  runWindow?: RunWindow;
+  runDate?: string;
   maxArticles?: number;
 }): Promise<ArticleDetail[]> {
   const target = Math.max(1, Math.min(params.maxArticles ?? 3, 3));
@@ -233,7 +236,10 @@ export async function fetchGeneralContextArticles(params: {
 
   const collected = await fetchFromFeeds(feeds, target * 4, attemptedFeeds, {
     agentId: `${params.agentId}:context`,
-    region: params.region
+    portfolio: params.portfolio,
+    region: params.region,
+    runWindow: params.runWindow,
+    runDate: params.runDate
   });
 
   const deduped = dedupeArticles(collected).slice(0, target * 4);
@@ -256,7 +262,20 @@ export async function fetchGeneralContextArticles(params: {
           contentStatus: contentLength >= MIN_CONTENT_LEN ? "ok" : "thin"
         } satisfies ArticleDetail;
       } catch (error) {
-        console.warn(`[${params.agentId}/${params.region}] context article extraction failed`, (error as Error).message);
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "article_extraction_failed",
+            reasonCode: "extraction_failed",
+            agentId: params.agentId,
+            portfolio: params.portfolio,
+            region: params.region,
+            runWindow: params.runWindow,
+            runDate: params.runDate,
+            url: candidate.url,
+            error: (error as Error).message
+          })
+        );
         const contentLength = (candidate.summary ?? "").trim().length;
         return {
           title: candidate.title,
@@ -281,7 +300,7 @@ async function fetchFromFeeds(
   feeds: AgentFeed[],
   maxArticles: number,
   attemptedFeeds: Set<string>,
-  context: { agentId: string; region: RegionSlug }
+  context: { agentId: string; region: RegionSlug; portfolio?: string; runWindow?: RunWindow; runDate?: string }
 ): Promise<ArticleCandidate[]> {
   const collected: ArticleCandidate[] = [];
   const feedAttempts: FeedAttempt[] = [];
@@ -309,6 +328,22 @@ async function fetchFromFeeds(
             sourceName: feed.name
           }))
         );
+        if (items.length === 0) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              event: "feed_fetch_empty",
+              reasonCode: "feed_empty",
+              agentId: context.agentId,
+              portfolio: context.portfolio,
+              region: context.region,
+              runWindow: context.runWindow,
+              runDate: context.runDate,
+              feedUrl: feed.url,
+              feedName: feed.name
+            })
+          );
+        }
       } else {
         const links = await shallowScrape(feed.url, maxArticles);
         feedAttempts.push({
@@ -327,6 +362,22 @@ async function fetchFromFeeds(
             sourceName: feed.name
           }))
         );
+        if (links.length === 0) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              event: "feed_fetch_empty",
+              reasonCode: "feed_empty",
+              agentId: context.agentId,
+              portfolio: context.portfolio,
+              region: context.region,
+              runWindow: context.runWindow,
+              runDate: context.runDate,
+              feedUrl: feed.url,
+              feedName: feed.name
+            })
+          );
+        }
       }
     } catch (err) {
       feedAttempts.push({
@@ -339,12 +390,38 @@ async function fetchFromFeeds(
         itemCount: 0,
         error: (err as Error).message
       });
-      console.error(`Feed error for ${feed.name}:`, err);
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "feed_fetch_failed",
+          reasonCode: "feed_fetch_failed",
+          agentId: context.agentId,
+          portfolio: context.portfolio,
+          region: context.region,
+          runWindow: context.runWindow,
+          runDate: context.runDate,
+          feedUrl: feed.url,
+          feedName: feed.name,
+          error: (err as Error).message
+        })
+      );
     }
   }
 
   await recordFeedAttempts(feedAttempts).catch((error) => {
-    console.warn(`[${context.agentId}/${context.region}] Failed to persist feed health`, (error as Error).message);
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "feed_health_write_failed",
+        reasonCode: "dynamo_write_failed",
+        agentId: context.agentId,
+        portfolio: context.portfolio,
+        region: context.region,
+        runWindow: context.runWindow,
+        runDate: context.runDate,
+        error: (error as Error).message
+      })
+    );
   });
   
   return collected;
@@ -355,7 +432,11 @@ async function fetchFromFeeds(
  * Returns enriched article details with preserved exact URLs.
  * Includes fallback feeds when primary feeds don't provide enough articles.
  */
-export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
+export async function ingestAgent(
+  agent: AgentConfig,
+  region: RegionSlug,
+  options?: { runWindow?: RunWindow; runDate?: string }
+) {
   const feeds = dedupeFeeds([
     ...(agent.feedsByRegion[region] ?? []),
     ...getBaseRegulatoryFeeds(region)
@@ -366,7 +447,10 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
   const attemptedFeeds = new Set<string>();
   let collected = await fetchFromFeeds(feeds, agent.maxArticlesToConsider, attemptedFeeds, {
     agentId: agent.id,
-    region
+    portfolio: agent.portfolio,
+    region,
+    runWindow: options?.runWindow,
+    runDate: options?.runDate
   });
   console.log(`[${agent.id}/${region}] Primary feeds returned ${collected.length} articles`);
   
@@ -385,7 +469,10 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
     if (newFallbacks.length > 0) {
       const fallbackArticles = await fetchFromFeeds(newFallbacks, agent.maxArticlesToConsider, attemptedFeeds, {
         agentId: agent.id,
-        region
+        portfolio: agent.portfolio,
+        region,
+        runWindow: options?.runWindow,
+        runDate: options?.runDate
       });
       collected = [...collected, ...fallbackArticles];
       console.log(`[${agent.id}/${region}] After fallback feeds: ${collected.length} articles`);
@@ -412,7 +499,19 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
       limit: 200
     });
   } catch (err) {
-    console.warn(`[${agent.id}/${region}] Failed to fetch used URLs, continuing without filter:`, err);
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "ingest_used_url_lookup_failed",
+        reasonCode: "dynamo_read_failed",
+        agentId: agent.id,
+        portfolio: agent.portfolio,
+        region,
+        runWindow: options?.runWindow,
+        runDate: options?.runDate,
+        error: (err as Error).message
+      })
+    );
     usedUrls = new Set();
   }
 
@@ -521,7 +620,20 @@ export async function ingestAgent(agent: AgentConfig, region: RegionSlug) {
             sourceName: details.sourceName || candidate.sourceName // Prefer extracted, fall back to feed config
           };
         } catch (err) {
-          console.error(`Detail fetch failed for ${candidate.url}:`, err);
+          console.error(
+            JSON.stringify({
+              level: "warn",
+              event: "article_extraction_failed",
+              reasonCode: "extraction_failed",
+              agentId: agent.id,
+              portfolio: agent.portfolio,
+              region,
+              runWindow: options?.runWindow,
+              runDate: options?.runDate,
+              url: candidate.url,
+              error: (err as Error).message
+            })
+          );
           // Still include the article with basic info if detail fetch fails
           orderedResults[absoluteIndex] = {
             title: candidate.title,

@@ -11,6 +11,7 @@ import {
   buildBriefRunKey,
   categoryForPortfolio,
   getBriefDayKey,
+  isUserVisiblePlaceholderBrief,
   indicesForRegion,
   makeCategoryPlaceholderDataUrl,
   validateBriefV2Record
@@ -138,6 +139,7 @@ export async function runMarketDashboard(
     const candidates: MarketCandidate[] = [];
     const seen = new Set<string>();
     for (const item of query.Items ?? []) {
+      if (isUserVisiblePlaceholderBrief(item as BriefPost)) continue;
       if (EXCLUDED_PORTFOLIOS.has(item.portfolio)) continue;
       const portfolio = typeof item.portfolio === "string" ? item.portfolio : undefined;
       const categoryGroup = portfolio ? categoryForPortfolio(portfolio) : undefined;

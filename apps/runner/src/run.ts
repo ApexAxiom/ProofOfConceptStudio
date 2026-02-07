@@ -93,6 +93,36 @@ async function publishFallbackBrief(options: {
     previousBrief: options.previousBrief,
     now: options.now
   });
+  if (!brief) {
+    const status: RunStatus = dryRun ? "dry-run" : options.reason === "no-updates" ? "no-updates" : "failed";
+    const error = "placeholder_suppressed_in_production";
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "fallback_publish_suppressed",
+        reasonCode: "placeholder_suppressed",
+        runId: options.runId,
+        agentId: options.agent.id,
+        region: options.region,
+        portfolio: options.agent.portfolio,
+        runWindow: options.runWindow,
+        runDate: (options.now ?? new Date()).toISOString(),
+        reason: options.reason
+      })
+    );
+    await logRunResult(options.runId, options.agent.id, options.region, status, status === "failed" ? error : undefined);
+    if (options.runIdentity) {
+      await logBriefRunResult({
+        identity: options.runIdentity,
+        runId: options.runId,
+        status: status === "failed" ? "failed" : status === "no-updates" ? "no-updates" : "dry-run",
+        finishedAt: new Date().toISOString(),
+        error: status === "failed" ? error : undefined,
+        dryRun
+      });
+    }
+    return { agentId: options.agent.id, region: options.region, ok: status !== "failed", status, error };
+  }
   const normalizedBrief = options.runIdentity
     ? {
         ...brief,
@@ -147,6 +177,40 @@ function dayKeyToMiddayUtc(dayKey: string): Date {
   return new Date(`${dayKey}T12:00:00.000Z`);
 }
 
+async function getLatestRealBriefSafe(params: {
+  portfolio: string;
+  region: RegionSlug;
+  beforeIso: string;
+  runId: string;
+  runWindow: RunWindow;
+  runDate: string;
+  agentId: string;
+}): Promise<BriefPost | null> {
+  try {
+    return await getLatestPublishedBrief({
+      portfolio: params.portfolio,
+      region: params.region,
+      beforeIso: params.beforeIso
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "previous_brief_read_failed",
+        reasonCode: "dynamo_read_failed",
+        runId: params.runId,
+        agentId: params.agentId,
+        portfolio: params.portfolio,
+        region: params.region,
+        runWindow: params.runWindow,
+        runDate: params.runDate,
+        error: (error as Error).message
+      })
+    );
+    return null;
+  }
+}
+
 async function backfillMissedDay(options: {
   regions: RegionSlug[];
   runId: string;
@@ -170,14 +234,20 @@ async function backfillMissedDay(options: {
 
     if (coverage.missingAgents.length === 0) continue;
     const targetDate = dayKeyToMiddayUtc(previousDayKey);
+    let publishedFallbacks = 0;
+    let suppressedFallbacks = 0;
 
     for (const missing of coverage.missingAgents) {
       const agent = agents.find((candidate) => candidate.id === missing.agentId);
       if (!agent) continue;
-      const previousBrief = await getLatestPublishedBrief({
+      const previousBrief = await getLatestRealBriefSafe({
         portfolio: agent.portfolio,
         region: missing.region,
-        beforeIso: targetDate.toISOString()
+        beforeIso: targetDate.toISOString(),
+        runId: options.runId,
+        runWindow: runWindowForRegion(missing.region),
+        runDate: targetDate.toISOString(),
+        agentId: agent.id
       });
       const runIdentity: BriefRunIdentity = {
         briefDay: previousDayKey,
@@ -186,7 +256,7 @@ async function backfillMissedDay(options: {
         runWindow: runWindowForRegion(missing.region)
       };
 
-      await publishFallbackBrief({
+      const result = await publishFallbackBrief({
         agent,
         region: missing.region,
         runWindow: runWindowForRegion(missing.region),
@@ -197,16 +267,23 @@ async function backfillMissedDay(options: {
         now: targetDate,
         runIdentity
       });
+      if (result.status === "published") publishedFallbacks += 1;
+      if (result.error === "placeholder_suppressed_in_production") suppressedFallbacks += 1;
     }
 
     console.warn(
       JSON.stringify({
         level: "warn",
-        event: "coverage_backfill_published",
+        event: publishedFallbacks > 0 ? "coverage_backfill_published" : "coverage_backfill_skipped",
+        reasonCode: publishedFallbacks > 0 ? "fallback_published" : "placeholder_suppressed",
         runId: options.runId,
         region,
         dayKey: previousDayKey,
-        missingCount: coverage.missingAgents.length
+        runDate: targetDate.toISOString(),
+        runWindow: runWindowForRegion(region),
+        missingCount: coverage.missingAgents.length,
+        publishedFallbacks,
+        suppressedFallbacks
       })
     );
   }
@@ -233,15 +310,32 @@ async function publishPlaceholder({
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) {
     const error = `Agent ${agentId} not found for placeholder`;
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "fallback_agent_not_found",
+        reasonCode: "agent_not_found",
+        runId,
+        agentId,
+        region,
+        runWindow,
+        runDate: runDate ?? new Date().toISOString(),
+        error
+      })
+    );
     await logRunResult(runId, agentId, region, "failed", error);
     return { agentId, region, ok: false, status: "failed", error };
   }
 
   const runNow = runDate ? new Date(runDate) : new Date();
-  const previousBrief = await getLatestPublishedBrief({
+  const previousBrief = await getLatestRealBriefSafe({
     portfolio: agent.portfolio,
     region,
-    beforeIso: runNow.toISOString()
+    beforeIso: runNow.toISOString(),
+    runId,
+    runWindow,
+    runDate: runNow.toISOString(),
+    agentId: agent.id
   });
   const briefDay = getBriefDayKey(region, runNow);
   const runIdentity: BriefRunIdentity = {
@@ -263,7 +357,7 @@ async function publishPlaceholder({
     now: runNow
   });
   if (!fallback.ok) {
-    console.error(`[${agentId}/${region}] Placeholder publish failed`, fallback.error);
+    console.error(`[${agentId}/${region}] Fallback publish failed`, fallback.error);
   }
   return fallback;
 }
@@ -457,8 +551,11 @@ export async function handleCron(
       JSON.stringify({
         level: "warn",
         event: "coverage_missing",
+        reasonCode: "coverage_gap",
         runId,
         regions: auditRegions,
+        runWindow,
+        runDate: opts?.runDate ?? new Date().toISOString(),
         missingCount,
         missingAgentIds: missingByRegion.map((m) => m.agentId)
       })
@@ -509,14 +606,21 @@ export async function handleCron(
             runDate: opts?.runDate
           });
       });
-      await runWithLimit(placeholderTasks, 2);
+      const placeholderResults = await runWithLimit(placeholderTasks, 2);
+      const publishedFallbacks = placeholderResults.filter((result) => result.status === "published").length;
+      const suppressedCount = placeholderResults.filter((result) => result.error === "placeholder_suppressed_in_production").length;
       console.warn(
         JSON.stringify({
-          level: "warn",
-          event: "coverage_placeholder_published",
+          level: publishedFallbacks > 0 ? "warn" : "error",
+          event: publishedFallbacks > 0 ? "coverage_placeholder_published" : "coverage_gap_unresolved",
+          reasonCode: publishedFallbacks > 0 ? "fallback_published" : "placeholder_suppressed",
           runId,
           regions: auditRegions,
-          missingAgentIds: stillMissing.map((m) => m.agentId)
+          missingAgentIds: stillMissing.map((m) => m.agentId),
+          runWindow,
+          runDate: opts?.runDate ?? new Date().toISOString(),
+          publishedFallbacks,
+          suppressedCount
         })
       );
     }
@@ -527,6 +631,8 @@ export async function handleCron(
         event: "coverage_ok",
         runId,
         regions: auditRegions,
+        runWindow,
+        runDate: opts?.runDate ?? new Date().toISOString(),
         expectedCount: coverageResults.reduce((total, coverage) => total + coverage.expectedAgents.length, 0),
         writtenCount: coverageResults.reduce((total, coverage) => total + coverage.publishedBriefs.length, 0),
         missingCount: 0
@@ -545,7 +651,10 @@ export async function handleCron(
       JSON.stringify({
         level: "error",
         event: "coverage_backfill_failed",
+        reasonCode: "coverage_backfill_failed",
         runId,
+        runWindow,
+        runDate: opts?.runDate ?? new Date().toISOString(),
         error: (error as Error).message
       })
     );
@@ -574,6 +683,19 @@ export async function runAgent(
   
   if (!agent) {
     const error = `Agent ${agentId} not found`;
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "run_agent_not_found",
+        reasonCode: "agent_not_found",
+        runId: options?.runId,
+        agentId,
+        region,
+        runWindow,
+        runDate: options?.runDate ?? new Date().toISOString(),
+        error
+      })
+    );
     await logRunResult(options?.runId ?? crypto.randomUUID(), agentId, region, "failed", error);
     return { agentId, region, ok: false, status: "failed", error };
   }
@@ -581,6 +703,20 @@ export async function runAgent(
   const feeds = agent.feedsByRegion[region];
   if (!feeds || feeds.length === 0) {
     const error = `Region ${region} is not configured for agent ${agentId}`;
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "run_region_not_configured",
+        reasonCode: "missing_region_config",
+        runId: options?.runId,
+        agentId,
+        portfolio: agent.portfolio,
+        region,
+        runWindow,
+        runDate: options?.runDate ?? new Date().toISOString(),
+        error
+      })
+    );
     await logRunResult(options?.runId ?? crypto.randomUUID(), agentId, region, "failed", error);
     return { agentId, region, ok: false, status: "failed", error };
   }
@@ -631,14 +767,35 @@ export async function runAgent(
     console.log(`[${agentId}/${region}] Ingesting articles...`);
     let ingestResult;
     try {
-      ingestResult = await ingestAgent(agent, region);
+      ingestResult = await ingestAgent(agent, region, {
+        runWindow,
+        runDate: now.toISOString()
+      });
     } catch (ingestErr) {
       console.error(`[${agentId}/${region}] Ingestion failed:`, ingestErr);
       const error = `Ingestion error: ${(ingestErr as Error).message}`;
-      const previousBrief = await getLatestPublishedBrief({
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "run_ingest_failed",
+          reasonCode: "ingest_failed",
+          runId: runIdentifier,
+          agentId: agent.id,
+          portfolio: agent.portfolio,
+          region,
+          runWindow,
+          runDate: now.toISOString(),
+          error
+        })
+      );
+      const previousBrief = await getLatestRealBriefSafe({
         portfolio: agent.portfolio,
         region,
-        beforeIso: now.toISOString()
+        beforeIso: now.toISOString(),
+        runId: runIdentifier,
+        runWindow,
+        runDate: now.toISOString(),
+        agentId: agent.id
       });
       const fallback = await publishFallbackBrief({
         agent,
@@ -669,10 +826,28 @@ export async function runAgent(
     if (articles.length === 0) {
       const error = `No articles found after ingestion (scanned ${ingestResult.scannedSources?.length ?? 0} sources)`;
       console.error(`[${agentId}/${region}] ${error}`);
-      const previousBrief = await getLatestPublishedBrief({
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          event: "run_no_items",
+          reasonCode: "zero_items",
+          runId: runIdentifier,
+          agentId: agent.id,
+          portfolio: agent.portfolio,
+          region,
+          runWindow,
+          runDate: now.toISOString(),
+          scannedSources: ingestResult.scannedSources?.length ?? 0
+        })
+      );
+      const previousBrief = await getLatestRealBriefSafe({
         portfolio: agent.portfolio,
         region,
-        beforeIso: now.toISOString()
+        beforeIso: now.toISOString(),
+        runId: runIdentifier,
+        runWindow,
+        runDate: now.toISOString(),
+        agentId: agent.id
       });
       const fallback = await publishFallbackBrief({
         agent,
@@ -702,7 +877,10 @@ export async function runAgent(
         event: "ingest_complete",
         runId: runIdentifier,
         agentId: agent.id,
+        portfolio: agent.portfolio,
         region,
+        runWindow,
+        runDate: now.toISOString(),
         metrics: ingestResult.metrics,
         scannedSourcesCount: ingestResult.scannedSources?.length ?? 0
       })
@@ -712,10 +890,14 @@ export async function runAgent(
     const indices = indicesForRegion(agent.portfolio, region);
 
     // Step 3: Look up previous brief for delta context
-    const previousBrief = await getLatestPublishedBrief({
+    const previousBrief = await getLatestRealBriefSafe({
       portfolio: agent.portfolio,
       region,
-      beforeIso: now.toISOString()
+      beforeIso: now.toISOString(),
+      runId: runIdentifier,
+      runWindow,
+      runDate: now.toISOString(),
+      agentId: agent.id
     });
 
     const previousBriefPrompt = previousBrief
@@ -744,6 +926,9 @@ export async function runAgent(
       const contextArticles = await fetchGeneralContextArticles({
         region,
         agentId: agent.id,
+        portfolio: agent.portfolio,
+        runWindow,
+        runDate: now.toISOString(),
         maxArticles: 3
       });
       const contextInputs = contextArticles.map(toArticleInput);
@@ -775,6 +960,20 @@ export async function runAgent(
     } catch (generationError) {
       const message = (generationError as Error).message;
       console.error(`[${agentId}/${region}] Brief generation failed before validation:`, generationError);
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "run_generation_failed",
+          reasonCode: "llm_generation_failed",
+          runId: runIdentifier,
+          agentId: agent.id,
+          portfolio: agent.portfolio,
+          region,
+          runWindow,
+          runDate: now.toISOString(),
+          error: message
+        })
+      );
       const fallback = await publishFallbackBrief({
         agent,
         region,
@@ -865,9 +1064,12 @@ export async function runAgent(
         JSON.stringify({
           level: "warn",
           event: "brief_validation_failed",
+          reasonCode: "validation_failed",
           runId: runIdentifier,
           agentId: agent.id,
           region,
+          runWindow,
+          runDate: now.toISOString(),
           issuesCount: issues.length
         })
       );
@@ -893,6 +1095,20 @@ export async function runAgent(
 
     if (issues.length > 0 || !validatedBrief) {
       console.error(`[${agentId}/${region}] Final validation failed:`, issues);
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "run_validation_failed",
+          reasonCode: "validation_failed",
+          runId: runIdentifier,
+          agentId: agent.id,
+          portfolio: agent.portfolio,
+          region,
+          runWindow,
+          runDate: now.toISOString(),
+          issuesCount: issues.length
+        })
+      );
 
       const fallback = await publishFallbackBrief({
         agent,
@@ -1000,6 +1216,21 @@ export async function runAgent(
       }
     } catch (publishError) {
       console.error(`[${agentId}/${region}] Failed to publish brief`, { briefDay }, publishError);
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "run_publish_failed",
+          reasonCode: "dynamo_write_failed",
+          runId: runIdentifier,
+          agentId: agent.id,
+          portfolio: agent.portfolio,
+          region,
+          runWindow,
+          runDate: now.toISOString(),
+          briefDay,
+          error: (publishError as Error).message
+        })
+      );
       await logRunResult(runIdentifier, agent.id, region, "failed", (publishError as Error).message);
       await logBriefRunResult({
         identity: runIdentity,
@@ -1046,6 +1277,20 @@ export async function runAgent(
     
   } catch (err) {
     console.error(`[${agentId}/${region}] Error:`, err);
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "run_unhandled_error",
+        reasonCode: "unhandled_error",
+        runId: runIdentifier,
+        agentId: agent.id,
+        portfolio: agent.portfolio,
+        region,
+        runWindow,
+        runDate: now.toISOString(),
+        error: (err as Error).message
+      })
+    );
     await logRunResult(runIdentifier, agent.id, region, "failed", (err as Error).message);
     await logBriefRunResult({
       identity: runIdentity,

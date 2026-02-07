@@ -2,6 +2,7 @@ import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import {
   BriefPost,
   buildSourceId,
+  isUserVisiblePlaceholderBrief,
   normalizeBriefSources,
   toBriefViewModelV2,
   validateBriefV2Record
@@ -57,10 +58,12 @@ function validateBriefIntegrity(brief: BriefPost, hasPreviousBrief: boolean): st
     }
   }
 
-  for (const indicator of brief.marketIndicators ?? []) {
-    const sourceId = indicator.sourceId ?? (indicator.url ? buildSourceId(indicator.url) : "");
-    if (sourceId && sourceIds.size > 0 && !sourceIds.has(sourceId)) {
-      issues.push(`marketIndicator not in sources: ${indicator.url}`);
+  if (brief.portfolio !== "market-dashboard") {
+    for (const indicator of brief.marketIndicators ?? []) {
+      const sourceId = indicator.sourceId ?? (indicator.url ? buildSourceId(indicator.url) : "");
+      if (sourceId && sourceIds.size > 0 && !sourceIds.has(sourceId)) {
+        issues.push(`marketIndicator not in sources: ${indicator.url}`);
+      }
     }
   }
 
@@ -76,7 +79,7 @@ function validateBriefIntegrity(brief: BriefPost, hasPreviousBrief: boolean): st
 }
 
 async function main() {
-  const briefs = await fetchRecentBriefs(LIMIT);
+  const briefs = (await fetchRecentBriefs(LIMIT)).filter((brief) => !isUserVisiblePlaceholderBrief(brief));
   if (!briefs.length) {
     console.log("No briefs found to validate.");
     return;

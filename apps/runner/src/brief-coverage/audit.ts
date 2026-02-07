@@ -1,5 +1,5 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { BriefPost, RegionSlug, getBriefDayKey } from "@proof/shared";
+import { BriefPost, RegionSlug, getBriefDayKey, isUserVisiblePlaceholderBrief } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "../agents/config.js";
 import { documentClient, tableName } from "../db/client.js";
 
@@ -68,6 +68,7 @@ async function fetchPublishedBriefsForDay(region: RegionSlug, dayKey: string): P
 
     const items = (result.Items ?? []) as BriefPost[];
     for (const item of items) {
+      if (isUserVisiblePlaceholderBrief(item)) continue;
       if (!item.publishedAt) continue;
       const itemDayKey = item.briefDay ?? getBriefDayKey(region, new Date(item.publishedAt));
       if (itemDayKey === dayKey) {

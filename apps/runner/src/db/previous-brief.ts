@@ -1,5 +1,5 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { BriefPost, RegionSlug } from "@proof/shared";
+import { BriefPost, RegionSlug, isUserVisiblePlaceholderBrief } from "@proof/shared";
 import { documentClient, tableName } from "./client.js";
 
 interface LatestBriefParams {
@@ -44,7 +44,9 @@ export async function getLatestPublishedBrief({
       })
     );
 
-    const match = (result.Items ?? []).find((item) => item.region === region && item.status === "published");
+    const match = (result.Items ?? []).find(
+      (item) => item.region === region && item.status === "published" && !isUserVisiblePlaceholderBrief(item as BriefPost)
+    );
     if (match) {
       return match as BriefPost;
     }

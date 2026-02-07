@@ -26,7 +26,7 @@
     "ingest:url-normalize:smoke": "tsx src/ingest/url-normalize.smoke.ts",
     "ingest:rss:smoke": "tsx src/ingest/rss.smoke.ts",
     "ingest:ranking:smoke": "tsx src/ingest/ranking.smoke.ts",
-    "ingest:smoke": "pnpm run ingest:url-normalize:smoke && pnpm run ingest:rss:smoke && pnpm run ingest:ranking:smoke",
+    "ingest:smoke": "corepack pnpm run ingest:url-normalize:smoke && corepack pnpm run ingest:rss:smoke && corepack pnpm run ingest:ranking:smoke",
     "cron:apac": "tsx src/cli.ts apac",
     "cron:international": "tsx src/cli.ts international",
     "run-briefs": "tsx ../../scripts/run-briefs.ts",

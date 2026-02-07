@@ -30,6 +30,7 @@ async function main() {
 
   let published = 0;
   let missing = 0;
+  let skipped = 0;
 
   for (const region of regions) {
     const dayKey = expectedCoverageDayKey(region, now);
@@ -52,6 +53,23 @@ async function main() {
         previousBrief,
         now
       });
+      if (!fallback) {
+        skipped += 1;
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "coverage_fill_skipped",
+            reasonCode: "placeholder_suppressed",
+            runId,
+            region: gap.region,
+            portfolio: agent.portfolio,
+            agentId: agent.id,
+            runWindow: runWindowForRegion(gap.region),
+            runDate: now.toISOString()
+          })
+        );
+        continue;
+      }
 
       if (!dryRun) {
         await publishBrief(fallback, ingestStub, runId);
@@ -68,7 +86,8 @@ async function main() {
         dryRun,
         regions,
         missing,
-        published
+        published,
+        skipped
       },
       null,
       2
