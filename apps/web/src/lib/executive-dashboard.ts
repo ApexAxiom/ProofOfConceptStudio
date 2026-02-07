@@ -61,15 +61,12 @@ const SECTION_LIMIT = 12;
 const MAX_ARTICLE_AGE_DAYS = 14;
 
 const WOODSIDE_FEEDS: RssFeed[] = [
-  ...getPortfolioSources("market-dashboard")
-    .map((source) => source.rssUrl ?? source.url)
-    .filter((url) => url.includes("rss") || url.includes("/feed"))
-    .map((url) => ({
-      url,
-      source: "Market Sources",
-      category: "Woodside",
-      region: "woodside" as const
-    }))
+  {
+    url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-US&gl=US&ceid=US:en",
+    source: "Market Sources",
+    category: "Woodside",
+    region: "woodside"
+  }
 ];
 
 const APAC_FEEDS: RssFeed[] = [
@@ -83,7 +80,7 @@ const APAC_FEEDS: RssFeed[] = [
       region: "apac" as const
     })),
   {
-    url: "https://www.reuters.com/business/energy/",
+    url: "https://news.google.com/rss/search?q=oil%20gas%20APAC%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
     source: "Market Sources",
     category: "Oil & Gas",
     region: "apac"
@@ -101,7 +98,7 @@ const INTERNATIONAL_FEEDS: RssFeed[] = [
       region: "international" as const
     })),
   {
-    url: "https://www.reuters.com/business/energy/",
+    url: "https://news.google.com/rss/search?q=oil%20gas%20LNG%20US%20Mexico%20Senegal&hl=en-US&gl=US&ceid=US:en",
     source: "Market Sources",
     category: "Oil & Gas",
     region: "international"
@@ -117,7 +114,7 @@ const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
   woodside: [
     {
       title: "Woodside Energy headlines unavailable. Feed refresh in progress.",
-      url: "https://www.woodside.com/news-and-media",
+      url: "https://news.google.com/search?q=Woodside%20Energy",
       source: "System",
       publishedAt: new Date().toISOString(),
       category: "Woodside",
@@ -128,7 +125,7 @@ const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
   apac: [
     {
       title: "APAC Oil & Gas feed refresh in progress",
-      url: "https://www.reuters.com/business/energy/",
+      url: "https://news.google.com/search?q=APAC%20oil%20gas%20LNG",
       source: "System",
       publishedAt: new Date().toISOString(),
       category: "Oil & Gas",
@@ -139,7 +136,7 @@ const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
   international: [
     {
       title: "International Oil & Gas feed refresh in progress",
-      url: "https://www.reuters.com/business/energy/",
+      url: "https://news.google.com/search?q=US%20Mexico%20Senegal%20oil%20gas%20LNG",
       source: "System",
       publishedAt: new Date().toISOString(),
       category: "Oil & Gas",
