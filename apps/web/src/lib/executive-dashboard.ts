@@ -1,4 +1,4 @@
-import { getPortfolioSources } from "@proof/shared";
+import { getPortfolioSources, isUserVisiblePlaceholderArticle } from "@proof/shared";
 import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
 import {
   canonicalizeUrl,
@@ -109,42 +109,6 @@ const INTERNATIONAL_FEEDS: RssFeed[] = [
 // Articles only need to match ONE keyword to be included.
 const APAC_KEYWORDS = ["apac", "australia", "perth", "asia", "lng", "offshore", "woodside", "santos", "nws", "scarborough", "gas", "oil"];
 const INTERNATIONAL_KEYWORDS = ["us", "united states", "mexico", "senegal", "houston", "lng", "gulf", "gas", "oil", "permian", "energy", "crude"];
-
-const FALLBACK_ARTICLES: Record<ExecutiveRegion, ExecutiveArticle[]> = {
-  woodside: [
-    {
-      title: "Woodside Energy headlines unavailable. Feed refresh in progress.",
-      url: "https://news.google.com/search?q=Woodside%20Energy",
-      source: "System",
-      publishedAt: new Date().toISOString(),
-      category: "Woodside",
-      region: "woodside",
-      summary: "Feed refresh in progress."
-    }
-  ],
-  apac: [
-    {
-      title: "APAC Oil & Gas feed refresh in progress",
-      url: "https://news.google.com/search?q=APAC%20oil%20gas%20LNG",
-      source: "System",
-      publishedAt: new Date().toISOString(),
-      category: "Oil & Gas",
-      region: "apac",
-      summary: "Live APAC coverage is temporarily unavailable."
-    }
-  ],
-  international: [
-    {
-      title: "International Oil & Gas feed refresh in progress",
-      url: "https://news.google.com/search?q=US%20Mexico%20Senegal%20oil%20gas%20LNG",
-      source: "System",
-      publishedAt: new Date().toISOString(),
-      category: "Oil & Gas",
-      region: "international",
-      summary: "Live US/Mexico/Senegal coverage is temporarily unavailable."
-    }
-  ]
-};
 
 function parseTagValue(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
@@ -281,14 +245,14 @@ export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPay
     collectSectionArticles(INTERNATIONAL_FEEDS, INTERNATIONAL_KEYWORDS)
   ]);
 
-  const woodsideArticles = woodsideLive.length > 0 ? woodsideLive : FALLBACK_ARTICLES.woodside;
-  const apacArticles = apacLive.length > 0 ? apacLive : FALLBACK_ARTICLES.apac;
+  const woodsideArticles = woodsideLive.filter((article) => !isUserVisiblePlaceholderArticle(article));
+  const apacArticles = apacLive.filter((article) => !isUserVisiblePlaceholderArticle(article));
 
   // Prevent duplication across APAC and International sections.
   const apacUrls = new Set(apacArticles.map((article) => article.url.toLowerCase()));
-  const internationalArticlesRaw = internationalLive.filter((article) => !apacUrls.has(article.url.toLowerCase()));
-  const internationalArticles =
-    internationalArticlesRaw.length > 0 ? internationalArticlesRaw : FALLBACK_ARTICLES.international;
+  const internationalArticles = internationalLive
+    .filter((article) => !apacUrls.has(article.url.toLowerCase()))
+    .filter((article) => !isUserVisiblePlaceholderArticle(article));
 
   const generatedAt = new Date().toISOString();
 

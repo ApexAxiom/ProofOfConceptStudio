@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BriefPost, PORTFOLIOS, portfolioLabel, regionLabel } from "@proof/shared";
+import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
 import { fetchLatest } from "../lib/api";
 import { ExecutiveArticle, getExecutiveDashboardData } from "../lib/executive-dashboard";
 import { formatDateWithTimezone } from "../lib/format-time";
@@ -44,28 +44,9 @@ function sectionTimestamp(label: string, iso: string) {
   );
 }
 
-function latestBriefRows(briefs: BriefPost[]): Array<BriefPost | { placeholder: true; portfolio: string; region: string; publishedAt: string }> {
+function latestBriefRows(briefs: BriefPost[]): BriefPost[] {
   const sorted = [...briefs].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  if (sorted.length >= 10) return sorted.slice(0, 10);
-
-  const rows: Array<BriefPost | { placeholder: true; portfolio: string; region: string; publishedAt: string }> = [...sorted];
-  const knownPairs = new Set(sorted.map((brief) => `${brief.region}:${brief.portfolio}`));
-  const nowIso = new Date().toISOString();
-
-  for (const portfolio of PORTFOLIOS) {
-    if (rows.length >= 10) break;
-    const fallbackRegion = "us-mx-la-lng";
-    const key = `${fallbackRegion}:${portfolio.slug}`;
-    if (knownPairs.has(key)) continue;
-    rows.push({
-      placeholder: true,
-      portfolio: portfolio.slug,
-      region: fallbackRegion,
-      publishedAt: nowIso
-    });
-  }
-
-  return rows.slice(0, 10);
+  return sorted.slice(0, 10);
 }
 
 /**
@@ -152,30 +133,34 @@ export default async function ExecutiveViewPage() {
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {executiveData.market.quotes.map((quote) => (
-            <a
-              key={`${quote.symbol}:${quote.sourceUrl}`}
-              href={quote.sourceUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-lg border border-border bg-background p-3 transition hover:border-primary/30"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">{quote.symbol}</span>
-                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                  {marketClosed ? "Close" : quote.state === "live" ? "Live" : "Delayed"}
-                </span>
-              </div>
-              <p className="mt-2 text-lg font-mono text-foreground">
-                {quote.unit.startsWith("/") ? "" : "$"}
-                {formatPrice(quote.price)}
-                {quote.unit ? <span className="ml-1 text-xs text-muted-foreground">{quote.unit}</span> : null}
-              </p>
-              <p className={`text-xs font-mono ${quote.changePercent >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                {formatChange(quote.changePercent)}
-              </p>
-            </a>
-          ))}
+          {executiveData.market.quotes.length > 0 ? (
+            executiveData.market.quotes.map((quote) => (
+              <a
+                key={`${quote.symbol}:${quote.sourceUrl}`}
+                href={quote.sourceUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded-lg border border-border bg-background p-3 transition hover:border-primary/30"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">{quote.symbol}</span>
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    {marketClosed ? "Close" : quote.state === "live" ? "Live" : "Delayed"}
+                  </span>
+                </div>
+                <p className="mt-2 text-lg font-mono text-foreground">
+                  {quote.unit.startsWith("/") ? "" : "$"}
+                  {formatPrice(quote.price)}
+                  {quote.unit ? <span className="ml-1 text-xs text-muted-foreground">{quote.unit}</span> : null}
+                </p>
+                <p className={`text-xs font-mono ${quote.changePercent >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                  {formatChange(quote.changePercent)}
+                </p>
+              </a>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">No market quotes available right now.</p>
+          )}
         </div>
       </section>
 
@@ -187,9 +172,9 @@ export default async function ExecutiveViewPage() {
           {sectionTimestamp("Last updated", executiveData.woodside.lastUpdated)}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {woodsideArticles.map((article) => (
-            <NewsCard key={article.url} article={article} />
-          ))}
+          {woodsideArticles.length > 0 ? woodsideArticles.map((article) => <NewsCard key={article.url} article={article} />) : (
+            <p className="text-sm text-muted-foreground">No stories available from configured Woodside sources right now.</p>
+          )}
         </div>
       </section>
 
@@ -202,9 +187,9 @@ export default async function ExecutiveViewPage() {
           {sectionTimestamp("Last updated", executiveData.apac.lastUpdated)}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {apacArticles.map((article) => (
-            <NewsCard key={article.url} article={article} />
-          ))}
+          {apacArticles.length > 0 ? apacArticles.map((article) => <NewsCard key={article.url} article={article} />) : (
+            <p className="text-sm text-muted-foreground">No stories available from APAC feeds right now.</p>
+          )}
         </div>
       </section>
 
@@ -217,9 +202,9 @@ export default async function ExecutiveViewPage() {
           {sectionTimestamp("Last updated", executiveData.international.lastUpdated)}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {internationalArticles.map((article) => (
-            <NewsCard key={article.url} article={article} />
-          ))}
+          {internationalArticles.length > 0 ? internationalArticles.map((article) => <NewsCard key={article.url} article={article} />) : (
+            <p className="text-sm text-muted-foreground">No stories available from international feeds right now.</p>
+          )}
         </div>
       </section>
 
@@ -233,32 +218,25 @@ export default async function ExecutiveViewPage() {
         </div>
 
         <div className="mt-4 space-y-2">
-          {topBriefRows.map((row, index) => {
-            if ("placeholder" in row) {
-              return (
-                <div key={`placeholder-${row.portfolio}-${index}`} className="rounded-lg border border-border bg-background p-3">
-                  <p className="text-sm font-semibold text-foreground">{portfolioLabel(row.portfolio)} — Baseline pending</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {regionLabel(row.region as "au" | "us-mx-la-lng")} · {new Date(row.publishedAt).toLocaleDateString("en-US")}
-                  </p>
-                </div>
-              );
-            }
-
-            return (
-              <Link
-                key={row.postId}
-                href={`/brief/${row.postId}`}
-                className="block rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
-              >
-                <p className="text-sm font-semibold text-foreground line-clamp-1">{row.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {portfolioLabel(row.portfolio)} · {regionLabel(row.region)} ·{" "}
-                  {new Date(row.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </p>
-              </Link>
-            );
-          })}
+          {topBriefRows.map((row) => (
+            <Link
+              key={row.postId}
+              href={`/brief/${row.postId}`}
+              className="block rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
+            >
+              <p className="text-sm font-semibold text-foreground line-clamp-1">{row.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {portfolioLabel(row.portfolio)} · {regionLabel(row.region)} ·{" "}
+                {new Date(row.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+            </Link>
+          ))}
+          {topBriefRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No briefs yet. Briefs appear after the next successful category run.</p>
+          ) : null}
+          {topBriefRows.length > 0 && topBriefRows.length < 10 ? (
+            <p className="text-xs text-muted-foreground">Showing {topBriefRows.length} brief{topBriefRows.length === 1 ? "" : "s"} while additional runs publish.</p>
+          ) : null}
         </div>
       </section>
     </div>

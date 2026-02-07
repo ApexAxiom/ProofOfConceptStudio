@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getPortfolioCatalog, getPortfolioIndices, PortfolioIndex } from "@proof/shared";
+import { getPortfolioCatalog, getPortfolioIndices, PortfolioIndex, isPlaceholdersAllowed } from "@proof/shared";
 
 export type MarketQuoteState = "live" | "stale" | "fallback";
 
@@ -290,6 +290,7 @@ async function refreshSnapshot(): Promise<MarketSnapshot> {
   const store = (await readStore()) ?? { savedAt: generatedAt, quotes: {} };
   const liveBySymbol = await fetchYahooQuotes(QUOTE_DEFINITIONS.map((index) => index.yahooSymbol));
   const nextStoredQuotes: Record<string, StoredQuote> = { ...store.quotes };
+  const placeholdersAllowed = isPlaceholdersAllowed();
 
   const quotes: MarketQuote[] = QUOTE_DEFINITIONS.map((index) => {
     const live = liveBySymbol.get(index.yahooSymbol);
@@ -307,6 +308,7 @@ async function refreshSnapshot(): Promise<MarketSnapshot> {
       state = "stale";
       selected = roundQuote(stored);
     } else {
+      if (!placeholdersAllowed) return null;
       state = "fallback";
       selected = fallbackQuote(index, generatedAt);
     }
@@ -323,7 +325,7 @@ async function refreshSnapshot(): Promise<MarketSnapshot> {
       lastUpdated: selected.lastUpdated,
       state
     };
-  });
+  }).filter((quote): quote is MarketQuote => Boolean(quote));
 
   await writeStore({
     savedAt: generatedAt,
@@ -368,13 +370,14 @@ export async function getMarketSnapshot(): Promise<MarketSnapshot> {
   return memoryCache.snapshot;
 }
 
-function quoteForIndex(index: PortfolioIndex, snapshot: MarketSnapshot): MarketQuote {
+function quoteForIndex(index: PortfolioIndex, snapshot: MarketSnapshot): MarketQuote | null {
   const byExactKey = snapshot.quotes.find(
     (quote) => quote.symbol === index.symbol && quote.yahooSymbol === index.yahooSymbol
   );
   if (byExactKey) return byExactKey;
   const bySymbol = snapshot.quotes.find((quote) => quote.symbol === index.symbol);
   if (bySymbol) return bySymbol;
+  if (!isPlaceholdersAllowed()) return null;
   const generatedAt = snapshot.generatedAt;
   return {
     symbol: index.symbol,
@@ -397,7 +400,7 @@ export async function getPortfolioMarketQuotes(portfolioSlug: string): Promise<{
 }> {
   const snapshot = await getMarketSnapshot();
   const portfolioIndices = getPortfolioIndices(portfolioSlug);
-  const quotes = portfolioIndices.map((index) => quoteForIndex(index, snapshot));
+  const quotes = portfolioIndices.map((index) => quoteForIndex(index, snapshot)).filter((quote): quote is MarketQuote => Boolean(quote));
   return {
     quotes,
     generatedAt: snapshot.generatedAt,

@@ -55,7 +55,7 @@ export default async function MorningScanPage() {
             </Link>
           ))}
           {briefs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Brief ingestion is in progress for this cycle.</p>
+            <p className="text-sm text-muted-foreground">No briefs yet. Morning Scan populates after the next successful regional run.</p>
           ) : null}
         </div>
       </section>

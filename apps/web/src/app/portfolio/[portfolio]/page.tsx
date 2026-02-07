@@ -396,6 +396,9 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                   {selectedRegionNews[0]?.title ?? `${portfolioLabel(portfolio)} intelligence snapshot`}
                 </h3>
                 <p className={styles.lede}>{insight.summary}</p>
+                <p className={styles.emptyState}>
+                  No briefs yet for this region. Briefs publish after the next successful scheduled run (APAC 6:00 AM AWST, International 5:00 AM CST).
+                </p>
               </>
             )}
 
@@ -564,7 +567,9 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 ))}
               </div>
             ) : (
-              <p className={styles.emptyState}>Published signal briefs will appear here as new category-relevant items land.</p>
+              <p className={styles.emptyState}>
+                No briefs yet. The list updates after feed ingestion and validation complete for this portfolio/region.
+              </p>
             )}
             {hiddenBriefs.length > 0 ? (
               <details className={styles.details}>

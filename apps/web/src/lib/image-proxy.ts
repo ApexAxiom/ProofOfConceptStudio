@@ -2,12 +2,21 @@
  * Returns a proxied URL for external images to bypass hotlinking restrictions.
  * Local images (starting with /) are returned as-is.
  */
-export function getProxiedImageUrl(url: string | undefined | null): string {
+export function getProxiedImageUrl(url: string | undefined | null): string | null {
   if (!url || url.trim() === "") {
-    return "/placeholder.svg";
+    return null;
   }
   
   const trimmedUrl = url.trim();
+  const lower = trimmedUrl.toLowerCase();
+
+  // Suppress known synthetic hero placeholders.
+  if (
+    lower.startsWith("data:image/") &&
+    (lower.includes("daily%20intel%20report") || lower.includes("daily intel report") || lower.includes("baseline%20coverage"))
+  ) {
+    return null;
+  }
   
   // Local images don't need proxying
   if (trimmedUrl.startsWith("/")) {
@@ -24,6 +33,5 @@ export function getProxiedImageUrl(url: string | undefined | null): string {
     return `/api/image-proxy?url=${encodeURIComponent(trimmedUrl)}`;
   }
   
-  // Fallback for any other format
-  return "/placeholder.svg";
+  return null;
 }

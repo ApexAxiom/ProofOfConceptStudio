@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BriefPost, portfolioLabel, MOCK_POSTS } from "@proof/shared";
+import { BriefPost, portfolioLabel } from "@proof/shared";
 import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 
 interface LatestBriefsListProps {
@@ -21,20 +21,12 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
-  const mockPostIds = new Set(MOCK_POSTS.map((post) => post.postId));
-  const hasFallbackBriefs = briefs.some((brief) => mockPostIds.has(brief.postId));
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="accent-line" />
           <h2 className="font-display text-lg font-semibold text-foreground">Latest Briefs</h2>
-          {hasFallbackBriefs && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-500">
-              Sample Data
-            </span>
-          )}
         </div>
         <Link
           href="/au"
@@ -95,11 +87,6 @@ export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
                       <span className="rounded-md bg-secondary border border-border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
                           {brief.runWindow.toUpperCase()}
                       </span>
-                      {mockPostIds.has(brief.postId) && (
-                        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-500">
-                          Synthetic
-                        </span>
-                      )}
                     </div>
                   </div>
                     

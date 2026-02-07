@@ -1,54 +1,38 @@
-import { BriefPost, PORTFOLIOS, RunWindow, MOCK_POSTS } from "@proof/shared";
+import { BriefPost, PORTFOLIOS, RunWindow, isUserVisiblePlaceholderBrief } from "@proof/shared";
 import { getApiBaseUrl } from "./api-base";
 
 function sortByPublished(posts: BriefPost[]): BriefPost[] {
   return [...posts].sort((a, b) => (a.publishedAt > b.publishedAt ? -1 : 1));
 }
 
-function filterMockPosts(params: {
-  region: string;
-  portfolio?: string;
-  runWindow?: RunWindow;
-  limit?: number;
-}): BriefPost[] {
-  const filtered = MOCK_POSTS.filter(
-    (p) =>
-      p.status === "published" &&
-      p.region === params.region &&
-      (!params.portfolio || p.portfolio === params.portfolio) &&
-      (!params.runWindow || p.runWindow === params.runWindow)
-  );
-  const sorted = sortByPublished(filtered);
-  return typeof params.limit === "number" ? sorted.slice(0, params.limit) : sorted;
-}
-
-function getMockPost(postId: string): BriefPost | null {
-  return MOCK_POSTS.find((p) => p.postId === postId) ?? null;
+function filterVisibleBriefs(posts: BriefPost[]): BriefPost[] {
+  return posts.filter((post) => !isUserVisiblePlaceholderBrief(post));
 }
 
 /**
- * Fetch the newest briefs for a region, returning curated mock posts when the API is unavailable.
+ * Fetch the newest briefs for a region.
  */
 export async function fetchLatest(region: string): Promise<BriefPost[]> {
   try {
     const apiBaseUrl = await getApiBaseUrl();
     const res = await fetch(`${apiBaseUrl}/posts/latest?region=${region}`, { cache: "no-store" });
-    if (!res.ok) return filterMockPosts({ region, limit: 30 });
-    return res.json();
+    if (!res.ok) return [];
+    const posts = (await res.json()) as BriefPost[];
+    return sortByPublished(filterVisibleBriefs(posts)).slice(0, 30);
   } catch {
-    return filterMockPosts({ region, limit: 30 });
+    return [];
   }
 }
 
 /**
- * Fetch briefs filtered by region and optional portfolio/run window, with mock fallbacks when the API errors.
+ * Fetch briefs filtered by region and optional portfolio/run window.
  */
 export async function fetchPosts(params: {
   region: string;
   portfolio?: string;
   runWindow?: RunWindow;
   limit?: number;
-}): Promise<BriefPost[]> {
+  }): Promise<BriefPost[]> {
   try {
     const apiBaseUrl = await getApiBaseUrl();
     const query = new URLSearchParams();
@@ -57,16 +41,19 @@ export async function fetchPosts(params: {
     if (params.runWindow) query.set("runWindow", params.runWindow);
     if (params.limit) query.set("limit", String(params.limit));
     const res = await fetch(`${apiBaseUrl}/posts?${query.toString()}`, { cache: "no-store" });
-    if (!res.ok) return filterMockPosts(params);
-    return res.json();
+    if (!res.ok) return [];
+    const posts = (await res.json()) as BriefPost[];
+    const filtered = filterVisibleBriefs(posts);
+    const sorted = sortByPublished(filtered);
+    return typeof params.limit === "number" ? sorted.slice(0, params.limit) : sorted;
   } catch {
-    return filterMockPosts(params);
+    return [];
   }
 }
 
 function pickLatestPerPortfolio(briefs: BriefPost[]): BriefPost[] {
   const latestByPortfolio = new Map<string, BriefPost>();
-  for (const brief of briefs) {
+  for (const brief of sortByPublished(filterVisibleBriefs(briefs))) {
     if (!latestByPortfolio.has(brief.portfolio)) {
       latestByPortfolio.set(brief.portfolio, brief);
     }
@@ -75,7 +62,7 @@ function pickLatestPerPortfolio(briefs: BriefPost[]): BriefPost[] {
 }
 
 /**
- * Fetch the latest brief for each portfolio in a region, using mock posts when the API is unreachable.
+ * Fetch the latest brief for each portfolio in a region.
  */
 export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[]> {
   try {
@@ -85,7 +72,7 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
       const posts = await fetchPosts({ region, limit: 400 });
       return pickLatestPerPortfolio(posts);
     }
-    const posts = (await res.json()) as BriefPost[];
+    const posts = filterVisibleBriefs((await res.json()) as BriefPost[]);
     return pickLatestPerPortfolio(posts);
   } catch {
     const posts = await fetchPosts({ region, limit: 400 });
@@ -94,25 +81,23 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
 }
 
 /**
- * Fetch a single brief by id, falling back to bundled mock content if necessary.
+ * Fetch a single brief by id.
  * Validates the response body to avoid treating an API 200-with-null as a found post.
  */
 export async function fetchPost(postId: string): Promise<BriefPost | null> {
   try {
     const apiBaseUrl = await getApiBaseUrl();
     const res = await fetch(`${apiBaseUrl}/posts/${postId}`, { cache: "no-store" });
-    if (!res.ok) {
-      // API explicitly said "not found" or errored — try mock
-      return getMockPost(postId);
-    }
+    if (!res.ok) return null;
     const data = await res.json();
     // Guard against API returning null/empty with 200 status
     if (!data || typeof data !== "object" || !data.postId) {
-      return getMockPost(postId);
+      return null;
     }
-    return data as BriefPost;
+    const brief = data as BriefPost;
+    return isUserVisiblePlaceholderBrief(brief) ? null : brief;
   } catch {
-    return getMockPost(postId);
+    return null;
   }
 }
 
@@ -139,5 +124,5 @@ export async function fetchPostWithFallback(postId: string): Promise<BriefPost |
     // Ignore — we already tried the primary path
   }
 
-  return getMockPost(postId);
+  return null;
 }
