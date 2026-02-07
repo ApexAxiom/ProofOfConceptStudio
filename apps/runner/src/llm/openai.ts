@@ -166,7 +166,10 @@ function mapActionToSourceIds(
   };
 }
 
-async function requestJsonCompletion(client: OpenAI, prompt: string): Promise<string> {
+async function requestJsonCompletion(
+  client: OpenAI,
+  prompt: string
+): Promise<{ content: string; usage?: OpenAI.Chat.Completions.ChatCompletion["usage"] }> {
   const response = await client.chat.completions.create({
     model: getModel(),
     messages: [{ role: "user", content: prompt }],
@@ -175,7 +178,10 @@ async function requestJsonCompletion(client: OpenAI, prompt: string): Promise<st
     max_tokens: 4500
   });
 
-  return response.choices?.[0]?.message?.content ?? "{}";
+  return {
+    content: response.choices?.[0]?.message?.content ?? "{}",
+    usage: response.usage
+  };
 }
 
 /**
@@ -193,6 +199,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
   let repairIssues = input.repairIssues;
   let previousJson = input.previousJson;
   let lastParseIssues: string[] = [];
+  let lastUsage: OpenAI.Chat.Completions.ChatCompletion["usage"] | undefined;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const prompt = buildProcurementPrompt(
@@ -203,7 +210,8 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
       },
       requiredCount
     );
-    const raw = await requestJsonCompletion(client, prompt);
+    const { content: raw, usage } = await requestJsonCompletion(client, prompt);
+    if (usage) lastUsage = usage;
     try {
       parsed = parseProcurementOutput(raw, {
         requiredCount,
@@ -355,6 +363,13 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     report,
     sources: allSources
   });
+  const llmUsage = lastUsage
+    ? {
+        promptTokens: lastUsage.prompt_tokens,
+        completionTokens: lastUsage.completion_tokens,
+        totalTokens: lastUsage.total_tokens
+      }
+    : undefined;
 
   return {
     postId: crypto.randomUUID(),
@@ -377,7 +392,8 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     heroImageSourceUrl: heroArticle?.url,
     heroImageAlt: heroArticle?.title || headlineTitle,
     decisionSummary: toDecisionSummary(report, sourceNumberById),
-    report
+    report,
+    llmUsage
   };
 }
 

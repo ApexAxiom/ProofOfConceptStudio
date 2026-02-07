@@ -237,6 +237,8 @@ export interface BriefPost {
   region: RegionSlug;
   portfolio: string;
   agentId?: string;
+  /** Stable identifier for the daily brief run (briefDay + region + portfolio). */
+  runKey?: string;
   runWindow: RunWindow;
   status: "published" | "draft" | "failed";
   generationStatus?: "published" | "no-updates" | "generation-failed";
@@ -302,6 +304,12 @@ export interface BriefPost {
   decisionSummary?: DecisionSummary;
   marketSnapshot?: BriefMarketSnapshotItem[];
   report?: BriefReport;
+  /** LLM usage metadata when available. */
+  llmUsage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 export interface RunLog {
@@ -311,6 +319,38 @@ export interface RunLog {
   finishedAt?: string;
   results: Record<string, { region: RegionSlug; status: string; error?: string }>;
   counts?: Record<string, number>;
+}
+
+export interface BriefRunIdentity {
+  briefDay: string;
+  region: RegionSlug;
+  portfolio: string;
+  runWindow: RunWindow;
+}
+
+export type BriefRunStatus = "started" | "succeeded" | "failed" | "no-updates" | "dry-run";
+
+export interface BriefRunMetrics {
+  sourcesFetched: number;
+  itemsCollected: number;
+  itemsDeduped: number;
+  itemsExtracted: number;
+  itemsSelected: number;
+  briefLength: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
+export interface BriefRunStatusRecord extends BriefRunIdentity {
+  runId: string;
+  status: BriefRunStatus;
+  startedAt: string;
+  finishedAt?: string;
+  attempts?: number;
+  metrics?: BriefRunMetrics;
+  error?: string;
+  schemaVersion: 1;
 }
 
 export interface AgentFeed {

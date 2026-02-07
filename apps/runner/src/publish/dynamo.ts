@@ -1,5 +1,5 @@
-import { PutCommand } from "@aws-sdk/lib-dynamodb";
-import { BriefPost } from "@proof/shared";
+import { PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { BriefPost, BriefRunIdentity, BriefRunMetrics, BriefRunStatus, buildBriefRunKey } from "@proof/shared";
 import { IngestResult } from "../ingest/fetch.js";
 import { documentClient as client, tableName } from "../db/client.js";
 
@@ -32,11 +32,12 @@ export function buildDynamoItem(
   runId: string
 ) {
   const ttlSeconds = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180; // ~6 months retention
+  const briefDay = brief.briefDay ?? "";
 
   return {
     // Primary key
     PK: `POST#${brief.postId}`,
-    SK: `DATE#${brief.publishedAt}`,
+    SK: `DAY#${briefDay || brief.publishedAt}`,
 
     // GSI keys for querying
     GSI1PK: `PORTFOLIO#${brief.portfolio}`,
@@ -95,6 +96,143 @@ export async function publishBrief(
   const item = buildDynamoItem(brief, ingestResult, runId);
   const clean = stripUndefined(item) as Record<string, unknown>;
   await client.send(new PutCommand({ TableName: tableName, Item: clean }));
+}
+
+function briefRunKeys(identity: BriefRunIdentity) {
+  const runKey = buildBriefRunKey(identity);
+  return {
+    runKey,
+    pk: `BRIEFRUN#${runKey}`,
+    sk: `BRIEFRUN#${runKey}`,
+    gsi2pk: `RUNSTATUS#REGION#${identity.region}`,
+    gsi2sk: `DATE#${identity.briefDay}#PORTFOLIO#${identity.portfolio}`
+  };
+}
+
+/**
+ * Logs the start of a brief run for idempotent tracking.
+ */
+export async function logBriefRunStart(
+  identity: BriefRunIdentity,
+  runId: string,
+  startedAt: string,
+  dryRun = false
+) {
+  const keys = briefRunKeys(identity);
+  const update = new UpdateCommand({
+    TableName: tableName,
+    Key: { PK: keys.pk, SK: keys.sk },
+    UpdateExpression:
+      "SET #type = :type, #schema = :schema, #runId = :runId, #status = :status, " +
+      "#runWindow = :runWindow, #region = :region, #portfolio = :portfolio, #briefDay = :briefDay, " +
+      "#startedAt = if_not_exists(#startedAt, :startedAt), #updatedAt = :updatedAt, " +
+      "#gsi2pk = :gsi2pk, #gsi2sk = :gsi2sk, #dryRun = :dryRun ADD #attempts :one",
+    ExpressionAttributeNames: {
+      "#type": "itemType",
+      "#schema": "schemaVersion",
+      "#runId": "runId",
+      "#status": "status",
+      "#runWindow": "runWindow",
+      "#region": "region",
+      "#portfolio": "portfolio",
+      "#briefDay": "briefDay",
+      "#startedAt": "startedAt",
+      "#updatedAt": "updatedAt",
+      "#gsi2pk": "GSI2PK",
+      "#gsi2sk": "GSI2SK",
+      "#dryRun": "dryRun",
+      "#attempts": "attempts"
+    },
+    ExpressionAttributeValues: {
+      ":type": "brief_run_status",
+      ":schema": 1,
+      ":runId": runId,
+      ":status": "started",
+      ":runWindow": identity.runWindow,
+      ":region": identity.region,
+      ":portfolio": identity.portfolio,
+      ":briefDay": identity.briefDay,
+      ":startedAt": startedAt,
+      ":updatedAt": startedAt,
+      ":gsi2pk": keys.gsi2pk,
+      ":gsi2sk": keys.gsi2sk,
+      ":dryRun": dryRun,
+      ":one": 1
+    }
+  });
+  await client.send(update);
+}
+
+/**
+ * Logs the completion state of a brief run.
+ */
+export async function logBriefRunResult(params: {
+  identity: BriefRunIdentity;
+  runId: string;
+  status: BriefRunStatus;
+  finishedAt: string;
+  metrics?: BriefRunMetrics;
+  error?: string;
+  dryRun?: boolean;
+}) {
+  const keys = briefRunKeys(params.identity);
+  const updates: string[] = [
+    "#status = :status",
+    "#runId = :runId",
+    "#finishedAt = :finishedAt",
+    "#updatedAt = :updatedAt",
+    "#runWindow = :runWindow",
+    "#region = :region",
+    "#portfolio = :portfolio",
+    "#briefDay = :briefDay",
+    "#gsi2pk = :gsi2pk",
+    "#gsi2sk = :gsi2sk",
+    "#dryRun = :dryRun"
+  ];
+  const names: Record<string, string> = {
+    "#status": "status",
+    "#runId": "runId",
+    "#finishedAt": "finishedAt",
+    "#updatedAt": "updatedAt",
+    "#runWindow": "runWindow",
+    "#region": "region",
+    "#portfolio": "portfolio",
+    "#briefDay": "briefDay",
+    "#gsi2pk": "GSI2PK",
+    "#gsi2sk": "GSI2SK",
+    "#dryRun": "dryRun",
+    "#metrics": "metrics",
+    "#error": "error"
+  };
+  const values: Record<string, unknown> = {
+    ":status": params.status,
+    ":runId": params.runId,
+    ":finishedAt": params.finishedAt,
+    ":updatedAt": params.finishedAt,
+    ":runWindow": params.identity.runWindow,
+    ":region": params.identity.region,
+    ":portfolio": params.identity.portfolio,
+    ":briefDay": params.identity.briefDay,
+    ":gsi2pk": keys.gsi2pk,
+    ":gsi2sk": keys.gsi2sk,
+    ":dryRun": params.dryRun ?? false
+  };
+  if (params.metrics) {
+    updates.push("#metrics = :metrics");
+    values[":metrics"] = params.metrics;
+  }
+  if (params.error) {
+    updates.push("#error = :error");
+    values[":error"] = params.error;
+  }
+  const update = new UpdateCommand({
+    TableName: tableName,
+    Key: { PK: keys.pk, SK: keys.sk },
+    UpdateExpression: `SET ${updates.join(", ")}`,
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values
+  });
+  await client.send(update);
 }
 
 /**

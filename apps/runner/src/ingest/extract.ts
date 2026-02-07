@@ -2,12 +2,50 @@ import { request } from "undici";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 
+const DEFAULT_BODY_TIMEOUT = Number(process.env.ARTICLE_FETCH_TIMEOUT_MS ?? 15000);
+const DEFAULT_HEADERS_TIMEOUT = Number(process.env.ARTICLE_HEADERS_TIMEOUT_MS ?? 10000);
+const MAX_RETRIES = Number(process.env.ARTICLE_FETCH_RETRIES ?? 3);
+
 export const BROWSER_HEADERS = {
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
   "accept-language": "en-US,en;q=0.9"
 };
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestHtml(url: string, label: string): Promise<string> {
+  let lastError: Error | undefined;
+  const maxRetries = Number.isFinite(MAX_RETRIES) && MAX_RETRIES > 0 ? MAX_RETRIES : 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+    try {
+      const res = await request(url, {
+        method: "GET",
+        headers: BROWSER_HEADERS,
+        maxRedirections: 3,
+        bodyTimeout: DEFAULT_BODY_TIMEOUT,
+        headersTimeout: DEFAULT_HEADERS_TIMEOUT
+      });
+      if (res.statusCode >= 500 && attempt < maxRetries) {
+        await sleep(500 * attempt);
+        continue;
+      }
+      if (res.statusCode >= 400) {
+        throw new Error(`HTTP ${res.statusCode}`);
+      }
+      return await res.body.text();
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < maxRetries) {
+        await sleep(500 * attempt);
+      }
+    }
+  }
+  throw new Error(`${label} failed after ${maxRetries} attempts: ${lastError?.message ?? "unknown error"}`);
+}
 
 function resolveUrl(href: string, baseUrl: string): string | null {
   if (!href) return null;
@@ -171,8 +209,7 @@ function extractSourceName(document: Document, url: string): string | undefined 
 }
 
 export async function shallowScrape(url: string, limit = 30): Promise<{ title: string; url: string }[]> {
-  const res = await request(url, { method: "GET", headers: BROWSER_HEADERS });
-  const text = await res.body.text();
+  const text = await requestHtml(url, "shallow scrape");
   const dom = new JSDOM(text, { url });
   const baseHost = new URL(url).hostname;
   const anchors = Array.from(dom.window.document.querySelectorAll("a")) as unknown as HTMLAnchorElement[];
@@ -209,13 +246,7 @@ export interface ArticleDetails {
 
 export async function fetchArticleDetails(url: string): Promise<ArticleDetails> {
   try {
-    const res = await request(url, {
-      method: "GET",
-      headers: BROWSER_HEADERS,
-      maxRedirections: 3,
-      bodyTimeout: 15000
-    });
-    const html = await res.body.text();
+    const html = await requestHtml(url, "article fetch");
     const dom = new JSDOM(html, { url });
     const document = dom.window.document;
     const reader = new Readability(document);
@@ -241,10 +272,17 @@ export async function fetchArticleDetails(url: string): Promise<ArticleDetails> 
     // Extract source name
     const sourceName = extractSourceName(document, url);
     
+    const textContent = article?.textContent || document.querySelector("article")?.textContent || "";
+    const content = textContent.replace(/\s+/g, " ").trim();
+    const fallbackContent =
+      document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+      document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+      "";
+
     return {
       url, // Preserve the exact original URL
       title: article?.title || document.title || url,
-      content: article?.textContent || "",
+      content: content.length > 0 ? content : fallbackContent,
       ogImageUrl: bestImage,
       publishedAt,
       description,

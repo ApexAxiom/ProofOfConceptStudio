@@ -94,6 +94,8 @@ async function main() {
     }
     const body = (request.body as any) || {};
     const now = new Date();
+    const dryRun = body.dryRun === true;
+    const runDate = typeof body.runDate === "string" ? body.runDate : undefined;
 
     const regionInput = Array.isArray(body?.regions)
       ? body.regions
@@ -166,7 +168,9 @@ async function main() {
                 runId,
                 scheduled: body.scheduled === true,
                 regions: [target.region],
-                agentIds: batchAgents
+                agentIds: batchAgents,
+                dryRun,
+                runDate
               })
             )
           );
@@ -219,7 +223,9 @@ async function main() {
                   runId,
                   scheduled: body.scheduled === true,
                   regions: [target.region],
-                  agentIds: batchAgents
+                  agentIds: batchAgents,
+                  dryRun,
+                  runDate
                 })
               )
             );
@@ -268,7 +274,9 @@ async function main() {
             runId,
             scheduled: body.scheduled === true,
             regions: [target.region],
-            agentIds: selectedAgentIds
+            agentIds: selectedAgentIds,
+            dryRun,
+            runDate
           })
         )
       );
@@ -299,7 +307,9 @@ async function main() {
             runId,
             scheduled: body.scheduled === true,
             regions: [target.region],
-            agentIds: selectedAgentIds
+            agentIds: selectedAgentIds,
+            dryRun,
+            runDate
           })
         )
       )
@@ -327,7 +337,11 @@ async function main() {
     reply.code(202).send({ ok: true, accepted: true });
     setImmediate(() => {
       const runWindow: RunWindow = body.runWindow ?? runWindowForRegion(body.region ?? "us-mx-la-lng");
-      runAgent(agentId, body.region, runWindow).catch((err) => fastify.log.error(err));
+      runAgent(agentId, body.region, runWindow, {
+        runId: body.runId,
+        dryRun: body.dryRun === true,
+        runDate: typeof body.runDate === "string" ? body.runDate : undefined
+      }).catch((err) => fastify.log.error(err));
     });
   });
 

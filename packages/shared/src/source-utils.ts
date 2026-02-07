@@ -1,5 +1,49 @@
 import type { BriefSource, BriefSourceInput } from "./types.js";
 
+const TRACKING_PARAMS = new Set([
+  "fbclid",
+  "gclid",
+  "mc_cid",
+  "mc_eid",
+  "igshid",
+  "mkt_tok",
+  "cmpid",
+  "msclkid",
+  "yclid",
+  "vero_conv",
+  "vero_id",
+  "ref",
+  "ref_src",
+  "ref_url",
+  "source",
+  "src",
+  "spm"
+]);
+
+/**
+ * Canonicalize URLs for dedupe + stable source IDs.
+ */
+export function canonicalizeUrl(rawUrl: string): string | null {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    url.hash = "";
+    if (url.protocol === "http:") url.protocol = "https:";
+    url.hostname = url.hostname.replace(/^www\./, "").toLowerCase();
+
+    for (const param of Array.from(url.searchParams.keys())) {
+      const lower = param.toLowerCase();
+      if (lower.startsWith("utm_") || TRACKING_PARAMS.has(lower)) {
+        url.searchParams.delete(param);
+      }
+    }
+
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+}
+
 function fnv1a(input: string): string {
   let hash = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
@@ -10,7 +54,7 @@ function fnv1a(input: string): string {
 }
 
 export function buildSourceId(url: string): string {
-  const normalized = url.trim().toLowerCase();
+  const normalized = (canonicalizeUrl(url) ?? url).trim().toLowerCase();
   return `src_${fnv1a(normalized)}`;
 }
 
