@@ -25,6 +25,8 @@ export function MarketSnapshotTiles({ items }: { items: BriefMarketSnapshotItem[
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {
           const changePositive = item.change >= 0;
+          const dataState = item.dataState ?? (item.isFallback ? "fallback" : "live");
+          const dataStateLabel = dataState === "cached" ? "delayed" : dataState;
           return (
             <div key={`${item.symbol}-${item.name}`} className="rounded-lg border border-border bg-background p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
@@ -53,9 +55,7 @@ export function MarketSnapshotTiles({ items }: { items: BriefMarketSnapshotItem[
                 </div>
               </div>
               {(item.dataState || item.isFallback) && (
-                <p className="text-xs text-amber-500">
-                  Data state: {item.dataState ?? (item.isFallback ? "cached" : "live")}
-                </p>
+                <p className="text-xs text-amber-500">Data state: {dataStateLabel}</p>
               )}
             </div>
           );

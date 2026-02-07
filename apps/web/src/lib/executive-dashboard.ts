@@ -63,7 +63,7 @@ const MAX_ARTICLE_AGE_DAYS = 14;
 const WOODSIDE_FEEDS: RssFeed[] = [
   {
     url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-US&gl=US&ceid=US:en",
-    source: "Google News",
+    source: "Market Sources",
     category: "Woodside",
     region: "woodside"
   }
@@ -81,7 +81,7 @@ const APAC_FEEDS: RssFeed[] = [
     })),
   {
     url: "https://news.google.com/rss/search?q=oil%20gas%20APAC%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
-    source: "Google News",
+    source: "Market Sources",
     category: "Oil & Gas",
     region: "apac"
   }
@@ -99,7 +99,7 @@ const INTERNATIONAL_FEEDS: RssFeed[] = [
     })),
   {
     url: "https://news.google.com/rss/search?q=oil%20gas%20LNG%20US%20Mexico%20Senegal&hl=en-US&gl=US&ceid=US:en",
-    source: "Google News",
+    source: "Market Sources",
     category: "Oil & Gas",
     region: "international"
   }
@@ -302,17 +302,17 @@ export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPay
     woodside: {
       articles: woodsideArticles,
       lastUpdated: sectionLastUpdated(woodsideArticles, generatedAt),
-      source: "Google News RSS (Woodside Energy)"
+      source: "Market Sources"
     },
     apac: {
       articles: apacArticles,
       lastUpdated: sectionLastUpdated(apacArticles, generatedAt),
-      source: "Portfolio + Google News APAC O&G feeds"
+      source: "Portfolio + Market Sources"
     },
     international: {
       articles: internationalArticles,
       lastUpdated: sectionLastUpdated(internationalArticles, generatedAt),
-      source: "Portfolio + Google News International O&G feeds (US/Mexico/Senegal filtered)"
+      source: "Portfolio + Market Sources (US/Mexico/Senegal filtered)"
     }
   };
 }
