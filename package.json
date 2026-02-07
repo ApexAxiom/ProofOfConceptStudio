@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "scripts": {
-    "dev": "corepack pnpm -r --parallel dev --filter web --filter api --filter runner",
+    "dev": "corepack pnpm -r --parallel --filter web --filter api --filter runner dev",
     "lint": "corepack pnpm -r lint",
     "build": "corepack pnpm -r build",
     "run:apac": "corepack pnpm --filter runner run cron:apac",
