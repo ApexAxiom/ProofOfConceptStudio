@@ -5,6 +5,10 @@ import {
   CategoryGroup,
   RegionSlug,
   RunWindow,
+  BriefRunIdentity,
+  BriefRunMetrics,
+  buildBriefPostId,
+  buildBriefRunKey,
   categoryForPortfolio,
   getBriefDayKey,
   indicesForRegion,
@@ -15,7 +19,7 @@ import { documentClient, tableName } from "../db/client.js";
 import { normalizeForDedupe } from "../ingest/url-normalize.js";
 import { generateMarketBrief } from "../llm/market-openai.js";
 import { MarketCandidate } from "../llm/market-prompts.js";
-import { publishBrief, logRunResult } from "../publish/dynamo.js";
+import { publishBrief, logBriefRunResult, logBriefRunStart, logRunResult } from "../publish/dynamo.js";
 import { validateBrief } from "../publish/validate.js";
 import { validateMarketNumericClaims } from "../publish/factuality.js";
 import { attachEvidenceToMarketBrief } from "../publish/evidence.js";
@@ -28,7 +32,7 @@ interface RunResult {
   agentId: string;
   region: RegionSlug;
   ok: boolean;
-  status: "published" | "no-updates" | "failed";
+  status: "published" | "no-updates" | "failed" | "dry-run";
   error?: string;
 }
 
@@ -85,14 +89,29 @@ export async function runMarketDashboard(
   agent: AgentConfig,
   region: RegionSlug,
   runWindow: RunWindow,
-  runId: string
+  runId: string,
+  options?: { dryRun?: boolean; runDate?: string }
 ): Promise<RunResult> {
   try {
-    const briefDay = getBriefDayKey(region, new Date());
+    const dryRun = options?.dryRun ?? false;
+    const runNow = options?.runDate ? new Date(options.runDate) : new Date();
+    if (Number.isNaN(runNow.getTime())) {
+      throw new Error(`Invalid runDate provided: ${options?.runDate}`);
+    }
+    const briefDay = getBriefDayKey(region, runNow);
+    const runIdentity: BriefRunIdentity = {
+      briefDay,
+      region,
+      portfolio: agent.portfolio,
+      runWindow
+    };
+    const runKey = buildBriefRunKey(runIdentity);
+    const postId = buildBriefPostId(runIdentity);
+    await logBriefRunStart(runIdentity, runId, runNow.toISOString(), dryRun);
     const previousBrief = await getLatestPublishedBrief({
       portfolio: agent.portfolio,
       region,
-      beforeIso: new Date().toISOString()
+      beforeIso: runNow.toISOString()
     });
     const lookbackDays = agent.lookbackDays ?? 2;
     const since = new Date();
@@ -142,8 +161,40 @@ export async function runMarketDashboard(
     if (candidates.length === 0) {
       const error = "No candidate articles available for dashboard";
       await logRunResult(runId, agent.id, region, "no-updates", error);
+      await logBriefRunResult({
+        identity: runIdentity,
+        runId,
+        status: dryRun ? "dry-run" : "no-updates",
+        finishedAt: new Date().toISOString(),
+        metrics: {
+          sourcesFetched: 0,
+          itemsCollected: 0,
+          itemsDeduped: 0,
+          itemsExtracted: 0,
+          itemsSelected: 0,
+          briefLength: 0
+        },
+        error,
+        dryRun
+      });
       return { agentId: agent.id, region, ok: true, status: "no-updates", error };
     }
+
+    const buildMetrics = (params: {
+      selectedCount: number;
+      briefLength: number;
+      usage?: BriefPost["llmUsage"];
+    }): BriefRunMetrics => ({
+      sourcesFetched: 0,
+      itemsCollected: candidates.length,
+      itemsDeduped: candidates.length,
+      itemsExtracted: candidates.length,
+      itemsSelected: params.selectedCount,
+      briefLength: params.briefLength,
+      promptTokens: params.usage?.promptTokens,
+      completionTokens: params.usage?.completionTokens,
+      totalTokens: params.usage?.totalTokens
+    });
 
     const indices = indicesForRegion(agent.portfolio, region);
     const indexUrls = new Set(indices.map((i) => i.url));
@@ -267,6 +318,8 @@ export async function runMarketDashboard(
 
     const published: BriefPost = {
       ...validated,
+      postId,
+      runKey,
       agentId: agent.id,
       generationStatus: "published",
       briefDay,
@@ -297,17 +350,60 @@ export async function runMarketDashboard(
       metrics: { collectedCount: 0, dedupedCount: 0, extractedCount: 0 } 
     };
     try {
-      await publishBrief(published, ingestStub, runId);
+      if (!dryRun) {
+        await publishBrief(published, ingestStub, runId);
+      }
     } catch (publishError) {
       console.error(`[${agent.id}/${region}] Failed to publish dashboard brief`, { briefDay }, publishError);
       await logRunResult(runId, agent.id, region, "failed", (publishError as Error).message);
+      await logBriefRunResult({
+        identity: runIdentity,
+        runId,
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+        metrics: buildMetrics({
+          selectedCount: published.selectedArticles?.length ?? 0,
+          briefLength: published.bodyMarkdown?.length ?? 0,
+          usage: published.llmUsage
+        }),
+        error: (publishError as Error).message,
+        dryRun
+      });
       return { agentId: agent.id, region, ok: false, status: "failed", error: (publishError as Error).message };
     }
-    await logRunResult(runId, agent.id, region, "published");
-    return { agentId: agent.id, region, ok: true, status: "published" };
+    await logRunResult(runId, agent.id, region, dryRun ? "dry-run" : "published");
+    await logBriefRunResult({
+      identity: runIdentity,
+      runId,
+      status: dryRun ? "dry-run" : "succeeded",
+      finishedAt: new Date().toISOString(),
+      metrics: buildMetrics({
+        selectedCount: published.selectedArticles?.length ?? 0,
+        briefLength: published.bodyMarkdown?.length ?? 0,
+        usage: published.llmUsage
+      }),
+      dryRun
+    });
+    return { agentId: agent.id, region, ok: true, status: dryRun ? "dry-run" : "published" };
   } catch (error) {
     console.error(`[${agent.id}/${region}] dashboard error`, error);
     await logRunResult(runId, agent.id, region, "failed", (error as Error).message);
+    await logBriefRunResult({
+      identity: runIdentity,
+      runId,
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+      metrics: {
+        sourcesFetched: 0,
+        itemsCollected: 0,
+        itemsDeduped: 0,
+        itemsExtracted: 0,
+        itemsSelected: 0,
+        briefLength: 0
+      },
+      error: (error as Error).message,
+      dryRun
+    });
     return { agentId: agent.id, region, ok: false, status: "failed", error: (error as Error).message };
   }
 }

@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from "fastify";
 import { getAdminToken, getCronSecret, runWindowForRegion, RegionSlug } from "@proof/shared";
+import { fetchRunStatus } from "../db/run-status.js";
 
 const ADMIN_TOKEN = getAdminToken();
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
@@ -23,13 +24,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     if (agentId) {
       const region = (body.region as RegionSlug) ?? "us-mx-la-lng";
       const runWindow = body.runWindow || runWindowForRegion(region);
+      const runDate = typeof body.runDate === "string" ? body.runDate : undefined;
+      const dryRun = body.dryRun === true;
       const res = await fetch(`${RUNNER_BASE_URL}/run/${agentId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${getCronSecret()}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ runWindow, region })
+        body: JSON.stringify({ runWindow, region, runDate, dryRun })
       });
       const json = await res.json();
       return reply.status(res.status).send(json);
@@ -52,6 +55,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     } else {
       payload.region = region;
       payload.runWindow = runWindow;
+    }
+    if (typeof body.runDate === "string") {
+      payload.runDate = body.runDate;
+    }
+    if (body.dryRun === true) {
+      payload.dryRun = true;
     }
 
     const res = await fetch(`${RUNNER_BASE_URL}/cron`, {
@@ -78,6 +87,18 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     });
     const json = await res.json();
     return reply.status(res.status).send(json);
+  });
+
+  fastify.get("/run-status", async (request) => {
+    const query = request.query as { region?: RegionSlug; briefDay?: string; limit?: string };
+    const region = query.region ?? "us-mx-la-lng";
+    const limitRaw = Number(query.limit ?? 200);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 200;
+    return fetchRunStatus({
+      region,
+      briefDay: query.briefDay,
+      limit
+    });
   });
 };
 

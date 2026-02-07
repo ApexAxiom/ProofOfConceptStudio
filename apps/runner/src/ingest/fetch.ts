@@ -33,7 +33,10 @@ const COMMON_EXCLUDE_KEYWORDS = [
   "horoscope"
 ];
 
-function deriveKeywordPack(portfolioSlug: string): { primary: string[]; secondary: string[]; exclude: string[] } {
+/**
+ * Build primary/secondary keyword packs for a portfolio.
+ */
+export function deriveKeywordPack(portfolioSlug: string): { primary: string[]; secondary: string[]; exclude: string[] } {
   const keywords = keywordsForPortfolio(portfolioSlug).map((keyword) => keyword.toLowerCase());
   const primary = keywords.slice(0, 4);
   const secondary = keywords.slice(4);
@@ -46,7 +49,10 @@ function countMatches(text: string, keywords: string[]): number {
   return keywords.reduce((acc, keyword) => (haystack.includes(keyword.toLowerCase()) ? acc + 1 : acc), 0);
 }
 
-function computeKeywordSignals(
+/**
+ * Score keyword relevance for ranking candidate articles.
+ */
+export function computeKeywordSignals(
   text: string,
   primaryKeywords: string[],
   secondaryKeywords: string[],

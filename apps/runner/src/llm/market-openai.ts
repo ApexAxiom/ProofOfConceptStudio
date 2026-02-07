@@ -39,6 +39,13 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     temperature: 0.25,
     max_tokens: 3500
   });
+  const llmUsage = response.usage
+    ? {
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens
+      }
+    : undefined;
 
   const raw = response.choices?.[0]?.message?.content ?? "{}";
   let parsed: MarketOutput;
@@ -120,6 +127,7 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
     heroImageUrl: heroArticle?.imageUrl,
     heroImageSourceUrl: heroArticle?.url,
     heroImageAlt: heroArticle?.title,
-    tags: ["market-dashboard", "lng", "oil-gas"]
+    tags: ["market-dashboard", "lng", "oil-gas"],
+    llmUsage
   };
 }

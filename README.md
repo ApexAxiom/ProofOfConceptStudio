@@ -10,6 +10,11 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - [Verified source directory](docs/sources/README.md) – reachability-checked source list for briefs.
 - [Engineering report](docs/engineering-report.md) – evidence-first pipeline, root causes, and validation steps.
 
+## Current-state pipeline (high-level)
+```
+Scheduler/API → Runner /cron → Ingest feeds → Normalize/Dedupe → Rank/Select → LLM brief → Validate → DynamoDB → API → Web
+```
+
 ## Setup
 1. Install pnpm (>=9)
 2. `pnpm install`
@@ -27,11 +32,22 @@ Internal procurement intelligence hub with regional agents generating citation-l
 - `pnpm --filter runner run validate:briefs` – validate recent briefs for evidence/source integrity
 - `pnpm --filter runner run render:smoke` – smoke-test markdown rendering
 - `pnpm --filter runner run feeds:audit` – verify per-agent feed coverage (10+) and feed reachability
+- `pnpm --filter runner run ingest:smoke` – smoke-test URL canonicalization, RSS parsing, ranking
+- `pnpm --filter runner run brief-v2:validate:smoke` – smoke-test v2 brief schema validation
 - `pnpm coverage:report` – portfolio × region coverage matrix (`has brief today` + latest published date + status)
 - `pnpm coverage:fill` – publish carry-forward/baseline briefs for any missing portfolio × region coverage for today
 - `pnpm backfill:brief-titles -- --dry-run` – preview headline-title backfill
 - `pnpm backfill:brief-upgrade -- --dry-run` – preview legacy brief upgrade to Summary/Impact/Possible actions/Sources format
 - `pnpm smoke:core` – smoke checks for latest-by-portfolio logic, fallback behavior, and executive payload
+
+### Manual runs / backfills
+- All portfolios for a region/day (runner CLI):
+  - `pnpm --filter runner run cron:apac -- --run-date 2024-01-15`
+  - `pnpm --filter runner run cron:international -- --run-date 2024-01-15`
+- Dry-run (no DynamoDB writes):
+  - `pnpm --filter runner run cron:apac -- --dry-run`
+- Single portfolio/agent (runner API):
+  - `curl -X POST "$RUNNER_BASE_URL/run/<agentId>" -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d '{"region":"au","runWindow":"apac","runDate":"2024-01-15","dryRun":false}'`
 
 Backfill runtime guidance (varies by table size and network):
 - `backfill:brief-titles`: typically 1-3 minutes per 1,000 briefs
@@ -121,6 +137,11 @@ Use EventBridge Scheduler with region-specific times. POST to runner `/cron` wit
 Schedule three batches per region using deterministic batching parameters:
 - APAC (06:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
 - International (06:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
+
+### Run status (admin)
+Use the API admin endpoint to inspect daily runs:
+- `GET /admin/run-status?region=au&briefDay=YYYY-MM-DD`
+- Header: `x-admin-token: $ADMIN_TOKEN`
 
 ### Lockfile discipline
 Run `pnpm install` locally and commit `pnpm-lock.yaml` for deterministic builds. Dockerfiles will use `--frozen-lockfile` when the lockfile is present.
