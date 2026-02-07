@@ -59,8 +59,30 @@ const FEED_TIMEOUT_MS = 12_000;
 const MAX_ITEMS_PER_FEED = 8;
 const SECTION_LIMIT = 12;
 const MAX_ARTICLE_AGE_DAYS = 14;
+const EXECUTIVE_GOOGLE_NEWS_ENABLED = (process.env.EXECUTIVE_GOOGLE_NEWS_ENABLED ?? "false").toLowerCase() === "true";
+
+function toExecutiveFeeds(portfolio: string, region: "apac" | "intl", targetRegion: ExecutiveRegion): RssFeed[] {
+  return getPortfolioSources(portfolio, region)
+    .map((source) => source.rssUrl ?? source.url)
+    .filter((url) => url.includes("rss") || url.includes("/feed"))
+    .map((url) => ({
+      url,
+      source: "Portfolio Sources",
+      category: "Oil & Gas",
+      region: targetRegion
+    }));
+}
 
 const WOODSIDE_FEEDS: RssFeed[] = [
+  ...toExecutiveFeeds("market-dashboard", "apac", "woodside"),
+  ...toExecutiveFeeds("market-dashboard", "intl", "woodside")
+];
+
+const APAC_FEEDS: RssFeed[] = toExecutiveFeeds("market-dashboard", "apac", "apac");
+
+const INTERNATIONAL_FEEDS: RssFeed[] = toExecutiveFeeds("market-dashboard", "intl", "international");
+
+const GOOGLE_WOODSIDE_FEEDS: RssFeed[] = [
   {
     url: "https://news.google.com/rss/search?q=Woodside%20Energy&hl=en-US&gl=US&ceid=US:en",
     source: "Market Sources",
@@ -69,16 +91,7 @@ const WOODSIDE_FEEDS: RssFeed[] = [
   }
 ];
 
-const APAC_FEEDS: RssFeed[] = [
-  ...getPortfolioSources("market-dashboard", "apac")
-    .map((source) => source.rssUrl ?? source.url)
-    .filter((url) => url.includes("rss") || url.includes("/feed"))
-    .map((url) => ({
-      url,
-      source: "Portfolio Sources",
-      category: "Oil & Gas",
-      region: "apac" as const
-    })),
+const GOOGLE_APAC_FEEDS: RssFeed[] = [
   {
     url: "https://news.google.com/rss/search?q=oil%20gas%20APAC%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
     source: "Market Sources",
@@ -87,16 +100,7 @@ const APAC_FEEDS: RssFeed[] = [
   }
 ];
 
-const INTERNATIONAL_FEEDS: RssFeed[] = [
-  ...getPortfolioSources("market-dashboard", "intl")
-    .map((source) => source.rssUrl ?? source.url)
-    .filter((url) => url.includes("rss") || url.includes("/feed"))
-    .map((url) => ({
-      url,
-      source: "Portfolio Sources",
-      category: "Oil & Gas",
-      region: "international" as const
-    })),
+const GOOGLE_INTERNATIONAL_FEEDS: RssFeed[] = [
   {
     url: "https://news.google.com/rss/search?q=oil%20gas%20LNG%20US%20Mexico%20Senegal&hl=en-US&gl=US&ceid=US:en",
     source: "Market Sources",
@@ -238,11 +242,17 @@ function sectionLastUpdated(articles: ExecutiveArticle[], fallback = new Date().
  * Builds the executive dashboard payload for the homepage and API route.
  */
 export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
+  const woodsideFeeds = EXECUTIVE_GOOGLE_NEWS_ENABLED ? [...WOODSIDE_FEEDS, ...GOOGLE_WOODSIDE_FEEDS] : WOODSIDE_FEEDS;
+  const apacFeeds = EXECUTIVE_GOOGLE_NEWS_ENABLED ? [...APAC_FEEDS, ...GOOGLE_APAC_FEEDS] : APAC_FEEDS;
+  const internationalFeeds = EXECUTIVE_GOOGLE_NEWS_ENABLED
+    ? [...INTERNATIONAL_FEEDS, ...GOOGLE_INTERNATIONAL_FEEDS]
+    : INTERNATIONAL_FEEDS;
+
   const [market, woodsideLive, apacLive, internationalLive] = await Promise.all([
     getExecutiveMarketQuotes(),
-    collectSectionArticles(WOODSIDE_FEEDS, ["woodside", "scarborough", "sangomar", "lng"]),
-    collectSectionArticles(APAC_FEEDS, APAC_KEYWORDS),
-    collectSectionArticles(INTERNATIONAL_FEEDS, INTERNATIONAL_KEYWORDS)
+    collectSectionArticles(woodsideFeeds, ["woodside", "scarborough", "sangomar", "lng"]),
+    collectSectionArticles(apacFeeds, APAC_KEYWORDS),
+    collectSectionArticles(internationalFeeds, INTERNATIONAL_KEYWORDS)
   ]);
 
   const woodsideArticles = woodsideLive.filter((article) => !isUserVisiblePlaceholderArticle(article));
@@ -266,17 +276,19 @@ export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPay
     woodside: {
       articles: woodsideArticles,
       lastUpdated: sectionLastUpdated(woodsideArticles, generatedAt),
-      source: "Market Sources"
+      source: EXECUTIVE_GOOGLE_NEWS_ENABLED ? "Portfolio + Market Sources" : "Portfolio Sources"
     },
     apac: {
       articles: apacArticles,
       lastUpdated: sectionLastUpdated(apacArticles, generatedAt),
-      source: "Portfolio + Market Sources"
+      source: EXECUTIVE_GOOGLE_NEWS_ENABLED ? "Portfolio + Market Sources" : "Portfolio Sources"
     },
     international: {
       articles: internationalArticles,
       lastUpdated: sectionLastUpdated(internationalArticles, generatedAt),
-      source: "Portfolio + Market Sources (US/Mexico/Senegal filtered)"
+      source: EXECUTIVE_GOOGLE_NEWS_ENABLED
+        ? "Portfolio + Market Sources (US/Mexico/Senegal filtered)"
+        : "Portfolio Sources (US/Mexico/Senegal filtered)"
     }
   };
 }
