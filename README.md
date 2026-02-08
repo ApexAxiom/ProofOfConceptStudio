@@ -9,6 +9,7 @@ Internal procurement intelligence hub with regional agents generating citation-l
 ## Documentation
 - [Verified source directory](docs/sources/README.md) – reachability-checked source list for briefs.
 - [Engineering report](docs/engineering-report.md) – evidence-first pipeline, root causes, and validation steps.
+- [Production runbook](docs/production-runbook.md) – day-to-day operations, CloudWatch alarms, and incident response.
 
 ## Current-state pipeline (high-level)
 ```
@@ -62,6 +63,7 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
+- Use `infra/cloudformation/runner-alarms.yml` to create CloudWatch alarms for missed runs, zero briefs by region, and ingestion failure rate.
 - Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge schedules to `runner` `/cron` with Bearer `CRON_SECRET`.
   - All Categories & Regions: 05:00 AM CST / 11:00 PM AWST (prev day) with body `{ "regions": ["au", "us-mx-la-lng"], "scheduled": true }`.
 
@@ -122,6 +124,7 @@ Runner
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (recommended: `gpt-4o-mini` for App Runner)
 - `CRON_SECRET`
+- `RUNNER_METRIC_NAMESPACE` (optional; default `POCStudio/Runner`)
 - `BRIEF_IMAGE_S3_BUCKET` (required for cached hero images)
 - `BRIEF_IMAGE_S3_REGION` (required for cached hero images)
 - `BRIEF_IMAGE_PUBLIC_BASE_URL` (required for cached hero images)
