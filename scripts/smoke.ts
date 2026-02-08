@@ -81,7 +81,7 @@ async function waitForRunResult(params: {
   while (Date.now() - started < timeoutMs) {
     const records = await fetchRunStatus(params.region);
     const match = records.find((r) => r.runId === params.runId && r.portfolio === params.portfolio);
-    if (match?.finishedAt) return match;
+    if (match?.finishedAt && match.status !== "started") return match;
     await sleep(5000);
   }
 
