@@ -126,7 +126,9 @@ export async function logBriefRunStart(
       "SET #type = :type, #schema = :schema, #runId = :runId, #status = :status, " +
       "#runWindow = :runWindow, #region = :region, #portfolio = :portfolio, #briefDay = :briefDay, " +
       "#startedAt = if_not_exists(#startedAt, :startedAt), #updatedAt = :updatedAt, " +
-      "#gsi2pk = :gsi2pk, #gsi2sk = :gsi2sk, #dryRun = :dryRun ADD #attempts :one",
+      "#gsi2pk = :gsi2pk, #gsi2sk = :gsi2sk, #dryRun = :dryRun " +
+      "REMOVE #finishedAt, #metrics, #error " +
+      "ADD #attempts :one",
     ExpressionAttributeNames: {
       "#type": "itemType",
       "#schema": "schemaVersion",
@@ -141,7 +143,10 @@ export async function logBriefRunStart(
       "#gsi2pk": "GSI2PK",
       "#gsi2sk": "GSI2SK",
       "#dryRun": "dryRun",
-      "#attempts": "attempts"
+      "#attempts": "attempts",
+      "#finishedAt": "finishedAt",
+      "#metrics": "metrics",
+      "#error": "error"
     },
     ExpressionAttributeValues: {
       ":type": "brief_run_status",
