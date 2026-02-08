@@ -33,6 +33,7 @@ import { getLatestPublishedBrief } from "./db/previous-brief.js";
 import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
 import { buildContextNote, buildTopStories, deriveDeltaSinceLastRun, normalizeNewsStatus } from "./brief-v2.js";
 import { cacheHeroImageToS3 } from "./media/cache-hero-image.js";
+import { emitRunnerMetrics } from "./observability/metrics.js";
 
 type RunStatus = "published" | "no-updates" | "failed" | "dry-run";
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; status: RunStatus; error?: string };
@@ -545,6 +546,8 @@ export async function handleCron(
 
   const missingByRegion = coverageResults.flatMap((coverage) => coverage.missingAgents);
   const missingCount = missingByRegion.length;
+  let finalMissingByRegion = missingByRegion;
+  const retryResults: RunResult[] = [];
 
   if (missingCount > 0) {
     console.warn(
@@ -581,6 +584,7 @@ export async function handleCron(
     );
 
     const rerunResults = await runWithLimit(rerunTasks, 2);
+    retryResults.push(...rerunResults);
     const rerunCoverageResults = await Promise.all(
       auditRegions.map((region) =>
         auditCoverage({
@@ -591,6 +595,7 @@ export async function handleCron(
       )
     );
     const stillMissing = rerunCoverageResults.flatMap((coverage) => coverage.missingAgents);
+    finalMissingByRegion = stillMissing;
     if (stillMissing.length > 0) {
       const placeholderTasks = stillMissing.map((missing) => {
         const priorResult = rerunResults.find((result) => result.agentId === missing.agentId && result.region === missing.region);
@@ -607,6 +612,7 @@ export async function handleCron(
           });
       });
       const placeholderResults = await runWithLimit(placeholderTasks, 2);
+      retryResults.push(...placeholderResults);
       const publishedFallbacks = placeholderResults.filter((result) => result.status === "published").length;
       const suppressedCount = placeholderResults.filter((result) => result.error === "placeholder_suppressed_in_production").length;
       console.warn(
@@ -624,6 +630,17 @@ export async function handleCron(
         })
       );
     }
+
+    const finalCoverageResults = await Promise.all(
+      auditRegions.map((region) =>
+        auditCoverage({
+          regions: [region],
+          dayKey: coverageDayByRegion.get(region) ?? expectedCoverageDayKey(region, new Date()),
+          agentIds: coverageAgentIds
+        })
+      )
+    );
+    finalMissingByRegion = finalCoverageResults.flatMap((coverage) => coverage.missingAgents);
   } else {
     console.log(
       JSON.stringify({
@@ -658,6 +675,38 @@ export async function handleCron(
         error: (error as Error).message
       })
     );
+  }
+
+  const allResults = [...results, ...retryResults];
+  const regionsForMetrics = auditRegions;
+  for (const region of regionsForMetrics) {
+    const regionResults = allResults.filter((result) => result.region === region);
+    const regionMissingCount = finalMissingByRegion.filter((missing) => missing.region === region).length;
+    const regionPublished = regionResults.filter((result) => result.status === "published").length;
+    const regionFailed = regionResults.filter((result) => result.status === "failed").length;
+    const regionNoUpdates = regionResults.filter((result) => result.status === "no-updates").length;
+    const regionDryRun = regionResults.filter((result) => result.status === "dry-run").length;
+
+    emitRunnerMetrics({
+      dimensions: {
+        Region: region
+      },
+      metrics: [
+        { name: "RunCompleted", value: 1, unit: "Count" },
+        { name: "PublishedBriefs", value: regionPublished, unit: "Count" },
+        { name: "FailedBriefs", value: regionFailed, unit: "Count" },
+        { name: "NoUpdateBriefs", value: regionNoUpdates, unit: "Count" },
+        { name: "DryRunBriefs", value: regionDryRun, unit: "Count" },
+        { name: "CoverageMissingCount", value: regionMissingCount, unit: "Count" }
+      ],
+      properties: {
+        event: "cron_region_summary",
+        runId,
+        runWindow,
+        runDate: opts?.runDate ?? new Date().toISOString(),
+        scheduled: opts?.scheduled === true
+      }
+    });
   }
 
   return {

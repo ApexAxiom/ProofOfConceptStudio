@@ -14,6 +14,7 @@ import { dedupeArticles } from "./dedupe.js";
 import { normalizeForDedupe } from "./url-normalize.js";
 import { getRecentlyUsedUrls } from "../db/used-urls.js";
 import { FeedAttempt, recordFeedAttempts } from "./feed-health.js";
+import { emitRunnerMetrics } from "../observability/metrics.js";
 
 export interface ArticleCandidate {
   title: string;
@@ -463,6 +464,32 @@ async function fetchFromFeeds(
       );
     }
   }
+
+  const attempts = feedAttempts.length;
+  const failures = feedAttempts.filter((attempt) => attempt.status === "error").length;
+  const empties = feedAttempts.filter((attempt) => attempt.status === "empty").length;
+  const successes = feedAttempts.filter((attempt) => attempt.status === "ok").length;
+  const failureRatePct = attempts > 0 ? (failures / attempts) * 100 : 0;
+
+  emitRunnerMetrics({
+    dimensions: {
+      Region: context.region
+    },
+    metrics: [
+      { name: "IngestionFeedAttempts", value: attempts, unit: "Count" },
+      { name: "IngestionFeedErrors", value: failures, unit: "Count" },
+      { name: "IngestionFeedEmpty", value: empties, unit: "Count" },
+      { name: "IngestionFeedSuccess", value: successes, unit: "Count" },
+      { name: "IngestionFailureRatePct", value: Number(failureRatePct.toFixed(2)), unit: "Percent" }
+    ],
+    properties: {
+      event: "ingest_feed_summary",
+      agentId: context.agentId,
+      portfolio: context.portfolio,
+      runWindow: context.runWindow,
+      runDate: context.runDate
+    }
+  });
 
   await recordFeedAttempts(feedAttempts).catch((error) => {
     console.warn(

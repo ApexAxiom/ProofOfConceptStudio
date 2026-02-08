@@ -1,0 +1,223 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudWatch alarms for ProofOfConceptStudio runner reliability
+
+Parameters:
+  AlarmTopicArn:
+    Type: String
+    Description: SNS topic ARN for alarm notifications
+  MetricNamespace:
+    Type: String
+    Default: POCStudio/Runner
+    Description: CloudWatch metric namespace emitted by runner EMF logs
+  ApacRegionDimension:
+    Type: String
+    Default: au
+  InternationalRegionDimension:
+    Type: String
+    Default: us-mx-la-lng
+  IngestionFailureRateThresholdPct:
+    Type: Number
+    Default: 25
+    Description: Alarm when ingestion feed error rate exceeds this percent
+  IngestionFailureRatePeriodSeconds:
+    Type: Number
+    Default: 3600
+  IngestionFailureRateEvaluationPeriods:
+    Type: Number
+    Default: 3
+  IngestionFailureRateDatapointsToAlarm:
+    Type: Number
+    Default: 2
+
+Resources:
+  RunnerMissedRunApacAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub pocstudio-runner-missed-run-${ApacRegionDimension}
+      AlarmDescription: APAC runner did not report a completed run in the last 24 hours.
+      Namespace: !Ref MetricNamespace
+      MetricName: RunCompleted
+      Dimensions:
+        - Name: Region
+          Value: !Ref ApacRegionDimension
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopicArn
+      OKActions:
+        - !Ref AlarmTopicArn
+
+  RunnerMissedRunInternationalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub pocstudio-runner-missed-run-${InternationalRegionDimension}
+      AlarmDescription: International runner did not report a completed run in the last 24 hours.
+      Namespace: !Ref MetricNamespace
+      MetricName: RunCompleted
+      Dimensions:
+        - Name: Region
+          Value: !Ref InternationalRegionDimension
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopicArn
+      OKActions:
+        - !Ref AlarmTopicArn
+
+  RunnerZeroPublishedApacAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub pocstudio-runner-zero-published-${ApacRegionDimension}
+      AlarmDescription: APAC region published zero briefs in the last 24 hours.
+      Namespace: !Ref MetricNamespace
+      MetricName: PublishedBriefs
+      Dimensions:
+        - Name: Region
+          Value: !Ref ApacRegionDimension
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopicArn
+      OKActions:
+        - !Ref AlarmTopicArn
+
+  RunnerZeroPublishedInternationalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub pocstudio-runner-zero-published-${InternationalRegionDimension}
+      AlarmDescription: International region published zero briefs in the last 24 hours.
+      Namespace: !Ref MetricNamespace
+      MetricName: PublishedBriefs
+      Dimensions:
+        - Name: Region
+          Value: !Ref InternationalRegionDimension
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopicArn
+      OKActions:
+        - !Ref AlarmTopicArn
+
+  RunnerIngestionFailureRateApacAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub pocstudio-runner-ingestion-failure-rate-${ApacRegionDimension}
+      AlarmDescription: APAC ingestion feed failure rate exceeded threshold.
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref IngestionFailureRateThresholdPct
+      EvaluationPeriods: !Ref IngestionFailureRateEvaluationPeriods
+      DatapointsToAlarm: !Ref IngestionFailureRateDatapointsToAlarm
+      TreatMissingData: notBreaching
+      Metrics:
+        - Id: mErrors
+          Label: APAC ingestion feed errors
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: !Ref MetricNamespace
+              MetricName: IngestionFeedErrors
+              Dimensions:
+                - Name: Region
+                  Value: !Ref ApacRegionDimension
+            Period: !Ref IngestionFailureRatePeriodSeconds
+            Stat: Sum
+        - Id: mAttempts
+          Label: APAC ingestion feed attempts
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: !Ref MetricNamespace
+              MetricName: IngestionFeedAttempts
+              Dimensions:
+                - Name: Region
+                  Value: !Ref ApacRegionDimension
+            Period: !Ref IngestionFailureRatePeriodSeconds
+            Stat: Sum
+        - Id: eRate
+          Label: APAC ingestion failure rate (%)
+          Expression: IF(mAttempts>0,(mErrors/mAttempts)*100,0)
+          ReturnData: true
+      AlarmActions:
+        - !Ref AlarmTopicArn
+      OKActions:
+        - !Ref AlarmTopicArn
+
+  RunnerIngestionFailureRateInternationalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub pocstudio-runner-ingestion-failure-rate-${InternationalRegionDimension}
+      AlarmDescription: International ingestion feed failure rate exceeded threshold.
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref IngestionFailureRateThresholdPct
+      EvaluationPeriods: !Ref IngestionFailureRateEvaluationPeriods
+      DatapointsToAlarm: !Ref IngestionFailureRateDatapointsToAlarm
+      TreatMissingData: notBreaching
+      Metrics:
+        - Id: mErrors
+          Label: International ingestion feed errors
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: !Ref MetricNamespace
+              MetricName: IngestionFeedErrors
+              Dimensions:
+                - Name: Region
+                  Value: !Ref InternationalRegionDimension
+            Period: !Ref IngestionFailureRatePeriodSeconds
+            Stat: Sum
+        - Id: mAttempts
+          Label: International ingestion feed attempts
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: !Ref MetricNamespace
+              MetricName: IngestionFeedAttempts
+              Dimensions:
+                - Name: Region
+                  Value: !Ref InternationalRegionDimension
+            Period: !Ref IngestionFailureRatePeriodSeconds
+            Stat: Sum
+        - Id: eRate
+          Label: International ingestion failure rate (%)
+          Expression: IF(mAttempts>0,(mErrors/mAttempts)*100,0)
+          ReturnData: true
+      AlarmActions:
+        - !Ref AlarmTopicArn
+      OKActions:
+        - !Ref AlarmTopicArn
+
+Outputs:
+  MetricNamespace:
+    Value: !Ref MetricNamespace
+  ApacMissedRunAlarmName:
+    Value: !Ref RunnerMissedRunApacAlarm
+  InternationalMissedRunAlarmName:
+    Value: !Ref RunnerMissedRunInternationalAlarm
+  ApacZeroPublishedAlarmName:
+    Value: !Ref RunnerZeroPublishedApacAlarm
+  InternationalZeroPublishedAlarmName:
+    Value: !Ref RunnerZeroPublishedInternationalAlarm
+  ApacIngestionFailureRateAlarmName:
+    Value: !Ref RunnerIngestionFailureRateApacAlarm
+  InternationalIngestionFailureRateAlarmName:
+    Value: !Ref RunnerIngestionFailureRateInternationalAlarm
