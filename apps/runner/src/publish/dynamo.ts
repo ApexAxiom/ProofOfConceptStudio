@@ -205,9 +205,7 @@ export async function logBriefRunResult(params: {
     "#briefDay": "briefDay",
     "#gsi2pk": "GSI2PK",
     "#gsi2sk": "GSI2SK",
-    "#dryRun": "dryRun",
-    "#metrics": "metrics",
-    "#error": "error"
+    "#dryRun": "dryRun"
   };
   const values: Record<string, unknown> = {
     ":status": params.status,
@@ -223,10 +221,12 @@ export async function logBriefRunResult(params: {
     ":dryRun": params.dryRun ?? false
   };
   if (params.metrics) {
+    names["#metrics"] = "metrics";
     updates.push("#metrics = :metrics");
     values[":metrics"] = params.metrics;
   }
   if (params.error) {
+    names["#error"] = "error";
     updates.push("#error = :error");
     values[":error"] = params.error;
   }
