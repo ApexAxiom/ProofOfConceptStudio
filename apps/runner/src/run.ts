@@ -574,7 +574,7 @@ export async function handleCron(
         10 * 60 * 1000,
         `rerun-${missing.agentId}`
       )
-        .catch((error) => ({
+        .catch((error): RunResult => ({
           agentId: missing.agentId,
           region: missing.region,
           ok: false,
