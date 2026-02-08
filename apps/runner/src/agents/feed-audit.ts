@@ -113,7 +113,7 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-async function checkFeed(feed: AgentFeed, timeoutMs: number): Promise<FeedCheckResult> {
+async function checkFeedOnce(feed: AgentFeed, timeoutMs: number): Promise<FeedCheckResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -166,6 +166,22 @@ async function checkFeed(feed: AgentFeed, timeoutMs: number): Promise<FeedCheckR
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function checkFeed(feed: AgentFeed, timeoutMs: number): Promise<FeedCheckResult> {
+  const first = await checkFeedOnce(feed, timeoutMs);
+  if (first.ok) return first;
+
+  // Some legit sites are just slow; retry once with a longer timeout on aborts.
+  const reason = (first.reason ?? "").toLowerCase();
+  const aborted = reason.includes("aborted") || reason.includes("aborterror");
+  if (!aborted) return first;
+
+  const retryTimeoutMs = Math.max(timeoutMs, 15_000);
+  if (retryTimeoutMs === timeoutMs) return first;
+
+  const retry = await checkFeedOnce(feed, retryTimeoutMs);
+  return retry.ok ? retry : first;
 }
 
 async function runWithConcurrency<T, R>(
