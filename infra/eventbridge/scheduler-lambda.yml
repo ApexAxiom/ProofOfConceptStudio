@@ -37,6 +37,7 @@ Resources:
       FunctionName: briefs-cron-proxy
       Runtime: python3.11
       Handler: index.lambda_handler
+      Timeout: 30
       Role: !GetAtt LambdaRole.Arn
       Environment:
         Variables:
@@ -49,26 +50,43 @@ Resources:
           import boto3
           import os
           
+          def get_cron_secret(secret_value):
+              """Accept secret as JSON {"CRON_SECRET": "..."} or plain string."""
+              if not secret_value:
+                  raise ValueError("Secret is empty")
+              raw = secret_value.strip()
+              if raw.startswith('{'):
+                  parsed = json.loads(raw)
+                  if isinstance(parsed.get('CRON_SECRET'), str):
+                      return parsed['CRON_SECRET']
+                  raise ValueError("CRON_SECRET not found in JSON secret")
+              return raw
+          
           def lambda_handler(event, context):
-              # Get secret
-              secrets_client = boto3.client('secretsmanager')
-              secret = secrets_client.get_secret_value(SecretId=os.environ['SECRET_ARN'])
-              cron_secret = json.loads(secret['SecretString'])['CRON_SECRET']
+              try:
+                  secrets_client = boto3.client('secretsmanager')
+                  secret = secrets_client.get_secret_value(SecretId=os.environ['SECRET_ARN'])
+                  cron_secret = get_cron_secret(secret.get('SecretString') or '')
+              except Exception as e:
+                  print(f"SecretsManager error: {e}")
+                  raise
               
-              # Make HTTP request
-              http = urllib3.PoolManager()
-              url = f"{os.environ['RUNNER_BASE_URL']}/cron"
+              url = f"{os.environ['RUNNER_BASE_URL'].rstrip('/')}/cron"
               headers = {
                   'Authorization': f'Bearer {cron_secret}',
                   'Content-Type': 'application/json'
               }
+              body = json.dumps(event) if isinstance(event, dict) else (event or '{}')
               
-              response = http.request('POST', url, body=json.dumps(event), headers=headers)
-              
-              return {
-                  'statusCode': response.status,
-                  'body': response.data.decode('utf-8')
-              }
+              try:
+                  http = urllib3.PoolManager(timeout=25.0)
+                  response = http.request('POST', url, body=body, headers=headers)
+                  resp_body = response.data.decode('utf-8')
+                  print(f"Runner responded: {response.status} {resp_body[:200]}")
+                  return {'statusCode': response.status, 'body': resp_body}
+              except Exception as e:
+                  print(f"HTTP error to {url}: {e}")
+                  raise
 
   SchedulerRole:
     Type: AWS::IAM::Role

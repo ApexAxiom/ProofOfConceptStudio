@@ -241,7 +241,8 @@ async function checkRecentRuns() {
     allRuns.forEach((run: any) => {
       const key = `${run.agentId || "unknown"}/${run.region || "unknown"}`;
       if (!byAgent[key]) byAgent[key] = { success: 0, failed: 0 };
-      if (run.status === "success") {
+      // logRunResult (RUN#) uses "published" | "no-updates" | "dry-run" | "failed"
+      if (run.status === "published" || run.status === "no-updates" || run.status === "dry-run" || run.status === "succeeded" || run.status === "success") {
         byAgent[key].success++;
       } else if (run.status === "failed") {
         byAgent[key].failed++;

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import {
   AgentConfig,
@@ -98,8 +99,10 @@ function hydrateAgentFeeds(agent: AgentConfig): AgentConfig {
   };
 }
 
+const runnerAgentsDir = path.dirname(fileURLToPath(import.meta.url));
+
 export function loadAgents(): AgentConfig[] {
-  const file = path.join(process.cwd(), "src", "agents", "agents.yaml");
+  const file = path.join(runnerAgentsDir, "agents.yaml");
   const raw = fs.readFileSync(file, "utf-8");
   const data = YAML.parse(raw) as AgentConfig[];
   const hydrated = data.map(hydrateAgentFeeds);

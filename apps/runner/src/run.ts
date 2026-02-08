@@ -1069,16 +1069,18 @@ export async function runAgent(
       }
       
       // Separate FACTCHECK issues into warnings (non-critical) and issues (critical)
-      // Critical: procurementActions, watchlist, supplier names
-      // Non-critical: summary, highlights, deltaSinceLastRun (general analysis)
+      // Approximate-match issues are warnings so we don't block briefs on numeric near-matches.
+      // Critical: missing evidence tags, procurementActions/watchlist/supplierRadar (when not approximate)
       for (const numericIssue of numericIssues) {
         if (numericIssue.includes("FACTCHECK:")) {
-          const isCritical = 
-            numericIssue.includes("procurementActions") ||
-            numericIssue.includes("watchlist") ||
-            numericIssue.includes("supplierRadar") ||
-            numericIssue.includes("selectedArticles") && !numericIssue.includes("briefContent");
-          
+          const isApproximateOnly = numericIssue.includes("(approximate match allowed)");
+          const isCritical =
+            !isApproximateOnly &&
+            (numericIssue.includes("procurementActions") ||
+              numericIssue.includes("watchlist") ||
+              numericIssue.includes("supplierRadar") ||
+              (numericIssue.includes("selectedArticles") && !numericIssue.includes("briefContent")));
+
           if (isCritical) {
             issues.push(numericIssue);
           } else {
@@ -1088,9 +1090,15 @@ export async function runAgent(
           issues.push(numericIssue);
         }
       }
-      
-      issues.push(...evidenceResult.issues);
-      
+
+      for (const evIssue of evidenceResult.issues) {
+        if (evIssue.startsWith("Claim needs verification:")) {
+          warnings.push(evIssue);
+        } else {
+          issues.push(evIssue);
+        }
+      }
+
       if (warnings.length > 0) {
         console.log(`[${agentId}/${region}] Validation warnings (non-blocking):`, warnings);
       }
