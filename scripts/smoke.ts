@@ -1,8 +1,9 @@
-import { getCronSecret } from "@proof/shared";
+import { getAdminToken, getCronSecret } from "@proof/shared";
 
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
 const CRON_SECRET = getCronSecret();
+const ADMIN_TOKEN = getAdminToken();
 const DEFAULT_REGIONS = ["au", "us-mx-la-lng"] as const;
 
 async function sleep(ms: number) {
@@ -28,6 +29,13 @@ async function fetchRunnerAgents(): Promise<RunnerAgent[]> {
   return payload.agents ?? [];
 }
 
+type BriefRunStatusRecord = {
+  runId: string;
+  status: string;
+  finishedAt?: string;
+  portfolio: string;
+};
+
 async function triggerMinimalDryRun(params: { region: string; agentId: string }) {
   const res = await fetch(`${RUNNER_BASE_URL}/cron`, {
     method: "POST",
@@ -40,23 +48,44 @@ async function triggerMinimalDryRun(params: { region: string; agentId: string })
       agentIds: [params.agentId],
       runWindow: runWindowForRegion(params.region),
       dryRun: true,
-      waitForCompletion: true
+      waitForCompletion: false
     })
   });
   if (!res.ok) {
     throw new Error(`Cron dry-run failed: ${res.status}`);
   }
-  return res.json() as Promise<{
-    runId: string;
-    results: Array<{
-      ok: boolean;
-      published: number;
-      noUpdates: number;
-      failed: number;
-      dryRun: number;
-      missingCount: number;
-    }>;
-  }>;
+  return res.json() as Promise<{ runId?: string }>;
+}
+
+async function fetchRunStatus(region: string): Promise<BriefRunStatusRecord[]> {
+  const res = await fetch(`${API_BASE_URL}/admin/run-status?region=${region}&limit=200`, {
+    headers: {
+      "x-admin-token": ADMIN_TOKEN
+    }
+  });
+  if (!res.ok) {
+    throw new Error(`API /admin/run-status failed: ${res.status}`);
+  }
+  return (await res.json()) as BriefRunStatusRecord[];
+}
+
+async function waitForRunResult(params: {
+  region: string;
+  runId: string;
+  portfolio: string;
+  timeoutMs?: number;
+}): Promise<BriefRunStatusRecord> {
+  const timeoutMs = Math.max(30_000, params.timeoutMs ?? 12 * 60 * 1000);
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const records = await fetchRunStatus(params.region);
+    const match = records.find((r) => r.runId === params.runId && r.portfolio === params.portfolio);
+    if (match?.finishedAt) return match;
+    await sleep(5000);
+  }
+
+  throw new Error(`Timed out waiting for run status: ${params.region} ${params.portfolio} ${params.runId}`);
 }
 
 async function pollPosts(region: string) {
@@ -88,9 +117,13 @@ async function main() {
 
     console.log(`Triggering minimal dry-run for ${region} (${candidate.id})...`);
     const cronResult = await triggerMinimalDryRun({ region, agentId: candidate.id });
-    const runResult = cronResult.results?.[0];
-    if (!runResult?.ok || runResult.failed > 0) {
-      throw new Error(`Dry-run failed for ${region}: ${JSON.stringify(runResult ?? {})}`);
+    const runId = cronResult.runId;
+    if (!runId) throw new Error(`Runner did not return a runId for ${region}`);
+
+    console.log(`Waiting for run status for ${region} (${candidate.portfolio})...`);
+    const runStatus = await waitForRunResult({ region, runId, portfolio: candidate.portfolio });
+    if (runStatus.status === "failed") {
+      throw new Error(`Dry-run failed for ${region}: ${JSON.stringify(runStatus)}`);
     }
 
     // Optional: verify API read path is reachable (does not require new briefs to exist).
@@ -100,7 +133,7 @@ async function main() {
       await sleep(1000);
     }
 
-    console.log(`Smoke success for ${region}: dry-run ok.`);
+    console.log(`Smoke success for ${region}: dry-run ok (${runStatus.status}).`);
   }
 }
 
