@@ -72,7 +72,13 @@ function TickerItem({ quote }: { quote: MarketQuote }) {
   );
 }
 
-export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }) {
+export function LiveMarketTicker({
+  showHeader = true,
+  symbols
+}: {
+  showHeader?: boolean;
+  symbols?: string[];
+}) {
   const [quotes, setQuotes] = useState<MarketQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
@@ -108,7 +114,14 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
     };
   }, []);
 
-  const status = useMemo(() => statusMeta(quotes), [quotes]);
+  const displayQuotes = useMemo(() => {
+    if (!symbols || symbols.length === 0) return quotes;
+    return symbols
+      .map((symbol) => quotes.find((quote) => quote.symbol === symbol))
+      .filter((quote): quote is MarketQuote => Boolean(quote));
+  }, [quotes, symbols]);
+
+  const status = useMemo(() => statusMeta(displayQuotes), [displayQuotes]);
 
   if (loading) {
     return (
@@ -126,7 +139,7 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
     );
   }
 
-  if (quotes.length === 0) {
+  if (displayQuotes.length === 0) {
     return <p className="text-sm text-muted-foreground">Market data is currently unavailable.</p>;
   }
 
@@ -151,12 +164,12 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
       <div className="ticker-container" onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
         <div className={`ticker-track ${isPaused ? "paused" : ""}`}>
           <div className="ticker-content">
-            {quotes.map((quote) => (
+            {displayQuotes.map((quote) => (
               <TickerItem key={`a-${quote.symbol}-${quote.sourceUrl}`} quote={quote} />
             ))}
           </div>
           <div className="ticker-content">
-            {quotes.map((quote) => (
+            {displayQuotes.map((quote) => (
               <TickerItem key={`b-${quote.symbol}-${quote.sourceUrl}`} quote={quote} />
             ))}
           </div>
@@ -165,4 +178,3 @@ export function LiveMarketTicker({ showHeader = true }: { showHeader?: boolean }
     </div>
   );
 }
-

@@ -3,18 +3,11 @@ import { BriefPost, portfolioLabel, regionLabel } from "@proof/shared";
 import { fetchLatest } from "../lib/api";
 import { ExecutiveArticle, getExecutiveDashboardData } from "../lib/executive-dashboard";
 import { formatDateWithTimezone } from "../lib/format-time";
+import { LiveMarketTicker } from "../components/LiveMarketTicker";
 
 export const dynamic = "force-dynamic";
 
-function formatPrice(price: number): string {
-  if (price >= 1000) return price.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  if (price < 1) return price.toFixed(4);
-  return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatChange(changePercent: number): string {
-  return `${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%`;
-}
+const EXECUTIVE_MARKET_SYMBOLS = ["WTI", "BRENT", "NG", "HRC", "COPPER", "IRON", "BDRY", "AUDUSD", "DXY", "SPX"];
 
 function NewsCard({ article }: { article: ExecutiveArticle }) {
   return (
@@ -61,27 +54,6 @@ export default async function ExecutiveViewPage() {
   const apacArticles = executiveData.apac.articles.slice(0, 6);
   const internationalArticles = executiveData.international.articles.slice(0, 6);
 
-  const chicagoNow = new Date();
-  const chicagoHour = Number(
-    chicagoNow.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "2-digit", hour12: false })
-  );
-  const chicagoWeekday = chicagoNow.toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short" });
-  const isWeekend = chicagoWeekday === "Sat" || chicagoWeekday === "Sun";
-  const marketClosed = isWeekend || chicagoHour < 9 || chicagoHour >= 16;
-  const marketCloseLabel = new Date(executiveData.market.lastUpdated).toLocaleDateString("en-US", {
-    timeZone: "America/Chicago",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-  const marketStatusLabel = marketClosed
-    ? `CLOSED ${marketCloseLabel}`
-    : executiveData.market.source === "live"
-      ? "LIVE"
-      : executiveData.market.source === "mixed"
-        ? "UPDATING"
-        : "CHECKING";
-
   return (
     <div className="space-y-8">
       <header className="rounded-2xl border border-border bg-card p-6">
@@ -104,55 +76,13 @@ export default async function ExecutiveViewPage() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">Market Indices</h2>
             <p className="text-sm text-muted-foreground">Procurement-relevant commodities and macro benchmarks.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Snapshots: 9:00 AM · 12:00 PM · Close (4:00 PM) CST</p>
+            <p className="mt-1 text-xs text-muted-foreground">Refreshes hourly (cached). Click any quote for the source.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
-                marketClosed
-                  ? "text-slate-600 dark:text-slate-300 bg-slate-500/10"
-                  : executiveData.market.source === "live"
-                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-                    : executiveData.market.source === "mixed"
-                      ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
-                      : "text-rose-600 dark:text-rose-400 bg-rose-500/10"
-              }`}
-            >
-              {marketStatusLabel}
-            </span>
-            {sectionTimestamp("Last updated", executiveData.market.lastUpdated)}
-          </div>
+          {sectionTimestamp("Last updated", executiveData.market.lastUpdated)}
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {executiveData.market.quotes.length > 0 ? (
-            executiveData.market.quotes.map((quote) => (
-              <a
-                key={`${quote.symbol}:${quote.sourceUrl}`}
-                href={quote.sourceUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="rounded-lg border border-border bg-background p-3 transition hover:border-primary/30"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-foreground">{quote.symbol}</span>
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    {marketClosed ? "Close" : quote.state === "live" ? "Live" : "Delayed"}
-                  </span>
-                </div>
-                <p className="mt-2 text-lg font-mono text-foreground">
-                  {quote.unit.startsWith("/") ? "" : "$"}
-                  {formatPrice(quote.price)}
-                  {quote.unit ? <span className="ml-1 text-xs text-muted-foreground">{quote.unit}</span> : null}
-                </p>
-                <p className={`text-xs font-mono ${quote.changePercent >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                  {formatChange(quote.changePercent)}
-                </p>
-              </a>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No market quotes available right now.</p>
-          )}
+        <div className="mt-4">
+          <LiveMarketTicker showHeader={false} symbols={EXECUTIVE_MARKET_SYMBOLS} />
         </div>
       </section>
 

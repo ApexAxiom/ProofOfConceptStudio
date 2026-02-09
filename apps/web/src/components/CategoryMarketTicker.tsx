@@ -1,17 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CategoryGroup, CATEGORY_INDICES, CategoryIndex } from "@proof/shared";
+import { CategoryGroup, CATEGORY_INDICES } from "@proof/shared";
 import { formatTimestampWithTimezones } from "@/lib/format-time";
 
 interface PriceData {
   symbol: string;
+  yahooSymbol: string;
   name: string;
   price: number;
   change: number;
   changePercent: number;
   unit: string;
   sourceUrl: string;
+  state: "live" | "stale" | "fallback";
+}
+
+interface MarketDataResponse {
+  success: boolean;
+  data: Array<{
+    symbol: string;
+    yahooSymbol: string;
+    name: string;
+    price: number;
+    change: number;
+    changePercent: number;
+    unit: string;
+    sourceUrl: string;
+    state: "live" | "stale" | "fallback";
+  }>;
+  timestamp: string;
+  source: "live" | "mixed" | "fallback";
 }
 
 function formatPrice(price: number): string {
@@ -37,7 +56,8 @@ function TickerItem({ data }: { data: PriceData }) {
     >
       <span className="font-semibold text-foreground tracking-tight">{data.symbol}</span>
       <span className="text-foreground/90 font-mono text-sm">
-        ${formatPrice(data.price)}
+        {data.unit.startsWith("/") ? "" : "$"}
+        {formatPrice(data.price)}
       </span>
       <span className={`ticker-change font-mono text-xs font-semibold px-1.5 py-0.5 rounded ${
         isPositive 
@@ -62,69 +82,32 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
       const indices = CATEGORY_INDICES[category] ?? [];
       
       try {
-        // Fetch from Yahoo Finance for live data
-        const symbols = indices.map(i => i.yahooSymbol).filter(s => !s.includes("!")).join(",");
-        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
-        
-        const res = await fetch(url, {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; POCStudio/1.0)" },
-        });
+        const response = await fetch("/api/market-data");
+        const json = (await response.json()) as MarketDataResponse;
+        const liveQuotes = json.success && Array.isArray(json.data) ? json.data : [];
+        const byYahooSymbol = new Map(liveQuotes.map((quote) => [quote.yahooSymbol, quote]));
+        const bySymbol = new Map(liveQuotes.map((quote) => [quote.symbol, quote]));
 
-        const quotes = new Map<string, { price: number; change: number; changePercent: number }>();
-        
-        if (res.ok) {
-          const json = await res.json();
-          for (const q of json?.quoteResponse?.result || []) {
-            quotes.set(q.symbol, {
-              price: q.regularMarketPrice || 0,
-              change: q.regularMarketChange || 0,
-              changePercent: q.regularMarketChangePercent || 0,
-            });
-          }
-        }
-
-        // Build price data with fallbacks
-        const priceData: PriceData[] = indices.map(idx => {
-          const live = quotes.get(idx.yahooSymbol);
-          if (live && live.price > 0) {
-            return {
-              symbol: idx.symbol,
-              name: idx.name,
-              price: live.price,
-              change: live.change,
-              changePercent: live.changePercent,
-              unit: idx.unit,
-              sourceUrl: idx.sourceUrl,
-            };
-          }
-          // Fallback with slight variation
-          const variation = (Math.random() - 0.5) * 0.02;
-          const price = idx.fallbackPrice * (1 + variation);
-          return {
-            symbol: idx.symbol,
-            name: idx.name,
-            price,
-            change: price * variation,
-            changePercent: variation * 100,
-            unit: idx.unit,
-            sourceUrl: idx.sourceUrl,
-          };
-        });
+        const priceData: PriceData[] = indices
+          .map((idx) => byYahooSymbol.get(idx.yahooSymbol) ?? bySymbol.get(idx.symbol) ?? null)
+          .filter((quote): quote is NonNullable<typeof quote> => Boolean(quote))
+          .map((quote) => ({
+            symbol: quote.symbol,
+            yahooSymbol: quote.yahooSymbol,
+            name: quote.name,
+            price: quote.price,
+            change: quote.change,
+            changePercent: quote.changePercent,
+            unit: quote.unit,
+            sourceUrl: quote.sourceUrl,
+            state: quote.state
+          }));
 
         setData(priceData);
-        setLastUpdated(new Date().toISOString());
+        setLastUpdated(json.timestamp ?? "");
       } catch (error) {
         console.error("Failed to fetch category market data:", error);
-        // Use fallbacks on error
-        setData(indices.map(idx => ({
-          symbol: idx.symbol,
-          name: idx.name,
-          price: idx.fallbackPrice,
-          change: 0,
-          changePercent: 0,
-          unit: idx.unit,
-          sourceUrl: idx.sourceUrl,
-        })));
+        setData([]);
       } finally {
         setLoading(false);
       }
@@ -148,6 +131,10 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
     );
   }
 
+  if (data.length === 0) {
+    return <p className="text-sm text-muted-foreground">Category market data is currently unavailable.</p>;
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
@@ -160,7 +147,7 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
           </div>
           <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
             <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            LIVE
+            HOURLY
           </span>
         </div>
         {lastUpdated && (
@@ -194,4 +181,3 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
     </div>
   );
 }
-
