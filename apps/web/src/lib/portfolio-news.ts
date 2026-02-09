@@ -21,6 +21,7 @@ const FEED_TIMEOUT_MS = 12_000;
 const MAX_FEEDS_PER_REGION = 6;
 const MAX_ITEMS_PER_FEED = 6;
 const MAX_AGE_DAYS = 14;
+const GOOGLE_NEWS_ENABLED = (process.env.GOOGLE_NEWS_ENABLED ?? "false").toLowerCase() === "true";
 
 function parseTag(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
@@ -115,10 +116,12 @@ function feedUrls(portfolio: string, region: "apac" | "intl"): Array<{ url: stri
       source: source.name
     }))
     .filter((entry) => entry.url.includes("rss") || entry.url.includes("/feed"));
-  const google = getGoogleNewsFeeds(portfolio, region).map((source) => ({
-    url: source.rssUrl ?? source.url,
-    source: source.name
-  }));
+  const google = GOOGLE_NEWS_ENABLED
+    ? getGoogleNewsFeeds(portfolio, region).map((source) => ({
+        url: source.rssUrl ?? source.url,
+        source: source.name
+      }))
+    : [];
 
   return [...base, ...google].slice(0, MAX_FEEDS_PER_REGION);
 }
