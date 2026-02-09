@@ -145,7 +145,7 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
         {/* Actions - Premium styling */}
         <div className="flex items-center gap-2 pt-3 border-t border-border mt-auto">
           <Link
-            href={`/brief/${brief.postId}`}
+            href={`/brief/${encodeURIComponent(brief.postId)}`}
             className="btn-primary flex-1 justify-center py-2 text-xs"
           >
             Read Brief

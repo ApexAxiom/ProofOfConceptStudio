@@ -124,7 +124,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
 
                       <div className="min-w-0 flex-1">
                         <Link
-                          href={`/brief/${brief.postId}`}
+                          href={`/brief/${encodeURIComponent(brief.postId)}`}
                           className="text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-2"
                           title={brief.title}
                         >
@@ -133,7 +133,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                       </div>
 
                       <Link
-                        href={`/brief/${brief.postId}`}
+                        href={`/brief/${encodeURIComponent(brief.postId)}`}
                         className="btn-ghost text-xs py-1.5 px-2 shrink-0"
                       >
                         Open
@@ -178,7 +178,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                       )}
                       <td className="px-4 py-3">
                         <Link
-                          href={`/brief/${brief.postId}`}
+                          href={`/brief/${encodeURIComponent(brief.postId)}`}
                           className="font-display text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-1"
                           title={brief.title}
                         >
@@ -186,7 +186,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/brief/${brief.postId}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+                        <Link href={`/brief/${encodeURIComponent(brief.postId)}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
                           Open
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -250,7 +250,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                       )}
                       <td className="px-4 py-4">
                         <Link 
-                          href={`/brief/${brief.postId}`}
+                          href={`/brief/${encodeURIComponent(brief.postId)}`}
                           className="font-display text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-2"
                           title={brief.title}
                         >
@@ -272,7 +272,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                       </td>
                       <td className="px-4 py-4 text-right">
                         <Link
-                          href={`/brief/${brief.postId}`}
+                          href={`/brief/${encodeURIComponent(brief.postId)}`}
                           className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors group/link"
                         >
                           Open

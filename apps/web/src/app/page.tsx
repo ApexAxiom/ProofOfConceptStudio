@@ -213,7 +213,7 @@ export default async function ExecutiveViewPage() {
           {topBriefRows.map((row) => (
             <Link
               key={row.postId}
-              href={`/brief/${row.postId}`}
+              href={`/brief/${encodeURIComponent(row.postId)}`}
               className="block rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
             >
               <p className="text-sm font-semibold text-foreground line-clamp-1">{row.title}</p>

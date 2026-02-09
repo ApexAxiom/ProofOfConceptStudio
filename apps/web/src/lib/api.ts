@@ -87,7 +87,9 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
 export async function fetchPost(postId: string): Promise<BriefPost | null> {
   try {
     const apiBaseUrl = await getApiBaseUrl();
-    const res = await fetch(`${apiBaseUrl}/posts/${postId}`, { cache: "no-store" });
+    // postId contains "#" (e.g. `brief_YYYY-MM-DD#region#agentId`), so it must be URL-encoded.
+    const encodedPostId = encodeURIComponent(postId);
+    const res = await fetch(`${apiBaseUrl}/posts/${encodedPostId}`, { cache: "no-store" });
     if (!res.ok) return null;
     const data = await res.json();
     // Guard against API returning null/empty with 200 status

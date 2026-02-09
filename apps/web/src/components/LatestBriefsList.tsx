@@ -60,7 +60,7 @@ export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <Link
-                    href={`/brief/${brief.postId}`}
+                    href={`/brief/${encodeURIComponent(brief.postId)}`}
                     className="group flex items-start gap-4 px-5 py-4 hover:bg-secondary/30 transition-all duration-200"
                   >
                     {/* Category indicator */}

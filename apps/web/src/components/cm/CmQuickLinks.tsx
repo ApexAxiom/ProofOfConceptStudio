@@ -17,7 +17,7 @@ export function CmQuickLinks({ brief, region, portfolio }: CmQuickLinksProps) {
       <h3 className="text-sm font-semibold text-foreground">Quick links</h3>
       <div className="space-y-2">
         <Link
-          href={brief ? `/brief/${brief.postId}` : "#"}
+          href={brief ? `/brief/${encodeURIComponent(brief.postId)}` : "#"}
           aria-disabled={!brief}
           className={`btn-primary block w-full text-center ${!brief ? "pointer-events-none opacity-60" : ""}`}
         >

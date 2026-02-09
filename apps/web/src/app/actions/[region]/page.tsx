@@ -313,7 +313,7 @@ export default async function ActionCenter({
                       <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
                       <td className="px-4 py-3 text-sm text-foreground">{item}</td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                        <Link href={`/brief/${encodeURIComponent(entry.postId)}`} className="text-xs font-semibold text-primary hover:underline">
                           Open
                         </Link>
                       </td>
@@ -356,7 +356,7 @@ export default async function ActionCenter({
                       <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
                       <td className="px-4 py-3 text-sm text-foreground">{item}</td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/brief/${entry.postId}`} className="text-xs font-semibold text-primary hover:underline">
+                        <Link href={`/brief/${encodeURIComponent(entry.postId)}`} className="text-xs font-semibold text-primary hover:underline">
                           Open
                         </Link>
                       </td>

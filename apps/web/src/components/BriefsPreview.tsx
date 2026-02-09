@@ -64,7 +64,7 @@ export function BriefsPreview({ briefs, region, portfolio }: BriefsPreviewProps)
         {topBriefs.map((brief) => (
           <Link
             key={brief.postId}
-            href={`/brief/${brief.postId}`}
+            href={`/brief/${encodeURIComponent(brief.postId)}`}
             className="flex items-start gap-3 rounded-md bg-background border border-border p-3 hover:border-primary/30 hover:bg-secondary/30 transition-all group"
           >
             <div className="flex-1 min-w-0">

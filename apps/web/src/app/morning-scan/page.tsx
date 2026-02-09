@@ -44,7 +44,7 @@ export default async function MorningScanPage() {
           {briefs.map((brief) => (
             <Link
               key={brief.postId}
-              href={`/brief/${brief.postId}`}
+              href={`/brief/${encodeURIComponent(brief.postId)}`}
               className="block rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
             >
               <p className="text-sm font-semibold text-foreground line-clamp-1">{brief.title}</p>

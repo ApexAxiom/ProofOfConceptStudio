@@ -206,7 +206,19 @@ export function validateBrief(
   const issues: string[] = [];
   const safeIndexUrls = indexUrls || new Set<string>();
   const combinedUrls = new Set([...allowedUrls, ...safeIndexUrls]);
-  const normalizedSources = dedupeSources(normalizeBriefSources(brief.sources));
+
+  // Ensure user-visible structured references (marketIndicators, marketSnapshot, hero source)
+  // are included in the sources list. Older/edge-case generators may omit them, which breaks
+  // downstream integrity checks and removes attribution from the UI.
+  const extraSourceUrls: string[] = [
+    ...(brief.selectedArticles ?? []).map((a) => a.url),
+    ...(brief.marketIndicators ?? []).map((i) => i.url),
+    ...(brief.marketSnapshot ?? []).map((i) => i.sourceUrl),
+    brief.heroImageSourceUrl
+  ].filter((url): url is string => typeof url === "string" && url.length > 0);
+
+  const mergedSourceInputs = [...(brief.sources ?? []), ...extraSourceUrls];
+  const normalizedSources = dedupeSources(normalizeBriefSources(mergedSourceInputs));
   
   // Run all validations
   validateTitleAndSummary(brief, issues);

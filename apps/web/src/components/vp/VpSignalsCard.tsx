@@ -4,10 +4,11 @@ import { BriefPost, VpSignal } from "@proof/shared";
 
 function getEvidenceHref(brief: BriefPost, evidenceArticleIndex: number): string {
   const position = brief.selectedArticles?.findIndex((article) => article.sourceIndex === evidenceArticleIndex) ?? -1;
+  const baseHref = `/brief/${encodeURIComponent(brief.postId)}`;
   if (position >= 0) {
-    return `/brief/${brief.postId}#article-${position + 1}`;
+    return `${baseHref}#article-${position + 1}`;
   }
-  return `/brief/${brief.postId}`;
+  return baseHref;
 }
 
 function Badge({ children }: { children: ReactNode }) {

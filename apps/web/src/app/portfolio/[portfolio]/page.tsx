@@ -456,7 +456,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
 
             {activeBrief ? (
               <div className="mt-5">
-                <Link href={`/brief/${activeBrief.postId}`} className={`btn-secondary text-sm ${styles.focusable}`}>
+                <Link href={`/brief/${encodeURIComponent(activeBrief.postId)}`} className={`btn-secondary text-sm ${styles.focusable}`}>
                   Open Full Brief
                 </Link>
               </div>
@@ -555,7 +555,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                   <ListRow
                     key={brief.postId}
                     title={brief.title}
-                    href={`/brief/${brief.postId}`}
+                    href={`/brief/${encodeURIComponent(brief.postId)}`}
                     external={false}
                     meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
                     note={sanitizeInsightText(brief.summary)}
@@ -579,7 +579,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                     <ListRow
                       key={brief.postId}
                       title={brief.title}
-                      href={`/brief/${brief.postId}`}
+                      href={`/brief/${encodeURIComponent(brief.postId)}`}
                       external={false}
                       meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
                       note={sanitizeInsightText(brief.summary)}

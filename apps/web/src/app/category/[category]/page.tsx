@@ -95,7 +95,7 @@ export default async function CategoryDashboard({ params, searchParams }: Catego
                 ))}
               </ul>
             ) : null}
-            <Link href={`/brief/${latestCategoryBrief.postId}`} className="btn-secondary text-sm">
+            <Link href={`/brief/${encodeURIComponent(latestCategoryBrief.postId)}`} className="btn-secondary text-sm">
               Open Brief
             </Link>
           </article>

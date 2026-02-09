@@ -312,7 +312,7 @@ function AgentContextPanel({
               {latestBriefs.map((brief) => (
                 <Link
                   key={brief.postId}
-                  href={`/brief/${brief.postId}`}
+                  href={`/brief/${encodeURIComponent(brief.postId)}`}
                   className="block rounded-lg border border-border bg-background px-3 py-2 transition hover:border-primary/40"
                 >
                   <p className="text-sm font-medium text-foreground line-clamp-2">{brief.title}</p>
