@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx src/server.ts",
-    "build": "tsc -b",
+    "build": "tsc -b && node scripts/copy-assets.mjs",
     "start": "node dist/server.js",
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
     "evidence:smoke": "tsx src/publish/evidence.smoke.ts",

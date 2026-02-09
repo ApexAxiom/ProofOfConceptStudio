@@ -48,6 +48,10 @@ async function main() {
 
   const fastify = Fastify({ logger: true });
 
+  // Fail fast if the agent catalog isn't available in this build (required for cron + /agents).
+  const agentCount = loadAgents().length;
+  fastify.log.info({ agentCount }, "agent catalog loaded");
+
   fastify.get("/health", async () => ({ status: "ok" }));
   fastify.get("/healthz", async () => ({ status: "ok" }));
 
