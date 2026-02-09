@@ -500,10 +500,15 @@ function buildClaims(params: {
     claim.evidence.forEach((evidenceItem) => usedSourceIds.add(evidenceItem.sourceId));
   }
 
+  // Primary: sources referenced by supported claims.
+  // Always include the "core" sources (selected articles + market indicators) even if not yet
+  // supported by evidence matching. These are user-visible and must retain attribution URLs.
+  const coreSources = dedupeSources(sourceCatalog);
   let sources = dedupeSources(sourceCatalog.filter((source) => usedSourceIds.has(source.sourceId)));
-  // When no claims reference sources, validation still requires at least one source
-  if (sources.length === 0 && sourceCatalog.length > 0) {
-    sources = dedupeSources(sourceCatalog.slice(0, 10));
+  sources = dedupeSources([...sources, ...coreSources]);
+  // When no sources exist at all, validation still requires at least one source.
+  if (sources.length === 0 && coreSources.length > 0) {
+    sources = coreSources.slice(0, 10);
   }
 
   const cleanedBrief: BriefPost = {

@@ -236,14 +236,20 @@ export function validateBrief(
       }
     }
     if (evidenceUrls.size > 0) {
+      const selectedArticleUrls = new Set<string>((brief.selectedArticles ?? []).map((a) => a.url).filter(Boolean));
       for (const source of normalizedSources) {
-        if (!evidenceUrls.has(source.url)) {
+        // Index/market sources and selected article URLs are allowed to appear without
+        // being referenced by a supported claim (they are contextual attribution, not evidence excerpts).
+        const exempt = isUrlAllowed(source.url, safeIndexUrls) || isUrlAllowed(source.url, selectedArticleUrls);
+        if (exempt) continue;
+
+        if (!isUrlAllowed(source.url, evidenceUrls)) {
           issues.push(`Source not referenced by supported claims: ${source.url}`);
         }
       }
       const sourceUrls = new Set(normalizedSources.map((source) => source.url));
       for (const url of evidenceUrls) {
-        if (!sourceUrls.has(url)) {
+        if (!isUrlAllowed(url, sourceUrls)) {
           issues.push(`Evidence source missing from sources list: ${url}`);
         }
       }

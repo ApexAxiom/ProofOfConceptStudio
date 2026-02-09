@@ -90,6 +90,34 @@ function dedupeSources(sources: BriefSource[]): BriefSource[] {
   return Array.from(byId.values());
 }
 
+function normalizeDedupeKey(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function dedupeCitedBullets(bullets: BriefCitedBullet[]): BriefCitedBullet[] {
+  const seen = new Set<string>();
+  const out: BriefCitedBullet[] = [];
+  for (const bullet of bullets) {
+    const key = normalizeDedupeKey(bullet.text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(bullet);
+  }
+  return out;
+}
+
+function dedupeActions(actions: BriefReportAction[]): BriefReportAction[] {
+  const seen = new Set<string>();
+  const out: BriefReportAction[] = [];
+  for (const action of actions) {
+    const key = normalizeDedupeKey(action.action);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(action);
+  }
+  return out;
+}
+
 function citationTag(sourceIds: string[], sourceNumberById: Map<string, number>): string {
   const ordered = Array.from(new Set(sourceIds.map((sourceId) => sourceNumberById.get(sourceId)).filter(Boolean)));
   if (ordered.length === 0) return "";
@@ -272,41 +300,41 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     .filter((m): m is NonNullable<typeof m> => Boolean(m));
 
   const report: BriefReport = {
-    summaryBullets: parsed.summaryBullets.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)),
+    summaryBullets: dedupeCitedBullets(parsed.summaryBullets.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))),
     impactGroups: [
       {
         label: "Market/Cost drivers",
-        bullets: parsed.impact.marketCostDrivers.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
+        bullets: dedupeCitedBullets(parsed.impact.marketCostDrivers.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
       },
       {
         label: "Supply base & capacity",
-        bullets: parsed.impact.supplyBaseCapacity.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
+        bullets: dedupeCitedBullets(parsed.impact.supplyBaseCapacity.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
       },
       {
         label: "Contracting & commercial terms",
-        bullets: parsed.impact.contractingCommercialTerms.map((bullet) =>
-          mapCitedBulletToSourceIds(bullet, selectedByIndex)
+        bullets: dedupeCitedBullets(
+          parsed.impact.contractingCommercialTerms.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
         )
       },
       {
         label: "Risk & regulatory / operational constraints",
-        bullets: parsed.impact.riskRegulatoryOperationalConstraints.map((bullet) =>
-          mapCitedBulletToSourceIds(bullet, selectedByIndex)
+        bullets: dedupeCitedBullets(
+          parsed.impact.riskRegulatoryOperationalConstraints.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
         )
       }
     ],
     actionGroups: [
       {
         horizon: "Next 72 hours",
-        actions: parsed.possibleActions.next72Hours.map((action) => mapActionToSourceIds(action, selectedByIndex))
+        actions: dedupeActions(parsed.possibleActions.next72Hours.map((action) => mapActionToSourceIds(action, selectedByIndex)))
       },
       {
         horizon: "Next 2-4 weeks",
-        actions: parsed.possibleActions.next2to4Weeks.map((action) => mapActionToSourceIds(action, selectedByIndex))
+        actions: dedupeActions(parsed.possibleActions.next2to4Weeks.map((action) => mapActionToSourceIds(action, selectedByIndex)))
       },
       {
         horizon: "Next quarter",
-        actions: parsed.possibleActions.nextQuarter.map((action) => mapActionToSourceIds(action, selectedByIndex))
+        actions: dedupeActions(parsed.possibleActions.nextQuarter.map((action) => mapActionToSourceIds(action, selectedByIndex)))
       }
     ]
   };

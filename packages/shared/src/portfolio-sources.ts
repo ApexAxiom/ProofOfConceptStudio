@@ -234,10 +234,10 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
     sources: [
       { name: "Valve World", url: "https://valve-world.net/", region: "both" },
       { name: "MRO Magazine", url: "https://www.mromagazine.com/", region: "intl", rssUrl: "https://www.mromagazine.com/feed/" },
-      { name: "Supply Chain Dive", url: "https://www.supplychaindive.com/", region: "both" },
+      { name: "Supply Chain Dive", url: "https://www.supplychaindive.com/", region: "both", rssUrl: "https://www.supplychaindive.com/feeds/news/" },
       { name: "Pumps & Systems", url: "https://www.pumpsandsystems.com/", region: "both" },
       { name: "Fluid Power Journal", url: "https://fluidpowerjournal.com/", region: "intl" },
-      { name: "Manufacturers' Monthly (AU)", url: "https://www.manmonthly.com.au/", region: "apac" },
+      { name: "Manufacturers' Monthly (AU)", url: "https://www.manmonthly.com.au/", region: "apac", rssUrl: "https://www.manmonthly.com.au/feed/" },
       { name: "Process Online (AU)", url: "https://www.processonline.com.au/", region: "apac" },
     ],
     indices: [
