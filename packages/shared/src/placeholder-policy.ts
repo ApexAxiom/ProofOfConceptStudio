@@ -72,7 +72,11 @@ export function isPlaceholdersAllowed(options?: PlaceholderPolicyOptions): boole
     const parsed = parseBoolean(env[key]);
     if (parsed !== undefined) return parsed;
   }
-  return env.NODE_ENV !== "production";
+  const nodeEnv = (env.NODE_ENV ?? "").trim().toLowerCase();
+  if (nodeEnv === "production") return false;
+  if (nodeEnv === "development" || nodeEnv === "test") return true;
+  // Default-safe: if NODE_ENV is unset/unknown, treat as production and suppress placeholders.
+  return false;
 }
 
 export function isUserVisiblePlaceholderBrief(brief: Partial<BriefPost> | null | undefined): boolean {
