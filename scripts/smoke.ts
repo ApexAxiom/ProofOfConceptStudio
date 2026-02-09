@@ -1,4 +1,44 @@
 import { getAdminToken, getCronSecret } from "@proof/shared";
+import fs from "node:fs";
+import path from "node:path";
+
+function loadDotEnvFile(filePath: string): void {
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const normalized = trimmed.startsWith("export ") ? trimmed.slice("export ".length) : trimmed;
+      const idx = normalized.indexOf("=");
+      if (idx <= 0) continue;
+      const key = normalized.slice(0, idx).trim();
+      let value = normalized.slice(idx + 1);
+      if (!key) continue;
+      if (process.env[key] !== undefined) continue;
+
+      // Strip surrounding quotes (common in .env files).
+      if (
+        (value.startsWith("\"") && value.endsWith("\"")) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+
+      process.env[key] = value;
+    }
+  } catch {
+    // Ignore missing/unreadable env files; callers can still rely on real env vars.
+  }
+}
+
+function loadDotEnv(): void {
+  // Prefer .env.local first, then .env, without overriding real environment variables.
+  const root = process.cwd();
+  loadDotEnvFile(path.join(root, ".env.local"));
+  loadDotEnvFile(path.join(root, ".env"));
+}
+
+loadDotEnv();
 
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
