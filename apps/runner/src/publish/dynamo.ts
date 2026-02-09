@@ -35,6 +35,13 @@ export function buildDynamoItem(
   const briefDay = brief.briefDay ?? "";
 
   return {
+    // Spread the brief first so we can reliably override any accidental DynamoDB key/index
+    // attributes that may have been carried through from previous reads (e.g. carry-forward).
+    ...(brief as unknown as Record<string, unknown>),
+
+    // Ensure version always has a value (default to v2).
+    version: brief.version ?? "v2",
+
     // Primary key
     PK: `POST#${brief.postId}`,
     SK: `DAY#${briefDay || brief.publishedAt}`,
@@ -46,10 +53,6 @@ export function buildDynamoItem(
     GSI2SK: `DATE#${brief.publishedAt}`,
     GSI3PK: `STATUS#${brief.status}`,
     GSI3SK: `DATE#${brief.publishedAt}`,
-
-    // Brief data
-    ...brief,
-    version: brief.version ?? "v2",
 
     // Ensure selectedArticles is properly stored
     selectedArticles: brief.selectedArticles?.map((article) => {
