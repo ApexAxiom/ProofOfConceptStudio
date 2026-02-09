@@ -35,14 +35,15 @@ const energyIndices: PortfolioIndex[] = [
 
 // Steel indices
 const steelIndices: PortfolioIndex[] = [
-  { symbol: "HRC", name: "HRC Steel", yahooSymbol: "HRC1!", unit: "/ton", fallbackPrice: 740, sourceUrl: "https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html" },
+  // Yahoo uses the continuous HRC futures symbol `HRC=F` (chart endpoint-compatible).
+  { symbol: "HRC", name: "HRC Steel", yahooSymbol: "HRC=F", unit: "/ton", fallbackPrice: 740, sourceUrl: "https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html" },
   { symbol: "COPPER", name: "Copper", yahooSymbol: "HG=F", unit: "/lb", fallbackPrice: 3.85, sourceUrl: "https://finance.yahoo.com/quote/HG=F" },
   { symbol: "IRON", name: "Iron Ore", yahooSymbol: "TIO=F", unit: "/t", fallbackPrice: 108.5, sourceUrl: "https://finance.yahoo.com/quote/TIO=F" },
 ];
 
 // Shipping indices
 const shippingIndices: PortfolioIndex[] = [
-  { symbol: "BDI", name: "Baltic Dry Index", yahooSymbol: "^BDI", unit: "pts", fallbackPrice: 1245, sourceUrl: "https://finance.yahoo.com/quote/%5EBDI" },
+  { symbol: "BDRY", name: "Dry Bulk Shipping (BDRY)", yahooSymbol: "BDRY", unit: "", fallbackPrice: 0, sourceUrl: "https://finance.yahoo.com/quote/BDRY" },
   { symbol: "WTI", name: "WTI (Fuel)", yahooSymbol: "CL=F", unit: "/bbl", fallbackPrice: 71.23, sourceUrl: "https://finance.yahoo.com/quote/CL=F" },
 ];
 

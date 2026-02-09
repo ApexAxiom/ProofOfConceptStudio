@@ -48,6 +48,7 @@ interface YahooQuote {
 const CACHE_DIR = path.join(process.cwd(), ".cache");
 const CACHE_FILE = path.join(CACHE_DIR, "market-quotes.json");
 const RETRY_BACKOFF_MS = [300, 900, 1800];
+const REFRESH_TTL_MS = 60 * 60 * 1000;
 const MARKET_TIME_ZONE = "America/Chicago";
 const SNAPSHOT_HOURS = [9, 12, 16];
 
@@ -57,13 +58,22 @@ const EXECUTIVE_SYMBOL_ORDER = [
   "NG",
   "HRC",
   "COPPER",
-  "BDI",
+  "IRON",
+  "BDRY",
   "AUDUSD",
   "DXY",
   "SPX"
 ];
 
 const EXTRA_EXECUTIVE_QUOTES: PortfolioIndex[] = [
+  {
+    symbol: "BDRY",
+    name: "Dry Bulk Shipping (BDRY)",
+    yahooSymbol: "BDRY",
+    unit: "",
+    fallbackPrice: 0,
+    sourceUrl: "https://finance.yahoo.com/quote/BDRY"
+  },
   {
     symbol: "AUDUSD",
     name: "AUD/USD",
@@ -210,12 +220,8 @@ async function writeStore(store: MarketStore): Promise<void> {
   }
 }
 
-async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
-  const uniqueSymbols = Array.from(new Set(symbols)).filter(Boolean);
-  const quotes = new Map<string, YahooQuote>();
-  if (uniqueSymbols.length === 0) return quotes;
-
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(uniqueSymbols.join(","))}`;
+async function fetchYahooChartQuote(yahooSymbol: string): Promise<YahooQuote | null> {
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1d&interval=1h`;
 
   for (let attempt = 0; attempt < RETRY_BACKOFF_MS.length; attempt += 1) {
     try {
@@ -226,32 +232,32 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuo
         },
         cache: "no-store"
       });
+
       if (!response.ok) {
         if (attempt < RETRY_BACKOFF_MS.length - 1) {
           await sleep(RETRY_BACKOFF_MS[attempt]);
           continue;
         }
-        return quotes;
+        return null;
       }
 
-      const json = await response.json();
-      const result = json?.quoteResponse?.result as Array<Record<string, unknown>>;
-      if (!Array.isArray(result)) return quotes;
+      const json = (await response.json()) as any;
+      const meta = json?.chart?.result?.[0]?.meta as Record<string, unknown> | undefined;
+      if (!meta) return null;
 
-      for (const row of result) {
-        const symbol = typeof row.symbol === "string" ? row.symbol : "";
-        const price = asNumber(row.regularMarketPrice, 0);
-        if (!symbol || price <= 0) continue;
-        const marketTime = asNumber(row.regularMarketTime, 0);
-        quotes.set(symbol, {
-          price,
-          change: asNumber(row.regularMarketChange, 0),
-          changePercent: asNumber(row.regularMarketChangePercent, 0),
-          lastUpdated: marketTime > 0 ? new Date(marketTime * 1000).toISOString() : nowIso()
-        });
-      }
+      const price = asNumber(meta.regularMarketPrice, 0);
+      if (price <= 0) return null;
+      const previousClose = asNumber(meta.previousClose, 0);
+      const change = previousClose > 0 ? price - previousClose : 0;
+      const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+      const marketTime = asNumber(meta.regularMarketTime, 0);
 
-      return quotes;
+      return {
+        price,
+        change,
+        changePercent,
+        lastUpdated: marketTime > 0 ? new Date(marketTime * 1000).toISOString() : nowIso()
+      };
     } catch {
       if (attempt < RETRY_BACKOFF_MS.length - 1) {
         await sleep(RETRY_BACKOFF_MS[attempt]);
@@ -259,6 +265,31 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuo
     }
   }
 
+  return null;
+}
+
+async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
+  const uniqueSymbols = Array.from(new Set(symbols)).filter(Boolean);
+  const quotes = new Map<string, YahooQuote>();
+  if (uniqueSymbols.length === 0) return quotes;
+
+  // Avoid hammering Yahoo endpoints: small fixed concurrency with retries per symbol.
+  const concurrency = Math.min(6, uniqueSymbols.length);
+  let cursor = 0;
+
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (cursor < uniqueSymbols.length) {
+      const symbol = uniqueSymbols[cursor];
+      cursor += 1;
+
+      const quote = await fetchYahooChartQuote(symbol);
+      if (quote) {
+        quotes.set(symbol, quote);
+      }
+    }
+  });
+
+  await Promise.all(workers);
   return quotes;
 }
 
@@ -336,7 +367,7 @@ async function refreshSnapshot(): Promise<MarketSnapshot> {
   const staleCount = quotes.filter((quote) => quote.state === "stale").length;
   const fallbackCount = quotes.filter((quote) => quote.state === "fallback").length;
   const source: MarketSnapshot["source"] =
-    liveCount === quotes.length ? "live" : liveCount > 0 || staleCount > 0 ? "mixed" : "fallback";
+    quotes.length > 0 && liveCount === quotes.length ? "live" : liveCount > 0 || staleCount > 0 ? "mixed" : "fallback";
 
   const snapshot: MarketSnapshot = {
     quotes,
@@ -360,6 +391,11 @@ export async function getMarketSnapshot(): Promise<MarketSnapshot> {
   const now = new Date();
   const currentWindowKey = getSnapshotWindowKey(now);
   if (!memoryCache) {
+    return refreshSnapshot();
+  }
+
+  const ageMs = Date.now() - memoryCache.refreshedAtMs;
+  if (ageMs >= REFRESH_TTL_MS) {
     return refreshSnapshot();
   }
 

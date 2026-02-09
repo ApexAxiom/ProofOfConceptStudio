@@ -24,7 +24,7 @@ const energyIndices: CategoryIndex[] = [
 
 // Steel & Materials category indices
 const steelIndices: CategoryIndex[] = [
-  { symbol: "HRC", yahooSymbol: "HRC1!", name: "HRC Steel Futures", unit: "/ton", fallbackPrice: 742.50, sourceUrl: "https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html" },
+  { symbol: "HRC", yahooSymbol: "HRC=F", name: "HRC Steel Futures", unit: "/ton", fallbackPrice: 742.50, sourceUrl: "https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html" },
   { symbol: "COPPER", yahooSymbol: "HG=F", name: "Copper", unit: "/lb", fallbackPrice: 3.85, sourceUrl: "https://finance.yahoo.com/quote/HG=F" },
   { symbol: "IRON", yahooSymbol: "TIO=F", name: "Iron Ore", unit: "/tonne", fallbackPrice: 108.50, sourceUrl: "https://finance.yahoo.com/quote/TIO=F" },
   { symbol: "ALUM", yahooSymbol: "ALI=F", name: "Aluminum", unit: "/lb", fallbackPrice: 1.12, sourceUrl: "https://finance.yahoo.com/quote/ALI=F" },
@@ -32,7 +32,7 @@ const steelIndices: CategoryIndex[] = [
 
 // Freight & Logistics category indices
 const freightIndices: CategoryIndex[] = [
-  { symbol: "BDI", yahooSymbol: "^BDI", name: "Baltic Dry Index", unit: "pts", fallbackPrice: 1245, sourceUrl: "https://finance.yahoo.com/quote/%5EBDI" },
+  { symbol: "BDRY", yahooSymbol: "BDRY", name: "Dry Bulk Shipping (BDRY)", unit: "", fallbackPrice: 0, sourceUrl: "https://finance.yahoo.com/quote/BDRY" },
   { symbol: "WTI", yahooSymbol: "CL=F", name: "WTI Crude (fuel costs)", unit: "/barrel", fallbackPrice: 71.23, sourceUrl: "https://finance.yahoo.com/quote/CL=F" },
   { symbol: "FDX", yahooSymbol: "FDX", name: "FedEx (logistics proxy)", unit: "", fallbackPrice: 285.00, sourceUrl: "https://finance.yahoo.com/quote/FDX" },
   { symbol: "UPS", yahooSymbol: "UPS", name: "UPS (logistics proxy)", unit: "", fallbackPrice: 142.00, sourceUrl: "https://finance.yahoo.com/quote/UPS" },
