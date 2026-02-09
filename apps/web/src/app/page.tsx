@@ -16,13 +16,6 @@ function formatChange(changePercent: number): string {
   return `${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%`;
 }
 
-function isArticleDuplicate(article: ExecutiveArticle, seen: Set<string>): boolean {
-  const key = article.url.toLowerCase();
-  if (seen.has(key)) return true;
-  seen.add(key);
-  return false;
-}
-
 function NewsCard({ article }: { article: ExecutiveArticle }) {
   return (
     <a
@@ -62,12 +55,11 @@ export default async function ExecutiveViewPage() {
   const allBriefs = [...auBriefs, ...internationalBriefs];
   const topBriefRows = latestBriefRows(allBriefs);
 
-  const seenArticleUrls = new Set<string>();
-  const woodsideArticles = executiveData.woodside.articles.filter((article) => !isArticleDuplicate(article, seenArticleUrls)).slice(0, 6);
-  const apacArticles = executiveData.apac.articles.filter((article) => !isArticleDuplicate(article, seenArticleUrls)).slice(0, 6);
-  const internationalArticles = executiveData.international.articles
-    .filter((article) => !isArticleDuplicate(article, seenArticleUrls))
-    .slice(0, 6);
+  // Dedupe is already handled inside the executive dashboard builder.
+  // Avoid cross-section dedupe here so Woodside doesn't starve APAC/International.
+  const woodsideArticles = executiveData.woodside.articles.slice(0, 6);
+  const apacArticles = executiveData.apac.articles.slice(0, 6);
+  const internationalArticles = executiveData.international.articles.slice(0, 6);
 
   const chicagoNow = new Date();
   const chicagoHour = Number(

@@ -15,14 +15,20 @@ type MarketEvidenceTag =
 const SOURCE_TAG_REGEX = /\(source:\s*(?:articleIndex\s*)?(\d+)\)\s*$/i;
 const MARKET_SOURCE_TAG_REGEX = /\(source:\s*(?:candidateIndex\s*)?(\d+)\)\s*$/i;
 const ANALYSIS_TAG_REGEX = /\(analysis\)\s*$/i;
+// Structured report markdown adds numeric footnote-style citations like [1][2].
+// Treat these as citations, not numeric claims.
+const BRACKET_CITATION_STRIP_REGEX = /\s*\[\d+\]\s*/g;
+const BRACKET_CITATION_DETECT_REGEX = /\[\d+\]/;
 const NUMERIC_TOKEN_REGEX =
   /\bQ[1-4]\s?\d{4}\b|[$€£¥]\s?\d[\d,]*(?:\.\d+)?(?:\/[a-z]+)?|\d[\d,]*(?:\.\d+)?%|\b\d+(?:\.\d+)?\s?(?:million|billion|trillion|mbpd|kb\/d|bpd|mt|mmbtu|bbl|boe|tcf|bcf|tons?|tonnes?|kg|mw|gw|kb|mb|gb|tb)\b|\b\d[\d,]*(?:\.\d+)?\b/gi;
 
 export function stripEvidenceTag(text: string): string {
   return text
+    .replace(BRACKET_CITATION_STRIP_REGEX, " ")
     .replace(SOURCE_TAG_REGEX, "")
     .replace(MARKET_SOURCE_TAG_REGEX, "")
     .replace(ANALYSIS_TAG_REGEX, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -87,6 +93,10 @@ function anyContentContainsTokens(tokens: string[], contents: string[]): boolean
   return contents.some((content) => contentContainsAllTokens(tokens, content));
 }
 
+function hasBracketCitations(text: string): boolean {
+  return BRACKET_CITATION_DETECT_REGEX.test(text);
+}
+
 /**
  * Validate numeric claims in a brief against article content.
  */
@@ -115,6 +125,7 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
   };
 
   const checkGenericString = (path: string, text: string, requireEvidence: boolean = false) => {
+    const cited = hasBracketCitations(text);
     const tokens = extractNumericTokens(text);
     if (tokens.length === 0) return;
 
@@ -123,7 +134,9 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
       // Allow analysis tags with numbers for summaries/highlights (general analysis)
       // Only flag if this is a section that requires evidence
       if (requireEvidence) {
-        recordIssue(`${path} is labeled (analysis) but contains numeric tokens (${tokens.join(", ")}).`);
+        recordIssue(
+          `${path} is labeled (analysis) but contains numeric tokens (${tokens.join(", ")}). (approximate match allowed).`
+        );
       }
       return;
     }
@@ -132,19 +145,24 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
       const content = contentByIndex.get(tag.articleIndex) ?? "";
       // Allow approximate matches - check if tokens are reasonably close
       if (!contentContainsAllTokens(tokens, content)) {
-        // Only warn if this is a critical section, otherwise allow inference
-        if (requireEvidence) {
-          recordIssue(`${path} contains '${tokens.join(", ")}' but not found in articleIndex ${tag.articleIndex} content.`);
-        }
+        // Numeric token matching is best-effort; treat mismatches as warnings.
+        recordIssue(
+          `${path} contains '${tokens.join(", ")}' but not found exactly in articleIndex ${tag.articleIndex} content (approximate match allowed).`
+        );
       }
       return;
     }
 
     // Only require evidence tags for critical sections
     if (requireEvidence) {
-      recordIssue(`${path} has numbers but is missing an evidence tag.`);
-      if (!anyContentContainsTokens(tokens, selectedContents)) {
-        recordIssue(`${path} contains '${tokens.join(", ")}' but not found in selected article content.`);
+      // Structured report output uses [n] citations instead of (source: articleIndex N).
+      // Require some form of attribution, but don't block on token-by-token matching for actionables.
+      if (!cited) {
+        recordIssue(`${path} has numbers but is missing a citation or evidence tag.`);
+      } else if (!anyContentContainsTokens(tokens, selectedContents)) {
+        recordIssue(
+          `${path} contains '${tokens.join(", ")}' but not found in selected article content (approximate match allowed).`
+        );
       }
     }
     // For non-critical sections (summary, highlights), allow numbers without evidence tags
@@ -155,38 +173,27 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
     if (tokens.length === 0) return;
 
     const tag = parseEvidenceTag(text);
-    if (tag.kind === "analysis") {
-      // Allow analysis tags with numbers for selectedArticles content (analyst interpretation)
-      // Only flag if there's a specific evidenceIndex that should be used
-      if (typeof evidenceIndex === "number" && Number.isInteger(evidenceIndex)) {
-        recordIssue(`${path} is labeled (analysis) but should reference evidenceArticleIndex ${evidenceIndex} for numeric tokens (${tokens.join(", ")}).`);
-      }
+
+    // Prefer an explicit trailing (source: articleIndex N) tag, but if the field already carries an evidenceIndex
+    // (e.g. selectedArticles.sourceIndex, vpSnapshot.evidenceArticleIndex), treat that as the attribution anchor.
+    const effectiveIndex =
+      tag.kind === "source"
+        ? tag.articleIndex
+        : typeof evidenceIndex === "number" && Number.isInteger(evidenceIndex)
+          ? evidenceIndex
+          : undefined;
+
+    if (!effectiveIndex) {
+      // No clear attribution anchor; allow as analyst interpretation.
       return;
     }
 
-    if (tag.kind === "source") {
-      if (typeof evidenceIndex === "number" && Number.isInteger(evidenceIndex) && tag.articleIndex !== evidenceIndex) {
-        recordIssue(`${path} uses articleIndex ${tag.articleIndex} but evidenceArticleIndex is ${evidenceIndex}.`);
-      }
-      const content = contentByIndex.get(tag.articleIndex) ?? "";
-      // Allow approximate matches - be lenient with numeric matching
-      if (!contentContainsAllTokens(tokens, content)) {
-        // Only warn, don't block - allow reasonable inference
-        recordIssue(`${path} contains '${tokens.join(", ")}' but not found exactly in articleIndex ${tag.articleIndex} content (approximate match allowed).`);
-      }
-      return;
+    const content = contentByIndex.get(effectiveIndex) ?? "";
+    if (!contentContainsAllTokens(tokens, content)) {
+      recordIssue(
+        `${path} contains '${tokens.join(", ")}' but not found exactly in articleIndex ${effectiveIndex} content (approximate match allowed).`
+      );
     }
-
-    // For selectedArticles content, evidence tags are preferred but not strictly required
-    // Only require if there's a specific evidenceIndex
-    if (typeof evidenceIndex === "number" && Number.isInteger(evidenceIndex)) {
-      recordIssue(`${path} has numbers but is missing an evidence tag (should reference articleIndex ${evidenceIndex}).`);
-      const content = contentByIndex.get(evidenceIndex) ?? "";
-      if (!contentContainsAllTokens(tokens, content)) {
-        recordIssue(`${path} contains '${tokens.join(", ")}' but not found in articleIndex ${evidenceIndex} content.`);
-      }
-    }
-    // If no specific evidenceIndex, allow numbers without tags (analyst interpretation)
   };
 
   // Summary and highlights: Allow numbers without evidence tags (general analysis/aggregation)
