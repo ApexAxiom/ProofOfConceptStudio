@@ -1,8 +1,8 @@
+import React from "react";
 import Link from "next/link";
 import {
   BriefCitedBullet,
   BriefPost,
-  BriefReportAction,
   BriefReportImpactGroup,
   BriefSource,
   buildSourceId,
@@ -180,10 +180,21 @@ function renderCitedBullet(
   return `${bullet.text} ${citationLabel(bullet.sourceIds, sourceNumberById)}`.trim();
 }
 
+const ACTION_HORIZON_DISPLAY: Record<string, string> = {
+  // Display mapping only (do not change stored schema values).
+  "Next 72 hours": "Short-term (0-30 days)",
+  "Next 2-4 weeks": "Mid-term (30-90 days)",
+  "Next quarter": "Long-term (90+ days)"
+};
+
+function actionHorizonLabel(horizon: string): string {
+  return ACTION_HORIZON_DISPLAY[horizon] ?? horizon;
+}
+
 /**
  * Cohesive single-flow brief report.
  */
-export function BriefDetailContent({ brief }: { brief: BriefPost }) {
+export function BriefDetailContent({ brief }: { brief: BriefPost }): React.ReactElement {
   const view = toBriefViewModelV2(brief, { defaultRegion: brief.region });
   const fallbackSummary = deriveSummary(brief);
   const fallbackImpact = deriveImpact(brief);
@@ -195,6 +206,10 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
   const sanitizedContextNote = sanitizePresentationText(view.contextNote);
   const shouldRenderHero =
     view.heroImage.url.startsWith("https://") && !/daily intel report/i.test(view.heroImage.alt);
+
+  const keyTakeaways = brief.report?.summaryBullets?.length
+    ? brief.report.summaryBullets.slice(0, 3).map((bullet) => renderCitedBullet(bullet, sourceNumberById))
+    : fallbackImpact.slice(0, 3);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -214,11 +229,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
             Ask AI
           </Link>
         </div>
-        {sanitizedContextNote ? (
-          <p className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
-            {sanitizedContextNote}
-          </p>
-        ) : null}
       </header>
 
       {shouldRenderHero ? (
@@ -233,19 +243,47 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       ) : null}
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold text-foreground">Delta Since Last Run</h2>
-        {view.deltaBullets.length > 0 ? (
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            {view.deltaBullets.map((item, idx) => (
-              <li key={`${item}-${idx}`} className="flex gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">No previous run was available for delta comparison.</p>
-        )}
+        <h2 className="text-lg font-semibold text-foreground">Executive Snapshot</h2>
+        <div className="mt-4 grid gap-6 md:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key takeaways</p>
+            {keyTakeaways.length > 0 ? (
+              <ul className="mt-3 space-y-2 text-sm text-foreground">
+                {keyTakeaways.map((item, idx) => (
+                  <li key={`takeaway-${idx}`} className="flex gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">No takeaways were available for this brief.</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              What changed since last run
+            </p>
+            {view.deltaBullets.length > 0 ? (
+              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {view.deltaBullets.map((item, idx) => (
+                  <li key={`${item}-${idx}`} className="flex gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-muted-foreground/60" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">No prior run was available for comparison.</p>
+            )}
+          </div>
+        </div>
+        {sanitizedContextNote ? (
+          <div className="mt-5 rounded-lg border border-border bg-muted/30 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Coverage note</p>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{sanitizedContextNote}</p>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
@@ -269,21 +307,25 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
                   {(story.sourceName ?? "source")} · {storyDate(story.publishedAt)}
                 </p>
                 {sanitizedBriefContent ? (
-                  <p className="mt-3 text-sm text-muted-foreground">{sanitizedBriefContent}</p>
-                ) : null}
-                {sanitizedCategoryImportance ? (
-                  <p className="mt-2 text-sm text-foreground">
-                    <span className="font-semibold">Why it matters:</span> {sanitizedCategoryImportance}
-                  </p>
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{sanitizedBriefContent}</p>
                 ) : null}
                 {story.keyMetrics?.length ? (
-                  <ul className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {story.keyMetrics.slice(0, 4).map((metric) => (
-                      <li key={metric} className="rounded-full border border-border px-2 py-0.5">
-                        {metric}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
+                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                      {story.keyMetrics.slice(0, 4).map((metric) => (
+                        <li key={metric} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                          <span>{metric}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {sanitizedCategoryImportance ? (
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                    <span className="font-semibold">Why it matters:</span> {sanitizedCategoryImportance}
+                  </p>
                 ) : null}
               </article>
             );
@@ -295,96 +337,144 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }) {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details open>
-          <summary className="cursor-pointer text-lg font-semibold text-foreground">Summary</summary>
-          {brief.report?.summaryBullets?.length ? (
-            <ul className="mt-3 space-y-2 text-sm text-foreground">
-              {brief.report.summaryBullets.map((bullet, idx) => (
+        <h2 className="text-lg font-semibold text-foreground">Executive Summary</h2>
+        <p className="mt-3 text-sm text-foreground leading-relaxed">{fallbackSummary}</p>
+        {brief.report?.summaryBullets?.length ? (
+          <div className="mt-4 space-y-3">
+            <ul className="space-y-2 text-sm text-foreground">
+              {brief.report.summaryBullets.slice(0, 4).map((bullet, idx) => (
                 <li key={`summary-${idx}`} className="flex gap-2">
                   <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
                   <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="mt-3 text-sm text-foreground leading-relaxed">{fallbackSummary}</p>
-          )}
-        </details>
+            {brief.report.summaryBullets.length > 4 ? (
+              <details>
+                <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-primary">
+                  Show {brief.report.summaryBullets.length - 4} more
+                </summary>
+                <ul className="mt-3 space-y-2 text-sm text-foreground">
+                  {brief.report.summaryBullets.slice(4).map((bullet, idx) => (
+                    <li key={`summary-more-${idx}`} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                      <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details open>
-          <summary className="cursor-pointer text-lg font-semibold text-foreground">Impact</summary>
-          {reportImpactGroups.length > 0 ? (
-            <div className="mt-3 space-y-4">
-              {reportImpactGroups.map((group) => (
-                <div key={group.label}>
+        <h2 className="text-lg font-semibold text-foreground">Impact</h2>
+        {reportImpactGroups.length > 0 ? (
+          <div className="mt-4 space-y-4">
+            {reportImpactGroups.map((group) => {
+              const primary = group.bullets.slice(0, 2);
+              const remaining = group.bullets.slice(2);
+
+              return (
+                <div key={group.label} className="rounded-lg border border-border bg-background p-4">
                   <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
-                  <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                    {group.bullets.map((bullet, idx) => (
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {primary.map((bullet, idx) => (
                       <li key={`${group.label}-${idx}`} className="flex gap-2">
                         <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
                         <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
                       </li>
                     ))}
                   </ul>
+                  {remaining.length > 0 ? (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-primary">
+                        Show {remaining.length} more
+                      </summary>
+                      <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                        {remaining.map((bullet, idx) => (
+                          <li key={`${group.label}-more-${idx}`} className="flex gap-2">
+                            <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                            <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              {fallbackImpact.map((item, idx) => (
-                <li key={`${item}-${idx}`} className="flex gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
+              );
+            })}
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+            {fallbackImpact.map((item, idx) => (
+              <li key={`${item}-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details open>
-          <summary className="cursor-pointer text-lg font-semibold text-foreground">Possible Actions</summary>
-          {reportActionGroups.length > 0 ? (
-            <div className="mt-3 space-y-4">
-              {reportActionGroups.map((group) => (
-                <div key={group.horizon}>
-                  <h3 className="text-sm font-semibold text-foreground">{group.horizon}</h3>
-                  <ul className="mt-2 space-y-3 text-sm text-muted-foreground">
-                    {group.actions.map((action, idx) => {
-                      const refs = citationLabel((action as BriefReportAction).sourceIds, sourceNumberById);
-                      return (
-                        <li key={`${group.horizon}-${idx}`} className="rounded-lg border border-border bg-background px-3 py-2">
-                          <p className="text-foreground font-medium">{action.action}</p>
-                          <p className="mt-1">Rationale: {action.rationale}</p>
-                          <p className="mt-1">Owner: {action.owner}</p>
-                          <p className="mt-1">
-                            Expected outcome / KPI: {action.expectedOutcome} {refs}
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              {fallbackActions.map((item, idx) => (
-                <li key={`${item}-${idx}`} className="flex gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
+        <h2 className="text-lg font-semibold text-foreground">Action Plan</h2>
+        {reportActionGroups.length > 0 ? (
+          <div className="mt-4 space-y-4">
+            {reportActionGroups.map((group) => (
+              <div key={group.horizon}>
+                <h3 className="text-sm font-semibold text-foreground">{actionHorizonLabel(group.horizon)}</h3>
+                <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
+                  {group.actions.map((action, idx) => {
+                    const refs = citationLabel(action.sourceIds, sourceNumberById);
+
+                    return (
+                      <li key={`${group.horizon}-${idx}`}>
+                        <details className="rounded-lg border border-border bg-background px-4 py-3">
+                          <summary className="cursor-pointer text-sm font-medium text-foreground hover:text-primary">
+                            {action.action}{" "}
+                            {refs ? <span className="text-muted-foreground font-semibold">{refs}</span> : null}
+                          </summary>
+                          <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                            <p>
+                              <span className="font-semibold text-foreground">Rationale:</span> {action.rationale}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-foreground">Owner:</span> {action.owner}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-foreground">Expected outcome / KPI:</span>{" "}
+                              {action.expectedOutcome}
+                            </p>
+                            {refs ? (
+                              <p>
+                                <span className="font-semibold text-foreground">Citations:</span> {refs}
+                              </p>
+                            ) : null}
+                          </div>
+                        </details>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+            {fallbackActions.map((item, idx) => (
+              <li key={`${item}-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details open>
+        <details>
           <summary className="cursor-pointer text-lg font-semibold text-foreground">Sources</summary>
           <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
             {sources.map((source, idx) => (

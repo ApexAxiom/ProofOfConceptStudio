@@ -239,11 +239,12 @@ OUTPUT RULES (strict):
      * contractingCommercialTerms
      * riskRegulatoryOperationalConstraints
    - Possible actions: 8-12 actions total across:
-     * next72Hours
-     * next2to4Weeks
-     * nextQuarter
+     * next72Hours (Short-term horizon: 0-30 days; avoid artificial "urgent 72 hours" framing)
+     * next2to4Weeks (Mid-term horizon: 30-90 days)
+     * nextQuarter (Long-term horizon: 90+ days)
+   - Actions must be realistic for category management; only use urgent language when the evidence is truly critical.
    - Sources are rendered outside JSON from selected articles and indices.
-4) Every summary/impact/action item MUST include citations pointing to articleIndex values.
+4) Every summary/impact/action item MUST include citations pointing to articleIndex values (one citation is acceptable; do not force multiple).
 5) Use signal = "early-signal" or "unconfirmed" when evidence is weak; do not invent certainty.
 6) Owner must be one of: Category, Contracts, Legal, Ops.
 7) Selected articles must be 1-${requiredCount}, unique, and sourced only from provided article indices.

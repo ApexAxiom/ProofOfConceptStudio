@@ -126,9 +126,10 @@ const brief: BriefPost = {
 
 const html = renderToStaticMarkup(<BriefDetailContent brief={brief} />);
 
-assert(html.includes("Summary"));
+assert(html.includes("Executive Snapshot"));
+assert(html.includes("Executive Summary"));
 assert(html.includes("Impact"));
-assert(html.includes("Possible Actions"));
+assert(html.includes("Action Plan"));
 assert(html.includes("Top Stories"));
 assert(html.includes("Sources"));
 
