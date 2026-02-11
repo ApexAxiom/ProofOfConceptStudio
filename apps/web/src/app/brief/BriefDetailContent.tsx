@@ -158,13 +158,6 @@ function sourceDate(source: BriefSource): string {
   });
 }
 
-function storyDate(publishedAt?: string): string {
-  if (!publishedAt) return "n.d.";
-  const parsed = new Date(publishedAt);
-  if (Number.isNaN(parsed.getTime())) return "n.d.";
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
 function citationLabel(sourceIds: string[], sourceNumberById: Map<string, number>): string {
   const refs = Array.from(
     new Set(sourceIds.map((sourceId) => sourceNumberById.get(sourceId)).filter((value): value is number => Number.isFinite(value)))
@@ -182,9 +175,9 @@ function renderCitedBullet(
 
 const ACTION_HORIZON_DISPLAY: Record<string, string> = {
   // Display mapping only (do not change stored schema values).
-  "Next 72 hours": "Short-term (0-30 days)",
-  "Next 2-4 weeks": "Mid-term (30-90 days)",
-  "Next quarter": "Long-term (90+ days)"
+  "Next 72 hours": "Short-term",
+  "Next 2-4 weeks": "Mid-term",
+  "Next quarter": "Long-term"
 };
 
 function actionHorizonLabel(horizon: string): string {
@@ -203,13 +196,23 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
   const sourceNumberById = new Map(sources.map((source, index) => [source.sourceId, index + 1]));
   const reportImpactGroups: BriefReportImpactGroup[] = brief.report?.impactGroups ?? [];
   const reportActionGroups = brief.report?.actionGroups ?? [];
-  const sanitizedContextNote = sanitizePresentationText(view.contextNote);
   const shouldRenderHero =
     view.heroImage.url.startsWith("https://") && !/daily intel report/i.test(view.heroImage.alt);
 
   const keyTakeaways = brief.report?.summaryBullets?.length
     ? brief.report.summaryBullets.slice(0, 3).map((bullet) => renderCitedBullet(bullet, sourceNumberById))
     : fallbackImpact.slice(0, 3);
+  const executiveSummaryBullets = brief.report?.summaryBullets?.length
+    ? brief.report.summaryBullets.slice(0, 5).map((bullet) => renderCitedBullet(bullet, sourceNumberById))
+    : fallbackImpact.slice(0, 5);
+  const executiveKeyFacts = Array.from(
+    new Set(
+      view.topStories
+        .flatMap((story) => story.keyMetrics ?? [])
+        .map((metric) => sanitizePresentationText(metric))
+        .filter((metric): metric is string => Boolean(metric))
+    )
+  ).slice(0, 10);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -278,92 +281,31 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
             )}
           </div>
         </div>
-        {sanitizedContextNote ? (
-          <div className="mt-5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Coverage note</p>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{sanitizedContextNote}</p>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold text-foreground">Top Stories</h2>
-        <div className="mt-3 space-y-3">
-          {view.topStories.map((story, idx) => {
-            const sanitizedBriefContent = sanitizePresentationText(story.briefContent);
-            const sanitizedCategoryImportance = sanitizePresentationText(story.categoryImportance);
-
-            return (
-              <article id={`article-${idx + 1}`} key={`${story.url}-${idx}`} className="rounded-lg border border-border bg-background p-4">
-                <a
-                  href={story.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="text-base font-semibold text-foreground hover:text-primary"
-                >
-                  {story.title}
-                </a>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {(story.sourceName ?? "source")} · {storyDate(story.publishedAt)}
-                </p>
-                {sanitizedBriefContent ? (
-                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{sanitizedBriefContent}</p>
-                ) : null}
-                {story.keyMetrics?.length ? (
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                      {story.keyMetrics.slice(0, 4).map((metric) => (
-                        <li key={metric} className="flex gap-2">
-                          <span className="mt-2 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-                          <span>{metric}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {sanitizedCategoryImportance ? (
-                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                    <span className="font-semibold">Why it matters:</span> {sanitizedCategoryImportance}
-                  </p>
-                ) : null}
-              </article>
-            );
-          })}
-          {view.topStories.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No top stories were attached to this brief.</p>
-          ) : null}
-        </div>
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Executive Summary</h2>
         <p className="mt-3 text-sm text-foreground leading-relaxed">{fallbackSummary}</p>
-        {brief.report?.summaryBullets?.length ? (
-          <div className="mt-4 space-y-3">
-            <ul className="space-y-2 text-sm text-foreground">
-              {brief.report.summaryBullets.slice(0, 4).map((bullet, idx) => (
-                <li key={`summary-${idx}`} className="flex gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                  <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
+        {executiveSummaryBullets.length > 0 ? (
+          <ul className="mt-4 space-y-2 text-sm text-foreground">
+            {executiveSummaryBullets.map((item, idx) => (
+              <li key={`summary-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {executiveKeyFacts.length > 0 ? (
+          <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {executiveKeyFacts.map((metric) => (
+                <li key={metric} className="rounded-full border border-sky-400/30 bg-sky-500/15 px-3 py-1 text-xs font-medium text-sky-100">
+                  {metric}
                 </li>
               ))}
             </ul>
-            {brief.report.summaryBullets.length > 4 ? (
-              <details>
-                <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-primary">
-                  Show {brief.report.summaryBullets.length - 4} more
-                </summary>
-                <ul className="mt-3 space-y-2 text-sm text-foreground">
-                  {brief.report.summaryBullets.slice(4).map((bullet, idx) => (
-                    <li key={`summary-more-${idx}`} className="flex gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                      <span>{renderCitedBullet(bullet, sourceNumberById)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
           </div>
         ) : null}
       </section>
@@ -474,22 +416,20 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <details>
-          <summary className="cursor-pointer text-lg font-semibold text-foreground">Sources</summary>
-          <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
-            {sources.map((source, idx) => (
-              <li key={source.sourceId} className="rounded-lg border border-border bg-background px-3 py-2">
-                <span className="font-semibold text-foreground">[{idx + 1}] </span>
-                <span className="text-foreground">{sourceLabel(source)}</span>
-                <span> - {sourcePublisher(source)} ({sourceDate(source)}) - </span>
-                <a href={source.url} target="_blank" rel="noreferrer noopener" className="text-primary hover:underline break-all">
-                  {source.url}
-                </a>
-              </li>
-            ))}
-            {sources.length === 0 ? <p className="text-sm text-muted-foreground">No source links were attached to this brief.</p> : null}
-          </ol>
-        </details>
+        <h2 className="text-lg font-semibold text-foreground">Sources</h2>
+        <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
+          {sources.map((source, idx) => (
+            <li key={source.sourceId} className="rounded-lg border border-border bg-background px-3 py-2">
+              <span className="font-semibold text-foreground">[{idx + 1}] </span>
+              <span className="text-foreground">{sourceLabel(source)}</span>
+              <span> - {sourcePublisher(source)} ({sourceDate(source)}) - </span>
+              <a href={source.url} target="_blank" rel="noreferrer noopener" className="text-primary hover:underline break-all">
+                {source.url}
+              </a>
+            </li>
+          ))}
+          {sources.length === 0 ? <p className="text-sm text-muted-foreground">No source links were attached to this brief.</p> : null}
+        </ol>
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">

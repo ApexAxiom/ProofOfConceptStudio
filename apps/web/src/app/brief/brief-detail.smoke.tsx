@@ -130,7 +130,6 @@ assert(html.includes("Executive Snapshot"));
 assert(html.includes("Executive Summary"));
 assert(html.includes("Impact"));
 assert(html.includes("Action Plan"));
-assert(html.includes("Top Stories"));
 assert(html.includes("Sources"));
 
 console.log("brief-detail.smoke passed");
