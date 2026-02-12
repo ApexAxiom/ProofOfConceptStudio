@@ -88,6 +88,12 @@ const GOOGLE_WOODSIDE_FEEDS: RssFeed[] = [
     source: "Market Sources",
     category: "Woodside",
     region: "woodside"
+  },
+  {
+    url: "https://news.google.com/rss/search?q=Woodside%20Energy%20ASX%20WDS%20earnings%20dividend%20stock&hl=en-AU&gl=AU&ceid=AU:en",
+    source: "Market Sources",
+    category: "Woodside",
+    region: "woodside"
   }
 ];
 
@@ -113,6 +119,23 @@ const GOOGLE_INTERNATIONAL_FEEDS: RssFeed[] = [
 // Articles only need to match ONE keyword to be included.
 const APAC_KEYWORDS = ["apac", "australia", "perth", "asia", "lng", "offshore", "woodside", "santos", "nws", "scarborough", "gas", "oil"];
 const INTERNATIONAL_KEYWORDS = ["us", "united states", "mexico", "senegal", "houston", "lng", "gulf", "gas", "oil", "permian", "energy", "crude"];
+const WOODSIDE_KEYWORDS = [
+  "woodside",
+  "woodside energy",
+  "wds",
+  "asx:wds",
+  "nyse:wds",
+  "scarborough",
+  "sangomar",
+  "pluto lng",
+  "north west shelf",
+  "earnings",
+  "results",
+  "dividend",
+  "share",
+  "stock",
+  "investor"
+];
 
 function parseTagValue(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
@@ -250,7 +273,7 @@ export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPay
 
   const [market, woodsideLive, apacLive, internationalLive] = await Promise.all([
     getExecutiveMarketQuotes(),
-    collectSectionArticles(woodsideFeeds, ["woodside", "scarborough", "sangomar", "lng"]),
+    collectSectionArticles(woodsideFeeds, WOODSIDE_KEYWORDS),
     collectSectionArticles(apacFeeds, APAC_KEYWORDS),
     collectSectionArticles(internationalFeeds, INTERNATIONAL_KEYWORDS)
   ]);
