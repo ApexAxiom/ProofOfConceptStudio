@@ -16,7 +16,7 @@ import {
 import { getPost, getRegionPosts } from "../db/posts.js";
 import { OpenAI } from "openai";
 
-const DEFAULT_MODEL = "gpt-4o";
+const DEFAULT_MODEL = "gpt-5-nano-2025-08-07";
 const MAX_CONTEXT_CHARS = 100_000; // ~25k token budget
 const DEFAULT_MAX_COMPLETION_TOKENS = 1000;
 const MAX_QUESTION_CHARS = 8000;
