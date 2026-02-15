@@ -13,7 +13,7 @@ async function main() {
 
   console.log("AI configuration", {
     openaiKeyPresent: Boolean(process.env.OPENAI_API_KEY),
-    model: process.env.OPENAI_MODEL ?? "gpt-4o",
+    model: process.env.OPENAI_MODEL ?? "gpt-5-nano-2025-08-07",
     runnerBaseUrlPresent: Boolean(process.env.RUNNER_BASE_URL)
   });
 
