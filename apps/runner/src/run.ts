@@ -531,8 +531,8 @@ export async function handleCron(
   );
 
   const allRegions = Object.keys(REGIONS) as RegionSlug[];
-  const auditRegions = opts?.scheduled ? allRegions : (regionList ?? allRegions);
-  const coverageAgentIds = opts?.scheduled ? undefined : opts?.agentIds;
+  const auditRegions = regionList ?? allRegions;
+  const coverageAgentIds = opts?.agentIds;
   const coverageDayByRegion = new Map(auditRegions.map((region) => [region, expectedCoverageDayKey(region, new Date())]));
   const coverageResults = await Promise.all(
     auditRegions.map((region) =>
