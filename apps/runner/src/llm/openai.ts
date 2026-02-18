@@ -37,6 +37,17 @@ function getModel() {
   return process.env.OPENAI_MODEL || DEFAULT_MODEL;
 }
 
+function isReasoningModel(model?: string) {
+  if (!model) return false;
+  const normalized = model.toLowerCase();
+  return (
+    normalized.startsWith("gpt-5") ||
+    normalized.startsWith("o1") ||
+    normalized.startsWith("o3") ||
+    normalized.startsWith("o4")
+  );
+}
+
 function toIssueList(error: unknown): string[] {
   try {
     const parsed = JSON.parse((error as Error).message);
@@ -198,12 +209,15 @@ async function requestJsonCompletion(
   client: OpenAI,
   prompt: string
 ): Promise<{ content: string; usage?: OpenAI.Chat.Completions.ChatCompletion["usage"] }> {
+  const model = getModel();
+  const reasoningModel = isReasoningModel(model);
   const response = await client.chat.completions.create({
-    model: getModel(),
+    model,
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
-    temperature: 0.2,
-    max_tokens: 4500
+    ...(reasoningModel
+      ? { max_completion_tokens: 4500 }
+      : { temperature: 0.2, max_tokens: 4500 })
   });
 
   return {

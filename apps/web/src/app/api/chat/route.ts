@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../../lib/api-base";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const CHAT_PROXY_TIMEOUT_MS = Number(process.env.CHAT_PROXY_TIMEOUT_MS ?? 45000);
 
 export async function GET() {
   const controller = new AbortController();
@@ -36,7 +37,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), CHAT_PROXY_TIMEOUT_MS);
   try {
     const body = await request.json();
     const base = await getApiBaseUrl();

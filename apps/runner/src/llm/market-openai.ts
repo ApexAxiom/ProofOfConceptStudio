@@ -22,6 +22,17 @@ function getModel() {
   return process.env.OPENAI_MODEL || DEFAULT_MODEL;
 }
 
+function isReasoningModel(model?: string) {
+  if (!model) return false;
+  const normalized = model.toLowerCase();
+  return (
+    normalized.startsWith("gpt-5") ||
+    normalized.startsWith("o1") ||
+    normalized.startsWith("o3") ||
+    normalized.startsWith("o4")
+  );
+}
+
 export async function generateMarketBrief(input: MarketPromptInput): Promise<BriefPost> {
   const client = getOpenAIClient();
   if (!client) {
@@ -32,12 +43,15 @@ export async function generateMarketBrief(input: MarketPromptInput): Promise<Bri
   const requiredCount = Math.min(input.agent.articlesPerRun ?? 3, Math.max(1, Math.min(8, input.candidates.length)));
   const prompt = buildMarketPrompt({ ...input, agent: { ...input.agent, articlesPerRun: requiredCount } });
 
+  const model = getModel();
+  const reasoningModel = isReasoningModel(model);
   const response = await client.chat.completions.create({
-    model: getModel(),
+    model,
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
-    temperature: 0.25,
-    max_tokens: 3500
+    ...(reasoningModel
+      ? { max_completion_tokens: 3500 }
+      : { temperature: 0.25, max_tokens: 3500 })
   });
   const llmUsage = response.usage
     ? {

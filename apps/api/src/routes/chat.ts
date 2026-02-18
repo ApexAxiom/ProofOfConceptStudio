@@ -19,6 +19,9 @@ import { OpenAI } from "openai";
 const DEFAULT_MODEL = "gpt-5-nano-2025-08-07";
 const MAX_CONTEXT_CHARS = 100_000; // ~25k token budget
 const DEFAULT_MAX_COMPLETION_TOKENS = 1000;
+const DEFAULT_REASONING_MAX_OUTPUT_TOKENS = 25_000;
+const REASONING_RETRY_MAX_OUTPUT_TOKENS = 32_000;
+const DEFAULT_REASONING_EFFORT = "low";
 const MAX_QUESTION_CHARS = 8000;
 const MAX_MESSAGE_COUNT = 40;
 const FALLBACK_AGENT_URL = "http://localhost:3002";
@@ -77,12 +80,49 @@ function getModel() {
   return process.env.OPENAI_MODEL || DEFAULT_MODEL;
 }
 
-function getMaxOutputTokens() {
-  const value = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS ?? DEFAULT_MAX_COMPLETION_TOKENS);
+function isReasoningModel(model?: string) {
+  if (!model) return false;
+  const normalized = model.toLowerCase();
+  return (
+    normalized.startsWith("gpt-5") ||
+    normalized.startsWith("o1") ||
+    normalized.startsWith("o3") ||
+    normalized.startsWith("o4")
+  );
+}
+
+function getConfiguredMaxOutputTokens() {
+  const raw = process.env.OPENAI_MAX_OUTPUT_TOKENS;
+  if (!raw) return undefined;
+  const value = Number(raw);
   if (Number.isFinite(value) && value > 0) {
     return Math.floor(value);
   }
-  return DEFAULT_MAX_COMPLETION_TOKENS;
+  return undefined;
+}
+
+function getMaxOutputTokens(model?: string) {
+  const configured = getConfiguredMaxOutputTokens();
+  if (configured) return configured;
+  const effectiveModel = model ?? getModel();
+  return isReasoningModel(effectiveModel) ? DEFAULT_REASONING_MAX_OUTPUT_TOKENS : DEFAULT_MAX_COMPLETION_TOKENS;
+}
+
+function getReasoningEffort(model: string) {
+  if (!isReasoningModel(model)) return undefined;
+  const raw = (process.env.OPENAI_REASONING_EFFORT ?? DEFAULT_REASONING_EFFORT).toLowerCase();
+  if (raw === "minimal" || raw === "low" || raw === "medium" || raw === "high" || raw === "xhigh") {
+    return raw;
+  }
+  return DEFAULT_REASONING_EFFORT;
+}
+
+function getReasoningRetryMaxOutputTokens(initial: number) {
+  const raw = Number(process.env.OPENAI_REASONING_RETRY_MAX_OUTPUT_TOKENS ?? REASONING_RETRY_MAX_OUTPUT_TOKENS);
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.max(initial, Math.floor(raw));
+  }
+  return Math.max(initial, REASONING_RETRY_MAX_OUTPUT_TOKENS);
 }
 
 async function checkOpenAIAvailability(): Promise<{ ok: boolean; error?: string }> {
@@ -256,6 +296,26 @@ function replaceSourceIdsWithLinks(text: string, sourcesById: Map<string, BriefS
     if (!source) return match;
     return `[Source](${source.url})`;
   });
+}
+
+function extractResponseText(response: any): string {
+  const helperText = typeof response?.output_text === "string" ? response.output_text.trim() : "";
+  if (helperText) return helperText;
+
+  const chunks: string[] = [];
+  for (const item of response?.output ?? []) {
+    if (item?.type !== "message") continue;
+    for (const content of item.content ?? []) {
+      if (content?.type === "output_text" && typeof content.text === "string" && content.text.trim()) {
+        chunks.push(content.text.trim());
+      }
+    }
+  }
+  return chunks.join("\n\n").trim();
+}
+
+function isIncompleteForMaxOutputTokens(response: any) {
+  return response?.status === "incomplete" && response?.incomplete_details?.reason === "max_output_tokens";
 }
 
 function getModelFallbacks() {
@@ -727,30 +787,85 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     }
     const tools = isWebSearchEnabled() ? [webSearchTool] : [];
 
-    const requestResponse = (modelOverride?: string) =>
-      openai.responses.create({
-        model: modelOverride ?? getModel(),
-        max_output_tokens: getMaxOutputTokens(),
+    const requestResponse = (options?: { modelOverride?: string; maxOutputTokens?: number; useTools?: boolean }) => {
+      const model = options?.modelOverride ?? getModel();
+      const reasoningEffort = getReasoningEffort(model);
+      const useTools = options?.useTools ?? true;
+
+      return openai.responses.create({
+        model,
+        max_output_tokens: options?.maxOutputTokens ?? getMaxOutputTokens(model),
+        reasoning: reasoningEffort ? { effort: reasoningEffort as any } : undefined,
         instructions: systemMessage,
         input: [
           ...historyMessages,
           { role: "user" as const, content: prompt }
         ],
-        tools: tools as any,
-        tool_choice: isWebSearchEnabled() ? "auto" : undefined
+        tools: useTools ? (tools as any) : undefined,
+        tool_choice: useTools && isWebSearchEnabled() ? "auto" : undefined
       } as any);
+    };
+
+    const finalizeResponse = async (model: string, useTools: boolean) => {
+      const baseMaxOutputTokens = getMaxOutputTokens(model);
+      let response = await requestResponse({ modelOverride: model, maxOutputTokens: baseMaxOutputTokens, useTools });
+
+      if (isReasoningModel(model) && isIncompleteForMaxOutputTokens(response)) {
+        const retryMaxOutputTokens = getReasoningRetryMaxOutputTokens(baseMaxOutputTokens);
+        if (retryMaxOutputTokens > baseMaxOutputTokens) {
+          response = await requestResponse({
+            modelOverride: model,
+            maxOutputTokens: retryMaxOutputTokens,
+            useTools
+          });
+        }
+      }
+
+      const answerText = extractResponseText(response);
+      if (!answerText) {
+        const reason = response?.incomplete_details?.reason ?? "none";
+        const status = response?.status ?? "unknown";
+        const emptyError = new Error(`empty_output_text:${status}:${reason}`);
+        (emptyError as any).code = "empty_output_text";
+        (emptyError as any).responseStatus = status;
+        (emptyError as any).incompleteReason = reason;
+        throw emptyError;
+      }
+
+      return { response, answerText };
+    };
 
     const requestResponseWithFallbacks = async (models: string[]) => {
       let lastError: unknown;
       for (const model of models) {
         try {
-          return { response: await requestResponse(model), model };
+          return { ...(await finalizeResponse(model, isWebSearchEnabled())), model };
         } catch (err) {
-          lastError = err;
           const status = (err as { status?: number })?.status;
           const code = (err as { code?: string })?.code;
+          const message = ((err as Error)?.message ?? "").toLowerCase();
           const isModelError = status === 404 || status === 403 || code === "model_not_found";
-          if (!isModelError) {
+          const isToolConfigError =
+            status === 400 && isWebSearchEnabled() && (message.includes("web_search") || message.includes("tool"));
+
+          if (isToolConfigError) {
+            try {
+              return { ...(await finalizeResponse(model, false)), model };
+            } catch (toolRetryErr) {
+              lastError = toolRetryErr;
+              const toolRetryStatus = (toolRetryErr as { status?: number })?.status;
+              const toolRetryCode = (toolRetryErr as { code?: string })?.code;
+              const toolRetryModelError =
+                toolRetryStatus === 404 || toolRetryStatus === 403 || toolRetryCode === "model_not_found";
+              if (!toolRetryModelError) {
+                throw toolRetryErr;
+              }
+            }
+            continue;
+          }
+
+          lastError = err;
+          if (!isModelError && code !== "empty_output_text") {
             throw err;
           }
         }
@@ -759,8 +874,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     try {
-      const { response, model } = await requestResponseWithFallbacks(getModelFallbacks());
-      const rawAnswer = (response as any).output_text ?? "";
+      const { response, model, answerText } = await requestResponseWithFallbacks(getModelFallbacks());
+      const rawAnswer = answerText;
 
       // Brief evidence citations ([sourceId] tokens)
       const foundSourceIds = extractSourceIds(rawAnswer);
@@ -796,6 +911,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
           openaiRequestId: (response as any).id,
           result: "ok",
           model,
+          responseStatus: (response as any).status,
+          incompleteReason: (response as any).incomplete_details?.reason,
           questionPreview: debug ? effectiveQuestion.slice(0, 300) : undefined,
           citationsCount: allCitations.length,
           webCitationsCount: webCitations.length
