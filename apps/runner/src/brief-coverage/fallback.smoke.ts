@@ -48,7 +48,7 @@ const carryForward = resolveFallbackBrief({
 
 assert.ok(carryForward);
 assert.equal(carryForward.portfolio, previousBrief.portfolio);
-assert.equal(carryForward.generationStatus, "no-updates");
+assert.equal(carryForward.generationStatus, "published");
 assert.equal(carryForward.summary, previousBrief.summary);
 assert.ok(carryForward.tags?.includes("carry-forward"));
 
@@ -92,6 +92,18 @@ assert.ok(baseline.tags?.includes("baseline"));
 process.env.NODE_ENV = "production";
 delete process.env.PLACEHOLDER_CONTENT_ENABLED;
 delete process.env.ALLOW_PLACEHOLDER_CONTENT;
+
+const prodCarryForward = resolveFallbackBrief({
+  agent,
+  region: "au",
+  runWindow: "apac",
+  reason: "no-updates",
+  previousBrief
+});
+assert.ok(prodCarryForward, "Production should still return carry-forward when prior real brief exists");
+assert.equal(prodCarryForward.generationStatus, "published");
+assert.equal(prodCarryForward.summary, previousBrief.summary);
+assert.ok(prodCarryForward.tags?.includes("carry-forward"));
 
 const prodBaseline = resolveFallbackBrief({
   agent,

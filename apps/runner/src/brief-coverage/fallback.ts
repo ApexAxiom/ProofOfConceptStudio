@@ -10,7 +10,6 @@ export function resolveFallbackBrief(options: {
   now?: Date;
 }): BriefPost | null {
   if (options.previousBrief && !isUserVisiblePlaceholderBrief(options.previousBrief)) {
-    if (!isPlaceholdersAllowed()) return null;
     return buildCarryForwardBrief({
       agent: options.agent,
       region: options.region,
