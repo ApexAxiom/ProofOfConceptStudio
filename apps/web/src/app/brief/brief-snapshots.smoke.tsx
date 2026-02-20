@@ -59,5 +59,8 @@ assert(html.includes("Executive Summary"));
 assert(html.includes("Impact"));
 assert(html.includes("Action Plan"));
 assert(html.includes("Sources"));
+assert(!html.includes("Market Pulse"));
+assert(!html.includes("Supplier Radar"));
+assert(!html.includes("Negotiation Levers"));
 
 console.log("brief-snapshots.smoke passed");

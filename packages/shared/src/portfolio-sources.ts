@@ -4,6 +4,7 @@
  */
 
 import { keywordPackForPortfolio } from "./keywords.js";
+import { MarketIndex } from "./types.js";
 
 export interface PortfolioSource {
   name: string;
@@ -24,6 +25,23 @@ export interface PortfolioIndex {
 export interface PortfolioConfig {
   sources: PortfolioSource[];
   indices: PortfolioIndex[];
+}
+
+export function toMarketIndex(portfolioSlug: string, index: PortfolioIndex): MarketIndex {
+  const safeSymbol = index.symbol.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return {
+    id: `${portfolioSlug}-${safeSymbol}`,
+    label: index.name,
+    url: index.sourceUrl,
+    notes: `${index.symbol} benchmark`,
+    regionScope: ["au", "us-mx-la-lng"]
+  };
+}
+
+export function getPortfolioMarketIndices(portfolioSlug: string): MarketIndex[] {
+  const config = getPortfolioConfig(portfolioSlug);
+  if (!config) return [];
+  return config.indices.map((index) => toMarketIndex(portfolioSlug, index));
 }
 
 // Common energy indices

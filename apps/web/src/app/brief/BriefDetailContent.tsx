@@ -11,6 +11,8 @@ import {
   regionLabel,
   toBriefViewModelV2
 } from "@proof/shared";
+import { NegotiationLevers } from "../../components/NegotiationLevers";
+import { SupplierRadar } from "../../components/SupplierRadar";
 
 const OPERATIONAL_PATTERNS: RegExp[] = [
   /brief generation failed/gi,
@@ -196,15 +198,13 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
   const sourceNumberById = new Map(sources.map((source, index) => [source.sourceId, index + 1]));
   const reportImpactGroups: BriefReportImpactGroup[] = brief.report?.impactGroups ?? [];
   const reportActionGroups = brief.report?.actionGroups ?? [];
+  const marketSnapshot = (brief.marketSnapshot ?? []).slice(0, 6);
   const shouldRenderHero =
     view.heroImage.url.startsWith("https://") && !/daily intel report/i.test(view.heroImage.alt);
 
   const keyTakeaways = brief.report?.summaryBullets?.length
     ? brief.report.summaryBullets.slice(0, 3).map((bullet) => renderCitedBullet(bullet, sourceNumberById))
     : fallbackImpact.slice(0, 3);
-  const executiveSummaryBullets = brief.report?.summaryBullets?.length
-    ? brief.report.summaryBullets.slice(0, 5).map((bullet) => renderCitedBullet(bullet, sourceNumberById))
-    : fallbackImpact.slice(0, 5);
   const executiveKeyFacts = Array.from(
     new Set(
       view.topStories
@@ -281,21 +281,57 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
             )}
           </div>
         </div>
+        {marketSnapshot.length > 0 ? (
+          <div className="mt-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Market Pulse</p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="min-w-full table-fixed border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    <th className="px-3 py-2 text-left">Index</th>
+                    <th className="px-3 py-2 text-right">Latest</th>
+                    <th className="px-3 py-2 text-right">Change</th>
+                    <th className="px-3 py-2 text-left">As of</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {marketSnapshot.map((item) => (
+                    <tr
+                      key={`${item.symbol}-${item.asOf}-${item.latest}`}
+                      className="border-b border-border/80 last:border-0"
+                    >
+                      <td className="px-3 py-2 text-foreground">
+                        {item.name} <span className="text-muted-foreground">({item.symbol})</span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-foreground">
+                        {Number(item.latest).toLocaleString("en-US", { maximumFractionDigits: 2 })} {item.unit}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span
+                          className={item.change >= 0 ? "text-emerald-400" : "text-rose-400"}
+                        >{`${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%)`}</span>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {new Date(item.asOf).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Executive Summary</h2>
         <p className="mt-3 text-sm text-foreground leading-relaxed">{fallbackSummary}</p>
-        {executiveSummaryBullets.length > 0 ? (
-          <ul className="mt-4 space-y-2 text-sm text-foreground">
-            {executiveSummaryBullets.map((item, idx) => (
-              <li key={`summary-${idx}`} className="flex gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
         {executiveKeyFacts.length > 0 ? (
           <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
@@ -359,6 +395,20 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
           </ul>
         )}
       </section>
+
+      {brief.cmSnapshot?.supplierRadar?.length ? (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-semibold text-foreground">Supplier Radar</h2>
+          <SupplierRadar brief={brief} />
+        </section>
+      ) : null}
+
+      {brief.cmSnapshot?.negotiationLevers?.length ? (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-semibold text-foreground">Negotiation Levers</h2>
+          <NegotiationLevers brief={brief} />
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Action Plan</h2>

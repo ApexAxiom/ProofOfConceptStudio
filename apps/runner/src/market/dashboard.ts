@@ -12,7 +12,7 @@ import {
   categoryForPortfolio,
   getBriefDayKey,
   isUserVisiblePlaceholderBrief,
-  indicesForRegion,
+  getPortfolioMarketIndices,
   makeCategoryPlaceholderDataUrl,
   validateBriefV2Record
 } from "@proof/shared";
@@ -200,7 +200,7 @@ export async function runMarketDashboard(
       totalTokens: params.usage?.totalTokens
     });
 
-    const indices = indicesForRegion(agent.portfolio, region);
+    const indices = getPortfolioMarketIndices(agent.portfolio);
     const indexUrls = new Set(indices.map((i) => i.url));
     const allowedUrls = new Set([...candidates.map((c) => c.url), ...indexUrls]);
 

@@ -81,6 +81,33 @@ const brief: BriefPost = {
     ],
     talkingPoints: ["Pipeline stable"]
   },
+  report: {
+    summaryBullets: [
+      { text: "Takeaway one", sourceIds: ["s1"] },
+      { text: "Takeaway two", sourceIds: ["s1"] },
+      { text: "Takeaway three", sourceIds: ["s2"] }
+    ],
+    impactGroups: [
+      {
+        label: "Risk",
+        bullets: [{ text: "Takeaway one", sourceIds: ["s1"] }, { text: "Rates improved", sourceIds: ["s1"] }]
+      }
+    ],
+    actionGroups: [
+      {
+        horizon: "Next 72 hours",
+        actions: [
+          {
+            action: "Action one",
+            rationale: "because a trigger",
+            owner: "Category",
+            expectedOutcome: "Outcome",
+            sourceIds: ["s1"]
+          }
+        ]
+      }
+    ]
+  },
   vpSnapshot: {
     health: {
       overall: 80,
@@ -131,5 +158,14 @@ assert(html.includes("Executive Summary"));
 assert(html.includes("Impact"));
 assert(html.includes("Action Plan"));
 assert(html.includes("Sources"));
+const executiveSummaryStart = html.indexOf("Executive Summary");
+const actionPlanStart = html.indexOf("Action Plan");
+const executiveSummarySection = html.slice(executiveSummaryStart, actionPlanStart);
+assert(!executiveSummarySection.includes("Takeaway one"));
+assert(!executiveSummarySection.includes("Takeaway two"));
+assert(!executiveSummarySection.includes("Takeaway three"));
+assert(html.includes("Market Pulse"));
+assert(html.includes("Supplier Radar"));
+assert(html.includes("Negotiation Levers"));
 
 console.log("brief-detail.smoke passed");

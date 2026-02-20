@@ -105,6 +105,14 @@ function normalizeDedupeKey(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function normalizeComparableText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s%./-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function dedupeCitedBullets(bullets: BriefCitedBullet[]): BriefCitedBullet[] {
   const seen = new Set<string>();
   const out: BriefCitedBullet[] = [];
@@ -127,6 +135,40 @@ function dedupeActions(actions: BriefReportAction[]): BriefReportAction[] {
     out.push(action);
   }
   return out;
+}
+
+function dedupeReportDuplicateBullets(report: BriefReport, deltaSinceLastRun: string[]): string[] {
+  const seen = new Set<string>();
+
+  const dedupe = <T extends { text: string }>(items: T[]): T[] => {
+    const out: T[] = [];
+    for (const item of items) {
+      const key = normalizeComparableText(item.text);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  };
+
+  report.summaryBullets = dedupe(report.summaryBullets);
+  report.impactGroups = report.impactGroups.map((group) => ({
+    ...group,
+    bullets: dedupe(group.bullets)
+  }));
+
+  return deltaSinceLastRun
+    .map((item) => ({
+      item,
+      key: normalizeComparableText(item)
+    }))
+    .filter((entry) => {
+      if (!entry.key || seen.has(entry.key)) return false;
+      seen.add(entry.key);
+      return true;
+    })
+    .map((entry) => entry.item)
+    .slice(0, 3);
 }
 
 function citationTag(sourceIds: string[], sourceNumberById: Map<string, number>): string {
@@ -353,6 +395,8 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     ]
   };
 
+  const deltaSinceLastRun = dedupeReportDuplicateBullets(report, parsed.deltaSinceLastRun ?? []);
+
   const selectedSources: BriefSource[] = selectedArticles.map((article) => ({
     sourceId: article.sourceId ?? buildSourceId(article.url),
     url: article.url,
@@ -427,7 +471,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     highlights,
     procurementActions,
     watchlist,
-    deltaSinceLastRun: highlights.slice(0, 4),
+    deltaSinceLastRun,
     marketIndicators,
     selectedArticles,
     heroImageUrl: heroArticle?.imageUrl,

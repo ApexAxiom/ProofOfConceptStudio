@@ -9,8 +9,8 @@ import {
   buildBriefPostId,
   buildBriefRunKey,
   getBriefDayKey,
-  indicesForRegion,
   makeCategoryPlaceholderDataUrl,
+  getPortfolioMarketIndices,
   runWindowForRegion,
   validateBriefV2Record
 } from "@proof/shared";
@@ -935,8 +935,8 @@ export async function runAgent(
       })
     );
     
-    // Step 2: Get market indices for this region/portfolio
-    const indices = indicesForRegion(agent.portfolio, region);
+    // Step 2: Get market indices for this portfolio (authoritative config set).
+    const indices = getPortfolioMarketIndices(agent.portfolio);
 
     // Step 3: Look up previous brief for delta context
     const previousBrief = await getLatestRealBriefSafe({

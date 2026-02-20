@@ -1,4 +1,10 @@
-import { BriefPost, BriefSource, dedupeSources, normalizeBriefSources } from "@proof/shared";
+import {
+  BriefPost,
+  BriefReport,
+  BriefSource,
+  dedupeSources,
+  normalizeBriefSources
+} from "@proof/shared";
 
 /**
  * Validation rules for brief sections
@@ -44,6 +50,266 @@ function extractMarkdownUrls(markdown: string): Set<string> {
     urls.add(match[0].replace(/[.,;:!?]+$/, "")); // Remove trailing punctuation
   }
   return urls;
+}
+
+function normalizeComparableText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\w\s%./-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function dedupeText(value: string): string {
+  return normalizeComparableText(value).replace(/\s+/g, " ");
+}
+
+const MAX_REPORT_SUMMARY_BULLETS = 5;
+const MAX_REPORT_DELTA_BULLETS = 3;
+
+interface ReportCiteRef {
+  sourceIds: string[];
+  setSourceIds: (next: string[]) => void;
+  section: "summary" | "impact" | "action" | "delta";
+  text: string;
+}
+
+const FALLBACK_SUMMARY_BULLETS = [
+  "No additional material deltas were confirmed this cycle.",
+  "Use top-line supplier and market signals to refresh actions in the next planning window.",
+  "Maintain supplier and contract-readiness monitoring as coverage context evolves.",
+  "Prioritize triggers tied to contract events and service-level performance variance.",
+  "Keep decisions conservative until cross-validated signals align across sources."
+];
+
+function normalizeCitedSourceIds(sourceIds: string[], allowedSourceIds: Set<string>): string[] {
+  const normalized = sourceIds.filter(Boolean).map((value) => value.trim()).filter(Boolean);
+  const deduped = Array.from(new Set(normalized));
+  return deduped.filter((sourceId) => allowedSourceIds.has(sourceId));
+}
+
+function countCitationSources(refs: ReportCiteRef[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const ref of refs) {
+    const unique = Array.from(new Set(ref.sourceIds));
+    for (const sourceId of unique) {
+      counts.set(sourceId, (counts.get(sourceId) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function collectCitedReportReferences(report: BriefReport): ReportCiteRef[] {
+  const refs: ReportCiteRef[] = [];
+  for (const bullet of report.summaryBullets) {
+    refs.push({
+      sourceIds: [...bullet.sourceIds],
+      setSourceIds: (next) => {
+        bullet.sourceIds = next;
+      },
+      section: "summary",
+      text: bullet.text
+    });
+  }
+
+  for (const group of report.impactGroups) {
+    for (const bullet of group.bullets) {
+      refs.push({
+        sourceIds: [...bullet.sourceIds],
+        setSourceIds: (next) => {
+          bullet.sourceIds = next;
+        },
+        section: "impact",
+        text: bullet.text
+      });
+    }
+  }
+
+  for (const group of report.actionGroups) {
+    for (const action of group.actions) {
+      refs.push({
+        sourceIds: [...action.sourceIds],
+        setSourceIds: (next) => {
+          action.sourceIds = next;
+        },
+        section: "action",
+        text: action.action
+      });
+    }
+  }
+
+  return refs;
+}
+
+function collectDeltaReferences(delta: string[]): ReportCiteRef[] {
+  return delta.map((text) => ({
+    sourceIds: [],
+    setSourceIds: () => {
+      return;
+    },
+    section: "delta",
+    text
+  }));
+}
+
+function dedupeReportItems<T extends { text: string; sourceIds: string[] }>(
+  bullets: T[],
+  seen: Set<string>
+): T[] {
+  const out: T[] = [];
+  for (const bullet of bullets) {
+    const normalized = dedupeText(bullet.text);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(bullet);
+  }
+  return out;
+}
+
+function enforceCitationSpread(refs: ReportCiteRef[]): void {
+  const citedRefs = refs.filter((ref) => ref.sourceIds.length > 0);
+  if (citedRefs.length === 0) return;
+  const sourceIds = new Set(citedRefs.flatMap((ref) => ref.sourceIds));
+  if (sourceIds.size < 2) return;
+
+  const isDominant = (counts: Map<string, number>): [string, number] | undefined =>
+    Array.from(counts.entries()).reduce<[string, number] | undefined>(
+      (best, current) => (best === undefined || current[1] > best[1] ? current : best),
+      undefined
+    );
+
+  let counts = countCitationSources(citedRefs);
+  const total = Array.from(counts.values()).reduce((sum, value) => sum + value, 0);
+  let dominantPair = isDominant(counts);
+  if (!dominantPair) return;
+  let [dominantSource, dominantCount] = dominantPair;
+  const maxAllowed = Math.floor(total / 2);
+  if (dominantCount <= maxAllowed) return;
+
+  const sectionPriority: Record<ReportCiteRef["section"], number> = {
+    delta: 1,
+    impact: 2,
+    action: 3,
+    summary: 4
+  };
+
+  let guard = 0;
+  while (dominantCount > maxAllowed && guard < 64) {
+    guard += 1;
+    let changed = false;
+    const orderedRefs = [...citedRefs].sort(
+      (a, b) => sectionPriority[a.section] - sectionPriority[b.section] || b.sourceIds.length - a.sourceIds.length
+    );
+
+    for (const ref of orderedRefs) {
+      if (!ref.sourceIds.includes(dominantSource)) continue;
+
+      const alternatives = Array.from(new Set(ref.sourceIds)).filter((sourceId) => sourceId !== dominantSource);
+      if (alternatives.length > 0) {
+        ref.setSourceIds(alternatives.slice(0, 1));
+      } else {
+        ref.setSourceIds([]);
+      }
+
+      counts = countCitationSources(citedRefs);
+      dominantPair = isDominant(counts);
+      if (!dominantPair) return;
+      [dominantSource, dominantCount] = dominantPair;
+      changed = true;
+      if (dominantCount <= Math.floor(total / 2)) break;
+    }
+
+    if (!changed) break;
+  }
+}
+
+function applyStrictReportRules(brief: BriefPost): {
+  report?: BriefPost["report"];
+  deltaSinceLastRun?: string[];
+} {
+  if (!brief.report) {
+    return {
+      report: brief.report,
+      deltaSinceLastRun: brief.deltaSinceLastRun ? [...brief.deltaSinceLastRun] : undefined
+    };
+  }
+
+  const allowedSourceIds = new Set(normalizeBriefSources(brief.sources).map((source) => source.sourceId));
+  const seen = new Set<string>();
+
+  const normalizedSummary = dedupeReportItems(
+    (brief.report.summaryBullets ?? [])
+      .map((bullet) => ({
+        ...bullet,
+        text: bullet.text.trim(),
+        sourceIds: normalizeCitedSourceIds(bullet.sourceIds, allowedSourceIds)
+      }))
+      .filter((bullet) => bullet.text.trim().length > 0),
+    seen
+  ).slice(0, MAX_REPORT_SUMMARY_BULLETS);
+
+  const summaryBullets = [...normalizedSummary];
+  if (summaryBullets.length < MAX_REPORT_SUMMARY_BULLETS) {
+    const fallbackNeeded = Math.max(0, MAX_REPORT_SUMMARY_BULLETS - summaryBullets.length);
+    const fallbackBullets = FALLBACK_SUMMARY_BULLETS.slice(0, fallbackNeeded);
+    for (const fallbackText of fallbackBullets) {
+      if (!seen.has(dedupeText(fallbackText))) {
+        summaryBullets.push({ text: fallbackText, sourceIds: [], signal: "confirmed" });
+        seen.add(dedupeText(fallbackText));
+      }
+    }
+  }
+
+  const impactGroups = (brief.report.impactGroups ?? []).map((group) => ({
+    ...group,
+    bullets: dedupeReportItems(
+      (group.bullets ?? [])
+        .map((bullet) => ({
+          ...bullet,
+          text: bullet.text.trim(),
+          sourceIds: normalizeCitedSourceIds(bullet.sourceIds, allowedSourceIds)
+        }))
+        .filter((bullet) => bullet.text.trim().length > 0),
+      seen
+    )
+  }));
+
+  const actionGroups = (brief.report.actionGroups ?? []).map((group) => ({
+    ...group,
+    actions: (group.actions ?? [])
+      .filter((action) => action.action.trim().length > 0)
+      .map((action) => ({
+        ...action,
+        sourceIds: normalizeCitedSourceIds(action.sourceIds, allowedSourceIds)
+      }))
+  }));
+
+  const rawDelta = Array.isArray(brief.deltaSinceLastRun) ? brief.deltaSinceLastRun : [];
+  const deltaSinceLastRun = dedupeReportItems(
+    rawDelta.map((item) => ({
+      text: item.trim(),
+      sourceIds: []
+    })),
+    seen
+  )
+    .slice(0, MAX_REPORT_DELTA_BULLETS)
+    .map((item) => item.text)
+    .filter(Boolean);
+
+  const normalizedReport: BriefReport = {
+    summaryBullets,
+    impactGroups,
+    actionGroups
+  };
+
+  const refs = [...collectCitedReportReferences(normalizedReport), ...collectDeltaReferences(deltaSinceLastRun)];
+  enforceCitationSpread(refs);
+
+  return { report: normalizedReport, deltaSinceLastRun };
+}
+
+function shouldApplyStrictReportRules(brief: BriefPost): boolean {
+  return brief.version === "v2" || Boolean(brief.report);
 }
 
 /**
@@ -219,6 +485,9 @@ export function validateBrief(
 
   const mergedSourceInputs = [...(brief.sources ?? []), ...extraSourceUrls];
   const normalizedSources = dedupeSources(normalizeBriefSources(mergedSourceInputs));
+  const strictReport = shouldApplyStrictReportRules(brief)
+    ? applyStrictReportRules({ ...brief, sources: normalizedSources })
+    : { report: brief.report, deltaSinceLastRun: brief.deltaSinceLastRun ? [...brief.deltaSinceLastRun] : undefined };
   
   // Run all validations
   validateTitleAndSummary(brief, issues);
@@ -263,8 +532,11 @@ export function validateBrief(
   
   return {
     ...brief,
+    ...strictReport,
     status: "published",
-    sources: normalizedSources
+    sources: normalizedSources,
+    ...(strictReport.report ? { report: strictReport.report } : {}),
+    ...(strictReport.deltaSinceLastRun !== undefined ? { deltaSinceLastRun: strictReport.deltaSinceLastRun } : {})
   };
 }
 

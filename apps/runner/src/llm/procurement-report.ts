@@ -37,6 +37,7 @@ export interface ProcurementOutputAction {
 export interface ProcurementOutput {
   title: string;
   summaryBullets: ProcurementOutputBullet[];
+  deltaSinceLastRun?: string[];
   impact: {
     marketCostDrivers: ProcurementOutputBullet[];
     supplyBaseCapacity: ProcurementOutputBullet[];
@@ -61,30 +62,50 @@ export interface ProcurementOutput {
 
 const SIGNAL_ENUM = z.enum(["confirmed", "early-signal", "unconfirmed"]);
 const OWNER_ENUM = z.enum(["Category", "Contracts", "Legal", "Ops"]);
+const OUTPUT_SUMMARY_BULLETS = 5;
+const BECAUSE_TRIGGER = /\bbecause\b/i;
+const MIN_RATIONALE_WORDS = 8;
+const CITATION_LIST_LIMIT = 4;
+
+function normalizeComparableText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s%./-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 const citedBulletSchema = z.object({
   text: z.string().min(12).max(400),
-  citations: z.array(z.number().int().positive()).min(1).max(4),
+  citations: z.array(z.number().int().positive()).min(0).max(CITATION_LIST_LIMIT),
   signal: SIGNAL_ENUM.optional()
 });
 
 const actionSchema = z.object({
   action: z.string().min(8).max(180),
-  rationale: z.string().min(8).max(260),
+  rationale: z.string().min(MIN_RATIONALE_WORDS).max(260),
   owner: OWNER_ENUM,
   expectedOutcome: z.string().min(8).max(220),
   citations: z.array(z.number().int().positive()).min(1).max(4)
+}).superRefine((value, context) => {
+  if (!BECAUSE_TRIGGER.test(value.rationale)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "action.rationale must include a trigger clause using 'because ...'"
+    });
+  }
 });
 
 const outputSchema = z.object({
   title: z.string().min(8).max(160),
-  summaryBullets: z.array(citedBulletSchema).min(5).max(8),
+  summaryBullets: z.array(citedBulletSchema).length(OUTPUT_SUMMARY_BULLETS),
   impact: z.object({
     marketCostDrivers: z.array(citedBulletSchema).min(2).max(5),
     supplyBaseCapacity: z.array(citedBulletSchema).min(2).max(5),
     contractingCommercialTerms: z.array(citedBulletSchema).min(2).max(5),
     riskRegulatoryOperationalConstraints: z.array(citedBulletSchema).min(2).max(5)
   }),
+  deltaSinceLastRun: z.array(z.string().min(10).max(220)).max(3).optional(),
   possibleActions: z.object({
     next72Hours: z.array(actionSchema).min(2).max(4),
     next2to4Weeks: z.array(actionSchema).min(2).max(5),
@@ -232,7 +253,9 @@ OUTPUT RULES (strict):
 1) Return JSON only.
 2) Title must be 8-14 words, strong verb, not generic, never includes "Daily Brief".
 3) Produce exactly four report sections in structure:
-   - Summary: 5-8 cited bullets
+   - Summary: exactly 5 cited bullets
+     - Bullets 1-3 are key takeaways
+     - Bullets 4-5 are extra context
    - Impact: 10-16 cited bullets across 4 subgroups:
      * marketCostDrivers
      * supplyBaseCapacity
@@ -247,15 +270,18 @@ OUTPUT RULES (strict):
 4) Every summary/impact/action item MUST include citations pointing to articleIndex values (one citation is acceptable; do not force multiple).
 5) Use signal = "early-signal" or "unconfirmed" when evidence is weak; do not invent certainty.
 6) Owner must be one of: Category, Contracts, Legal, Ops.
-7) Selected articles must be 1-${requiredCount}, unique, and sourced only from provided article indices.
-8) heroSelection.articleIndex must match one selected article.
-9) marketIndicators must reference indexId from the provided market index list.
+7) Every action rationale must include a trigger clause using "because ...".
+8) Selected articles must be 1-${requiredCount}, unique, and sourced only from provided article indices.
+9) heroSelection.articleIndex must match one selected article.
+10) marketIndicators must reference indexId from the provided market index list.
+11) If a previous brief is provided, deltaSinceLastRun should be concrete changes only and should not duplicate impact language.
 
 JSON SHAPE:
 \`\`\`json
 {
   "title": "Headline title",
   "summaryBullets": [{ "text": "bullet", "citations": [1], "signal": "confirmed" }],
+  "deltaSinceLastRun": ["Concrete delta vs prior run"],
   "impact": {
     "marketCostDrivers": [{ "text": "bullet", "citations": [1] }],
     "supplyBaseCapacity": [{ "text": "bullet", "citations": [2] }],
@@ -431,13 +457,44 @@ function normalizeSelectedArticles(
   return normalized;
 }
 
-function normalizeCitations(citations: number[], selectedSet: Set<number>, fallbackIndex: number): number[] {
+function normalizeCitations(citations: number[], selectedSet: Set<number>): number[] {
   const normalized = Array.from(new Set(citations.filter((citation) => selectedSet.has(citation))));
-  if (normalized.length === 0) return [fallbackIndex];
-  return normalized.slice(0, 4);
+  if (normalized.length === 0) return [];
+  return normalized.slice(0, CITATION_LIST_LIMIT);
 }
 
-function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: Set<number>, fallbackIndex: number): void {
+function dedupeSectionsByText(output: ProcurementOutput): void {
+  const seen = new Set<string>();
+
+  const filterBullets = (
+    bullets: Array<{ text: string; citations: number[]; signal?: "confirmed" | "early-signal" | "unconfirmed" }>
+  ): typeof bullets => {
+    const out: typeof bullets = [];
+    for (const bullet of bullets) {
+      const normalized = normalizeComparableText(bullet.text);
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push(bullet);
+    }
+    return out;
+  };
+
+  output.summaryBullets = filterBullets(output.summaryBullets);
+  output.impact.marketCostDrivers = filterBullets(output.impact.marketCostDrivers);
+  output.impact.supplyBaseCapacity = filterBullets(output.impact.supplyBaseCapacity);
+  output.impact.contractingCommercialTerms = filterBullets(output.impact.contractingCommercialTerms);
+  output.impact.riskRegulatoryOperationalConstraints = filterBullets(output.impact.riskRegulatoryOperationalConstraints);
+  output.deltaSinceLastRun = (output.deltaSinceLastRun ?? [])
+    .filter((item) => {
+      const normalized = normalizeComparableText(item);
+      if (!normalized || seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    })
+    .slice(0, 3);
+}
+
+function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: Set<number>): void {
   const groups = [
     impact.marketCostDrivers,
     impact.supplyBaseCapacity,
@@ -449,7 +506,7 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
     for (let idx = 0; idx < group.length; idx += 1) {
       group[idx] = {
         ...group[idx],
-        citations: normalizeCitations(group[idx].citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(group[idx].citations, selectedSet)
       };
     }
   }
@@ -466,7 +523,7 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
     const seed = group[group.length - 1] ?? groups[0][0];
     group.push({
       ...seed,
-      citations: normalizeCitations(seed.citations, selectedSet, fallbackIndex)
+      citations: normalizeCitations(seed.citations, selectedSet)
     });
   }
 
@@ -482,11 +539,7 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
   }
 }
 
-function normalizeActionCount(
-  possibleActions: ProcurementOutput["possibleActions"],
-  selectedSet: Set<number>,
-  fallbackIndex: number
-): void {
+function normalizeActionCount(possibleActions: ProcurementOutput["possibleActions"], selectedSet: Set<number>): void {
   const groups = [
     { items: possibleActions.next72Hours, min: 2, max: 4 },
     { items: possibleActions.next2to4Weeks, min: 2, max: 5 },
@@ -497,7 +550,7 @@ function normalizeActionCount(
     for (let idx = 0; idx < group.items.length; idx += 1) {
       group.items[idx] = {
         ...group.items[idx],
-        citations: normalizeCitations(group.items[idx].citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(group.items[idx].citations, selectedSet)
       };
     }
   }
@@ -514,7 +567,7 @@ function normalizeActionCount(
     const seed = group.items[group.items.length - 1] ?? groups[0].items[0];
     group.items.push({
       ...seed,
-      citations: normalizeCitations(seed.citations, selectedSet, fallbackIndex)
+      citations: normalizeCitations(seed.citations, selectedSet)
     });
   }
 
@@ -549,44 +602,45 @@ function normalizeOutputForValidation(
     },
     summaryBullets: output.summaryBullets.map((bullet) => ({
       ...bullet,
-      citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+      citations: normalizeCitations(bullet.citations, selectedSet)
     })),
     impact: {
       marketCostDrivers: output.impact.marketCostDrivers.map((bullet) => ({
         ...bullet,
-        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(bullet.citations, selectedSet)
       })),
       supplyBaseCapacity: output.impact.supplyBaseCapacity.map((bullet) => ({
         ...bullet,
-        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(bullet.citations, selectedSet)
       })),
       contractingCommercialTerms: output.impact.contractingCommercialTerms.map((bullet) => ({
         ...bullet,
-        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(bullet.citations, selectedSet)
       })),
       riskRegulatoryOperationalConstraints: output.impact.riskRegulatoryOperationalConstraints.map((bullet) => ({
         ...bullet,
-        citations: normalizeCitations(bullet.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(bullet.citations, selectedSet)
       }))
     },
     possibleActions: {
       next72Hours: output.possibleActions.next72Hours.map((action) => ({
         ...action,
-        citations: normalizeCitations(action.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(action.citations, selectedSet)
       })),
       next2to4Weeks: output.possibleActions.next2to4Weeks.map((action) => ({
         ...action,
-        citations: normalizeCitations(action.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(action.citations, selectedSet)
       })),
       nextQuarter: output.possibleActions.nextQuarter.map((action) => ({
         ...action,
-        citations: normalizeCitations(action.citations, selectedSet, fallbackIndex)
+        citations: normalizeCitations(action.citations, selectedSet)
       }))
     }
   };
 
-  normalizeImpactCount(normalized.impact, selectedSet, fallbackIndex);
-  normalizeActionCount(normalized.possibleActions, selectedSet, fallbackIndex);
+  dedupeSectionsByText(normalized);
+  normalizeImpactCount(normalized.impact, selectedSet);
+  normalizeActionCount(normalized.possibleActions, selectedSet);
   return normalized;
 }
 

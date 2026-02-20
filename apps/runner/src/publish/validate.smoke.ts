@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import { validateBrief } from "./validate.js";
 import { BriefPost } from "@proof/shared";
 
@@ -67,3 +68,104 @@ const brief: BriefPost = {
 
 validateBrief(brief, allowedUrls, indexUrls);
 console.log("OK");
+
+const duplicatedBrief: BriefPost = {
+  postId: "dup-test",
+  title: "Duplicate Coverage Brief for Validation",
+  region: "au",
+  portfolio: "demo",
+  runWindow: "apac",
+  status: "draft",
+  publishedAt: new Date().toISOString(),
+  summary: "Duplicate detection should keep a clean set of bullets while maintaining narrative quality for downstream readers.",
+  bodyMarkdown:
+    "The body intentionally includes enough content to satisfy minimum validation length. ".repeat(8),
+  selectedArticles: [
+    {
+      title: "Article 1",
+      url: "https://example.com/article-1",
+      briefContent:
+        "Category-level sourcing implications with enough detail to satisfy the minimum brief validation requirements."
+    },
+    {
+      title: "Article 2",
+      url: "https://example.com/article-2",
+      briefContent:
+        "Additional context on contract terms, supplier constraints, and market volatility across recent trading windows."
+    }
+  ],
+  sources: [
+    { sourceId: "source-1", url: "https://example.com/article-1", title: "Article 1" },
+    { sourceId: "source-2", url: "https://example.com/article-2", title: "Article 2" }
+  ],
+  marketIndicators: [
+    { id: "idx-1", label: "Index", url: "https://finance.yahoo.com/quote/CL=F", note: "Benchmark support" }
+  ],
+  version: "v2",
+  report: {
+    summaryBullets: [
+      { text: "High impact event", sourceIds: ["source-1"] },
+      { text: "Duplicate impact event", sourceIds: ["source-1"] },
+      { text: "Another takeaway", sourceIds: ["source-2"] }
+    ],
+    impactGroups: [
+      {
+        label: "Market risk",
+        bullets: [
+          { text: "Duplicate impact event", sourceIds: ["source-1"] },
+          { text: "Secondary impact point", sourceIds: ["source-2"] }
+        ]
+      }
+    ],
+    actionGroups: [
+      {
+        horizon: "Next 72 hours",
+        actions: [
+          {
+            action: "Take specific action",
+            rationale: "because of supplier timing risk",
+            owner: "Category",
+            expectedOutcome: "Faster response cycle",
+            sourceIds: ["source-1"]
+          },
+          {
+            action: "Rebalance coverage",
+            rationale: "because contract windows are narrowing",
+            owner: "Category",
+            expectedOutcome: "Reduced exposure",
+            sourceIds: ["source-1"]
+          }
+        ]
+      }
+    ]
+  },
+  deltaSinceLastRun: ["Duplicate impact event", "Distinct delta point", "Distinct delta point two"]
+};
+
+const duplicatedAllowed = new Set([
+  "https://example.com/article-1",
+  "https://example.com/article-2",
+  "https://finance.yahoo.com/quote/CL=F"
+]);
+const validatedDuplicate = validateBrief(duplicatedBrief, duplicatedAllowed);
+const seen = new Set<string>();
+let overlap = 0;
+
+for (const bullet of validatedDuplicate.report?.summaryBullets ?? []) {
+  const normalized = bullet.text.toLowerCase().trim();
+  seen.add(normalized);
+}
+for (const group of validatedDuplicate.report?.impactGroups ?? []) {
+  for (const bullet of group.bullets) {
+    const normalized = bullet.text.toLowerCase().trim();
+    if (seen.has(normalized)) overlap += 1;
+    seen.add(normalized);
+  }
+}
+for (const delta of validatedDuplicate.deltaSinceLastRun ?? []) {
+  const normalized = delta.toLowerCase().trim();
+  if (seen.has(normalized)) overlap += 1;
+  seen.add(normalized);
+}
+
+assert.strictEqual(overlap, 0);

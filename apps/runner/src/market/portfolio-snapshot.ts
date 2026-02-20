@@ -118,7 +118,7 @@ function toSnapshotItem(options: {
     asOf: options.asOf,
     sourceUrl: options.index.sourceUrl,
     dataState: options.dataState,
-    isFallback: options.dataState !== "live"
+    isFallback: options.dataState === "fallback"
   };
 }
 
@@ -179,4 +179,3 @@ export async function fetchPortfolioSnapshot(portfolioSlug: string): Promise<Bri
 
   return items;
 }
-
