@@ -47,6 +47,8 @@ export default function AdminPage() {
     regions?: string[];
     agentId?: string;
     batchSize?: number;
+    force?: boolean;
+    scheduled?: boolean;
   }) => {
     const res = await fetch("/api/admin/run", {
       method: "POST",
@@ -108,6 +110,32 @@ export default function AdminPage() {
       }
     } catch (err) {
       setMessage("Failed to trigger run. Check console for details.");
+    }
+    setLoading(false);
+  };
+
+  const triggerBothRegions = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const result = await runRequest({
+        region: "au",
+        regions: ["au", "us-mx-la-lng"],
+        batchSize: 3,
+        force: true
+      });
+      setMessage(
+        JSON.stringify(
+          {
+            ...result,
+            note: "Two-region run triggered for all portfolios using both regions."
+          },
+          null,
+          2
+        )
+      );
+    } catch (err) {
+      setMessage("Failed to trigger both-region run. Check console for details.");
     }
     setLoading(false);
   };
@@ -216,6 +244,26 @@ export default function AdminPage() {
         </div>
 
         <div className="mt-5 flex items-center gap-4">
+          <button
+            onClick={triggerBothRegions}
+            disabled={loading || !adminToken}
+            className="btn-primary"
+          >
+            {loading ? (
+              <>
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Running both regions...
+              </>
+            ) : (
+              <>
+                <PlayIcon />
+                Run Both Regions
+              </>
+            )}
+          </button>
           <button
             onClick={trigger}
             disabled={loading || !adminToken}

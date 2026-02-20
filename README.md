@@ -21,7 +21,7 @@ Scheduler/API → Runner /cron → Ingest feeds → Normalize/Dedupe → Rank/Se
 2. `pnpm install`
 3. Copy `.env.example` to `.env` and set values (local dev only)
 
-> Production: Do **not** store secrets in `.env` or source control. Use App Runner environment variables or AWS Secrets Manager.
+> Production: Do **not** store secrets in `.env` or source control. Set secrets in each AWS App Runner service environment configuration. Use AWS Secrets Manager only when `AWS_SECRET_NAME` is explicitly configured.
 
 ## Scripts
 - `pnpm dev` – run web, api, runner
@@ -95,7 +95,8 @@ Each service directory must include its own `apprunner.yaml`, and the App Runner
   - API service: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4o-mini`, `ADMIN_TOKEN`
   - Runner: `AWS_REGION`, `DDB_TABLE_NAME`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4o-mini`, `CRON_SECRET`
   - Web: `API_BASE_URL` (set after the API is deployed)
-  - Use one shared Secrets Manager secret (or synced env vars) for API + runner so `OPENAI_API_KEY` is consistently available to both services.
+  - Policy: `OPENAI_API_KEY` must exist in the related App Runner service env vars (`pocstudio-api`, `pocstudio-runner`). This is the default and preferred credential source.
+  - Optional: use one shared Secrets Manager secret only if you intentionally set `AWS_SECRET_NAME` for API + runner.
 
 ### Environment Variables
 Shared
@@ -185,7 +186,12 @@ Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-d
 
 ## AWS Secrets Manager Integration
 
-The API and runner services support loading secrets from AWS Secrets Manager at startup. This is optional but recommended for production deployments.
+The API and runner services support loading secrets from AWS Secrets Manager at startup. This is optional for teams that want centralized secret management.
+
+Important behavior:
+- Secrets Manager loading is disabled unless `AWS_SECRET_NAME` is set.
+- If `AWS_SECRET_NAME` is not set, services use App Runner runtime environment variables only.
+- Environment variables still take precedence over fetched secrets.
 
 ### Configuration
 Set the `AWS_SECRET_NAME` environment variable to enable fetching secrets from AWS Secrets Manager:

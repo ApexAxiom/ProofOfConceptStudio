@@ -31,7 +31,9 @@ export const DEFAULT_SECRET_NAME = "daily-briefs/app-secrets";
  * Get the secrets config from environment variables
  */
 export function getSecretsConfig(): SecretsConfig | null {
-  const secretName = process.env.AWS_SECRET_NAME ?? (process.env.AWS_REGION ? DEFAULT_SECRET_NAME : undefined);
+  // Secrets Manager loading is explicit opt-in. If AWS_SECRET_NAME is not set,
+  // services use runtime environment variables (for example App Runner env vars).
+  const secretName = process.env.AWS_SECRET_NAME?.trim();
   if (!secretName) return null;
   
   return {
