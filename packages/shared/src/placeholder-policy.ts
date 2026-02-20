@@ -41,7 +41,8 @@ const PLACEHOLDER_TAGS = new Set([
   "carry-forward",
   "previous",
   "no-updates",
-  "generation-failed"
+  "generation-failed",
+  "placeholder"
 ]);
 
 function parseBoolean(value: string | undefined): boolean | undefined {
