@@ -78,6 +78,10 @@ type BriefSummary = {
   region: string;
 };
 
+type AuthStateResponse = {
+  authenticated?: boolean;
+};
+
 const buildMessageId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -379,6 +383,12 @@ export default function ChatPage({
   const [assistantStatus, setAssistantStatus] = useState<AssistantStatus | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [latestBriefs, setLatestBriefs] = useState<BriefSummary[]>([]);
+  const [authReady, setAuthReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const initialSelectionRef = useRef({ region: initialRegion, portfolio: initialPortfolio });
@@ -404,6 +414,26 @@ export default function ChatPage({
   }, [region, portfolio, initialBriefId, activeBriefId]);
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/chat-access", { cache: "no-store" });
+        if (!res.ok) {
+          setAuthenticated(false);
+          return;
+        }
+        const json = (await res.json()) as AuthStateResponse;
+        setAuthenticated(Boolean(json.authenticated));
+      } catch {
+        setAuthenticated(false);
+      } finally {
+        setAuthReady(true);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
     const loadAgents = async () => {
       try {
         const res = await fetch("/api/agents");
@@ -415,9 +445,10 @@ export default function ChatPage({
       }
     };
     loadAgents();
-  }, []);
+  }, [authenticated]);
 
   useEffect(() => {
+    if (!authenticated) return;
     const loadBriefs = async () => {
       try {
         const query = new URLSearchParams({ region, portfolio, limit: "3" });
@@ -440,9 +471,10 @@ export default function ChatPage({
       }
     };
     loadBriefs();
-  }, [region, portfolio]);
+  }, [authenticated, region, portfolio]);
 
   useEffect(() => {
+    if (!authenticated) return;
     const loadStatus = async () => {
       try {
         const res = await fetch("/api/chat", { method: "GET" });
@@ -459,7 +491,7 @@ export default function ChatPage({
       }
     };
     loadStatus();
-  }, []);
+  }, [authenticated]);
 
   useEffect(() => {
     if (!agents.length) return;
@@ -549,6 +581,33 @@ export default function ChatPage({
   const handleSuggestion = (q: string) => {
     setQuestion(q);
     inputRef.current?.focus();
+  };
+
+  const handleLogin = async () => {
+    if (!loginUsername.trim() || !loginPassword) {
+      setLoginError("Enter your credentials to continue.");
+      return;
+    }
+
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      const res = await fetch("/api/chat-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: loginUsername.trim(), password: loginPassword })
+      });
+      if (!res.ok) {
+        setLoginError("Invalid credentials.");
+        return;
+      }
+      setAuthenticated(true);
+      setLoginPassword("");
+    } catch {
+      setLoginError("Login is temporarily unavailable.");
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   const isLive = Boolean(assistantStatus?.enabled) && assistantStatus?.reachable !== false;
@@ -660,6 +719,56 @@ export default function ChatPage({
           activeBriefId={activeBriefId}
         />
       </div>
+
+      {authReady && !authenticated && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-foreground">Admin Login Required</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Please log in with your admin account before using the AI assistant.
+            </p>
+            <div className="mt-5 space-y-3">
+              <label className="block text-sm font-medium text-foreground">
+                Username
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+                  autoComplete="username"
+                />
+              </label>
+              <label className="block text-sm font-medium text-foreground">
+                Password
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+                  autoComplete="current-password"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleLogin();
+                    }
+                  }}
+                />
+              </label>
+              {loginError && <p className="text-sm text-red-500">{loginError}</p>}
+              <button
+                onClick={handleLogin}
+                disabled={loginLoading}
+                className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {loginLoading ? "Signing in..." : "Sign in"}
+              </button>
+              <p className="text-center text-xs text-muted-foreground">
+                If you want access the AI functionality, please contact: Roeland Westra
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
