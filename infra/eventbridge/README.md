@@ -13,13 +13,16 @@ chmod +x deploy.sh
 - Set `RUNNER_BASE_URL` to your App Runner service URL
 - Set `SECRET_ARN` to your AWS Secrets Manager secret ARN
 
-### 3. Ensure secret contains CRON_SECRET
-Your AWS Secrets Manager secret should include:
+### 3. Ensure secret stores the cron secret
+The Lambda proxy supports either format:
+
 ```json
 {
   "CRON_SECRET": "your-cron-secret-value"
 }
 ```
+
+or a plain string value containing only the cron secret.
 
 ## Manual Testing
 
@@ -40,6 +43,6 @@ curl -X POST "https://your-runner.awsapprunner.com/cron" \
 ```
 
 ## Schedule Summary
-- **APAC**: 3 batches daily at 6:00/6:10/6:20 AM AWST
-- **International**: 3 batches daily at 5:00/5:10/5:20 AM CST
-- Each batch uses `batchIndex`/`batchCount` to deterministically select agents from the canonical catalog.
+- **APAC**: daily at 6:00 AM AWST
+- **International**: daily at 5:00 AM CST and 6:00 AM CST
+- Schedules invoke the Lambda proxy, which reads `CRON_SECRET` from Secrets Manager and forwards to runner `/cron`.
