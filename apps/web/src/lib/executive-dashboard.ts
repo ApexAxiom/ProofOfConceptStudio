@@ -59,7 +59,7 @@ const FEED_TIMEOUT_MS = 12_000;
 const MAX_ITEMS_PER_FEED = 8;
 const SECTION_LIMIT = 12;
 const MAX_ARTICLE_AGE_DAYS = 14;
-const EXECUTIVE_GOOGLE_NEWS_ENABLED = (process.env.EXECUTIVE_GOOGLE_NEWS_ENABLED ?? "false").toLowerCase() === "true";
+const EXECUTIVE_GOOGLE_NEWS_ENABLED = (process.env.EXECUTIVE_GOOGLE_NEWS_ENABLED ?? "true").toLowerCase() === "true";
 
 function toExecutiveFeeds(portfolio: string, region: "apac" | "intl", targetRegion: ExecutiveRegion): RssFeed[] {
   return getPortfolioSources(portfolio, region)
@@ -114,6 +114,8 @@ const GOOGLE_INTERNATIONAL_FEEDS: RssFeed[] = [
     region: "international"
   }
 ];
+
+const SECTION_FALLBACK_MIN_ARTICLES = 4;
 
 // Broader keyword sets to capture more relevant articles.
 // Articles only need to match ONE keyword to be included.
@@ -254,6 +256,20 @@ async function collectSectionArticles(feeds: RssFeed[], keywords: string[]): Pro
   return allArticles.slice(0, SECTION_LIMIT);
 }
 
+async function collectSectionWithFallback(
+  primaryFeeds: RssFeed[],
+  fallbackFeeds: RssFeed[],
+  keywords: string[]
+): Promise<ExecutiveArticle[]> {
+  const primary = await collectSectionArticles(primaryFeeds, keywords);
+  if (primary.length >= SECTION_FALLBACK_MIN_ARTICLES || fallbackFeeds.length === 0) {
+    return primary;
+  }
+
+  const fallback = await collectSectionArticles([...primaryFeeds, ...fallbackFeeds], keywords);
+  return fallback.length >= primary.length ? fallback : primary;
+}
+
 function sectionLastUpdated(articles: ExecutiveArticle[], fallback = new Date().toISOString()): string {
   if (articles.length === 0) return fallback;
   return articles
@@ -265,17 +281,23 @@ function sectionLastUpdated(articles: ExecutiveArticle[], fallback = new Date().
  * Builds the executive dashboard payload for the homepage and API route.
  */
 export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
-  const woodsideFeeds = EXECUTIVE_GOOGLE_NEWS_ENABLED ? [...WOODSIDE_FEEDS, ...GOOGLE_WOODSIDE_FEEDS] : WOODSIDE_FEEDS;
-  const apacFeeds = EXECUTIVE_GOOGLE_NEWS_ENABLED ? [...APAC_FEEDS, ...GOOGLE_APAC_FEEDS] : APAC_FEEDS;
-  const internationalFeeds = EXECUTIVE_GOOGLE_NEWS_ENABLED
-    ? [...INTERNATIONAL_FEEDS, ...GOOGLE_INTERNATIONAL_FEEDS]
-    : INTERNATIONAL_FEEDS;
-
   const [market, woodsideLive, apacLive, internationalLive] = await Promise.all([
     getExecutiveMarketQuotes(),
-    collectSectionArticles(woodsideFeeds, WOODSIDE_KEYWORDS),
-    collectSectionArticles(apacFeeds, APAC_KEYWORDS),
-    collectSectionArticles(internationalFeeds, INTERNATIONAL_KEYWORDS)
+    collectSectionWithFallback(
+      WOODSIDE_FEEDS,
+      EXECUTIVE_GOOGLE_NEWS_ENABLED ? GOOGLE_WOODSIDE_FEEDS : [],
+      WOODSIDE_KEYWORDS
+    ),
+    collectSectionWithFallback(
+      APAC_FEEDS,
+      EXECUTIVE_GOOGLE_NEWS_ENABLED ? GOOGLE_APAC_FEEDS : [],
+      APAC_KEYWORDS
+    ),
+    collectSectionWithFallback(
+      INTERNATIONAL_FEEDS,
+      EXECUTIVE_GOOGLE_NEWS_ENABLED ? GOOGLE_INTERNATIONAL_FEEDS : [],
+      INTERNATIONAL_KEYWORDS
+    )
   ]);
 
   const woodsideArticles = woodsideLive.filter((article) => !isUserVisiblePlaceholderArticle(article));
