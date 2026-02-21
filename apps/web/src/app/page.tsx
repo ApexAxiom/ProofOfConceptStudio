@@ -60,7 +60,7 @@ export default async function ExecutiveViewPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Executive View</p>
-            <h1 className="mt-2 text-2xl font-semibold text-foreground">Market and category intelligence cockpit</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-foreground">Market and category intelligence dashboard</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               Immediate view of market moves, Woodside signal flow, regional Oil & Gas coverage, and the latest category briefs.
             </p>
