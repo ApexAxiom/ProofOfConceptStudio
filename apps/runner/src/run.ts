@@ -1262,7 +1262,22 @@ export async function runAgent(
 
     const v2Validation = validateBriefV2Record(published, { hasPreviousBrief: Boolean(previousBrief) });
     if (!v2Validation.ok) {
-      throw new Error(`BriefV2 validation failed: ${v2Validation.issues.join("; ")}`);
+      console.warn(`[${agentId}/${region}] BriefV2 validation issues: ${v2Validation.issues.join("; ")}`);
+      const fallback = await publishFallbackBrief({
+        agent,
+        region,
+        runWindow,
+        runId: runIdentifier,
+        reason: "generation-failed",
+        previousBrief,
+        ingestResult,
+        runIdentity,
+        dryRun,
+        now
+      });
+      if (fallback.ok) return { ...fallback, error: v2Validation.issues.join("; ") };
+      await logRunResult(runIdentifier, agent.id, region, "failed", v2Validation.issues.join("; "));
+      return { agentId: agent.id, region, ok: false, status: "failed", error: v2Validation.issues.join("; ") };
     }
     
     // Step 9: Publish the brief

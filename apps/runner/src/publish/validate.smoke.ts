@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import { validateBrief } from "./validate.js";
-import { BriefPost } from "@proof/shared";
+import { BriefPost, buildSourceId } from "@proof/shared";
 
 const allowedUrls = new Set([
   "https://example.com/article-1",
@@ -78,8 +78,13 @@ const duplicatedBrief: BriefPost = {
   status: "draft",
   publishedAt: new Date().toISOString(),
   summary: "Duplicate detection should keep a clean set of bullets while maintaining narrative quality for downstream readers.",
-  bodyMarkdown:
-    "The body intentionally includes enough content to satisfy minimum validation length. ".repeat(8),
+  bodyMarkdown: [
+    "## Summary",
+    "High impact event in procurement category [1](https://example.com/article-1).",
+    "Additional context on contract terms [2](https://example.com/article-2).",
+    "Market index reference [3](https://finance.yahoo.com/quote/CL=F).",
+    "The body intentionally includes enough content to satisfy minimum validation length. ".repeat(4)
+  ].join("\n"),
   selectedArticles: [
     {
       title: "Article 1",
@@ -95,25 +100,32 @@ const duplicatedBrief: BriefPost = {
     }
   ],
   sources: [
-    { sourceId: "source-1", url: "https://example.com/article-1", title: "Article 1" },
-    { sourceId: "source-2", url: "https://example.com/article-2", title: "Article 2" }
+    { sourceId: buildSourceId("https://example.com/article-1"), url: "https://example.com/article-1", title: "Article 1" },
+    { sourceId: buildSourceId("https://example.com/article-2"), url: "https://example.com/article-2", title: "Article 2" }
   ],
+  heroImage: {
+    url: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+    alt: "Test brief hero",
+    sourceArticleIndex: 1
+  },
+  heroImageUrl: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+  heroImageAlt: "Test brief hero",
   marketIndicators: [
     { id: "idx-1", label: "Index", url: "https://finance.yahoo.com/quote/CL=F", note: "Benchmark support" }
   ],
   version: "v2",
   report: {
     summaryBullets: [
-      { text: "High impact event", sourceIds: ["source-1"] },
-      { text: "Duplicate impact event", sourceIds: ["source-1"] },
-      { text: "Another takeaway", sourceIds: ["source-2"] }
+      { text: "High impact event", sourceIds: [buildSourceId("https://example.com/article-1")] },
+      { text: "Duplicate impact event", sourceIds: [buildSourceId("https://example.com/article-1")] },
+      { text: "Another takeaway", sourceIds: [buildSourceId("https://example.com/article-2")] }
     ],
     impactGroups: [
       {
         label: "Market risk",
         bullets: [
-          { text: "Duplicate impact event", sourceIds: ["source-1"] },
-          { text: "Secondary impact point", sourceIds: ["source-2"] }
+          { text: "Duplicate impact event", sourceIds: [buildSourceId("https://example.com/article-1")] },
+          { text: "Secondary impact point", sourceIds: [buildSourceId("https://example.com/article-2")] }
         ]
       }
     ],
@@ -126,14 +138,14 @@ const duplicatedBrief: BriefPost = {
             rationale: "because of supplier timing risk",
             owner: "Category",
             expectedOutcome: "Faster response cycle",
-            sourceIds: ["source-1"]
+            sourceIds: [buildSourceId("https://example.com/article-1")]
           },
           {
             action: "Rebalance coverage",
             rationale: "because contract windows are narrowing",
             owner: "Category",
             expectedOutcome: "Reduced exposure",
-            sourceIds: ["source-1"]
+            sourceIds: [buildSourceId("https://example.com/article-1")]
           }
         ]
       }

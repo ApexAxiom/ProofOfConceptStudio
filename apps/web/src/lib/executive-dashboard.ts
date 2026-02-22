@@ -75,10 +75,19 @@ function toExecutiveFeeds(portfolio: string, region: "apac" | "intl", targetRegi
 
 const WOODSIDE_FEEDS: RssFeed[] = [
   ...toExecutiveFeeds("market-dashboard", "apac", "woodside"),
-  ...toExecutiveFeeds("market-dashboard", "intl", "woodside")
+  ...toExecutiveFeeds("market-dashboard", "intl", "woodside"),
+  { url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", source: "Rigzone", category: "Oil & Gas", region: "woodside" },
+  { url: "https://www.offshore-energy.biz/feed/", source: "Offshore Energy", category: "Oil & Gas", region: "woodside" }
 ];
 
-const APAC_FEEDS: RssFeed[] = toExecutiveFeeds("market-dashboard", "apac", "apac");
+const APAC_FEEDS: RssFeed[] = [
+  ...toExecutiveFeeds("market-dashboard", "apac", "apac"),
+  { url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx", source: "Rigzone", category: "Oil & Gas", region: "apac" },
+  { url: "https://www.offshore-energy.biz/feed/", source: "Offshore Energy", category: "Oil & Gas", region: "apac" },
+  { url: "https://www.offshore-technology.com/feed/", source: "Offshore Technology", category: "Oil & Gas", region: "apac" },
+  { url: "https://www.australianmining.com.au/feed/", source: "Australian Mining", category: "Oil & Gas", region: "apac" },
+  { url: "https://www.eia.gov/rss/todayinenergy.xml", source: "EIA", category: "Oil & Gas", region: "apac" }
+];
 
 const INTERNATIONAL_FEEDS: RssFeed[] = toExecutiveFeeds("market-dashboard", "intl", "international");
 
@@ -94,12 +103,30 @@ const GOOGLE_WOODSIDE_FEEDS: RssFeed[] = [
     source: "Market Sources",
     category: "Woodside",
     region: "woodside"
+  },
+  {
+    url: "https://news.google.com/rss/search?q=Woodside%20Scarborough%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
+    source: "Market Sources",
+    category: "Woodside",
+    region: "woodside"
   }
 ];
 
 const GOOGLE_APAC_FEEDS: RssFeed[] = [
   {
     url: "https://news.google.com/rss/search?q=oil%20gas%20APAC%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
+    source: "Market Sources",
+    category: "Oil & Gas",
+    region: "apac"
+  },
+  {
+    url: "https://news.google.com/rss/search?q=Australia%20oil%20gas%20offshore%20LNG&hl=en-AU&gl=AU&ceid=AU:en",
+    source: "Market Sources",
+    category: "Oil & Gas",
+    region: "apac"
+  },
+  {
+    url: "https://news.google.com/rss/search?q=LNG%20Australia%20energy&hl=en-US&gl=US&ceid=US:en",
     source: "Market Sources",
     category: "Oil & Gas",
     region: "apac"

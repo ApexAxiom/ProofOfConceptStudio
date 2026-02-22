@@ -8,7 +8,7 @@ import { selectAgentIdsForRun } from "./agents/selection.js";
 import { requiredArticleCount } from "./llm/prompts.js";
 import { getFeedHealthSnapshot } from "./ingest/feed-health.js";
 
-function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 10): boolean {
+function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 30): boolean {
   const windowConfig = runWindow === "apac"
     ? { timeZone: REGIONS.au.timeZone, h: 6, m: 0 }
     : { timeZone: REGIONS["us-mx-la-lng"].timeZone, h: 5, m: 0 };

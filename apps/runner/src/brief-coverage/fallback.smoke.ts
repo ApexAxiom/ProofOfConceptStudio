@@ -84,7 +84,7 @@ const baseline = resolveFallbackBrief({
 });
 
 assert.ok(baseline);
-assert.equal(baseline.generationStatus, "generation-failed");
+assert.equal(baseline.generationStatus, "published");
 assert.ok(baseline.summary?.toLowerCase().includes("coverage is active"));
 assert.ok((baseline.sources ?? []).length > 0);
 assert.ok(baseline.tags?.includes("baseline"));
@@ -113,6 +113,41 @@ const prodBaseline = resolveFallbackBrief({
   previousBrief: null
 });
 assert.equal(prodBaseline, null);
+
+// Carry-forward chain test: a carry-forward brief should be usable as a base for
+// another carry-forward, preventing the "death spiral" where production stops
+// publishing briefs after the first fallback day.
+const chainBase = resolveFallbackBrief({
+  agent,
+  region: "au",
+  runWindow: "apac",
+  reason: "no-updates",
+  previousBrief
+});
+assert.ok(chainBase, "First carry-forward should succeed");
+assert.ok(chainBase.tags?.includes("carry-forward"), "Should be tagged as carry-forward");
+
+const chainSecond = resolveFallbackBrief({
+  agent,
+  region: "au",
+  runWindow: "apac",
+  reason: "no-updates",
+  previousBrief: chainBase
+});
+assert.ok(chainSecond, "Second carry-forward from a carry-forward should also succeed in production");
+assert.equal(chainSecond.generationStatus, "published");
+assert.equal(chainSecond.summary, previousBrief.summary, "Chain should preserve original content");
+assert.ok(chainSecond.tags?.includes("carry-forward"));
+
+const chainThird = resolveFallbackBrief({
+  agent,
+  region: "au",
+  runWindow: "apac",
+  reason: "generation-failed",
+  previousBrief: chainSecond
+});
+assert.ok(chainThird, "Third carry-forward should also succeed");
+assert.equal(chainThird.summary, previousBrief.summary, "Content preserved through chain");
 
 process.env.NODE_ENV = ORIGINAL_NODE_ENV;
 if (ORIGINAL_PLACEHOLDER_FLAG === undefined) {
