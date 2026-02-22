@@ -123,7 +123,7 @@ export function buildCarryForwardBrief(options: {
     agentId: options.agent.id,
     runWindow: options.runWindow,
     status: "published",
-    generationStatus: options.reason,
+    generationStatus: "published",
     version: "v2",
     newsStatus: "thin-category",
     publishedAt,
