@@ -156,7 +156,8 @@ async function main() {
     if (shouldAutoBatchBySize) {
       const sortedAgentIds = Array.from(new Set(allAgentIds)).sort((a, b) => a.localeCompare(b));
       const batches = chunkAgentIds(sortedAgentIds, batchSize);
-      const waitForCompletion = body.waitForCompletion === true;
+      // App Runner can interrupt fire-and-forget work after response completion; keep scheduled runs in-request.
+      const waitForCompletion = body.waitForCompletion === true || body.scheduled === true;
 
       fastify.log.info(
         {
@@ -278,7 +279,8 @@ async function main() {
       }
     }, "cron selection");
 
-    const waitForCompletion = body.waitForCompletion === true;
+    // App Runner can interrupt fire-and-forget work after response completion; keep scheduled runs in-request.
+    const waitForCompletion = body.waitForCompletion === true || body.scheduled === true;
     if (waitForCompletion) {
       const results = await Promise.all(
         targetRegions.map((target: RegionRun) =>
