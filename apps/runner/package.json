@@ -30,7 +30,8 @@
     "cron:apac": "tsx src/cli.ts apac",
     "cron:international": "tsx src/cli.ts international",
     "run-briefs": "tsx ../../scripts/run-briefs.ts",
-    "lint": "eslint . --ext .ts,.tsx || true"
+    "lint": "eslint . --ext .ts,.tsx || true",
+    "brief-engine-v3:smoke": "tsx src/brief-engine-v3.smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.972.0",

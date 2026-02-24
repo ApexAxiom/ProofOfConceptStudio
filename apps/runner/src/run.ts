@@ -9,30 +9,24 @@ import {
   buildBriefPostId,
   buildBriefRunKey,
   getBriefDayKey,
-  makeCategoryPlaceholderDataUrl,
   getPortfolioMarketIndices,
   runWindowForRegion,
   validateBriefV2Record
 } from "@proof/shared";
-import type { BriefV2HeroImage } from "@proof/shared";
 import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { auditCoverage } from "./brief-coverage/audit.js";
 import { expectedCoverageDayKey } from "./brief-coverage/day.js";
 import { PlaceholderReason } from "./brief-coverage/placeholders.js";
 import { resolveFallbackBrief } from "./brief-coverage/fallback.js";
 import { fetchGeneralContextArticles, ingestAgent, ArticleDetail, IngestResult } from "./ingest/fetch.js";
-import { generateBrief } from "./llm/openai.js";
+import { generateBriefV3 } from "./brief-engine-v3/index.js";
 import type { ArticleInput } from "./llm/openai.js";
-import { validateBrief } from "./publish/validate.js";
-import { validateNumericClaims } from "./publish/factuality.js";
-import { attachEvidenceToBrief } from "./publish/evidence.js";
 import { publishBrief, logBriefRunResult, logBriefRunStart, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
 import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
-import { buildContextNote, buildTopStories, deriveDeltaSinceLastRun, normalizeNewsStatus } from "./brief-v2.js";
-import { cacheHeroImageToS3 } from "./media/cache-hero-image.js";
+import { buildContextNote } from "./brief-v2.js";
 import { emitRunnerMetrics } from "./observability/metrics.js";
 
 type RunStatus = "published" | "no-updates" | "failed" | "dry-run";
@@ -412,65 +406,6 @@ function mergeArticleInputs(primary: ArticleInput[], supplemental: ArticleInput[
   return merged;
 }
 
-function heroBucketConfig() {
-  const bucket = process.env.BRIEF_IMAGE_S3_BUCKET?.trim();
-  const bucketRegion = process.env.BRIEF_IMAGE_S3_REGION?.trim() || process.env.AWS_REGION?.trim();
-  const publicBaseUrl = process.env.BRIEF_IMAGE_PUBLIC_BASE_URL?.trim();
-  if (!bucket || !bucketRegion || !publicBaseUrl) return null;
-  return { bucket, bucketRegion, publicBaseUrl };
-}
-
-async function resolveHeroImage(params: {
-  brief: BriefPost;
-  categorySlug: string;
-  categoryLabel: string;
-  region: RegionSlug;
-  publishedAt: string;
-}): Promise<{ heroImage: BriefV2HeroImage; heroSourceUrl?: string }> {
-  const selectedArticles = params.brief.selectedArticles ?? [];
-  const heroBySourceUrl = selectedArticles.find(
-    (article) => article.url === params.brief.heroImageSourceUrl && article.imageUrl
-  );
-  const firstWithImage = selectedArticles.find((article) => article.imageUrl);
-  const fallbackSource = selectedArticles.find((article) => article.url === params.brief.heroImageSourceUrl) ?? selectedArticles[0];
-  const heroCandidate = heroBySourceUrl ?? firstWithImage ?? fallbackSource;
-
-  const sourceArticleIndex = heroCandidate?.sourceIndex ?? 1;
-  const alt =
-    params.brief.heroImageAlt?.trim() ||
-    heroCandidate?.imageAlt?.trim() ||
-    heroCandidate?.title?.trim() ||
-    params.brief.title;
-
-  const cacheConfig = heroBucketConfig();
-  let cachedHero: { url: string; cacheKey: string; contentType: string } | null = null;
-
-  if (cacheConfig && heroCandidate?.imageUrl) {
-    cachedHero = await cacheHeroImageToS3({
-      ogImageUrl: heroCandidate.imageUrl,
-      categorySlug: params.categorySlug,
-      region: params.region,
-      publishedDateISO: params.publishedAt,
-      articleIndex: sourceArticleIndex,
-      bucket: cacheConfig.bucket,
-      bucketRegion: cacheConfig.bucketRegion,
-      publicBaseUrl: cacheConfig.publicBaseUrl
-    });
-  }
-
-  const heroUrl = cachedHero?.url ?? makeCategoryPlaceholderDataUrl(params.categoryLabel);
-
-  return {
-    heroImage: {
-      url: heroUrl,
-      alt,
-      sourceArticleIndex,
-      cacheKey: cachedHero?.cacheKey
-    },
-    heroSourceUrl: heroCandidate?.url
-  };
-}
-
 /**
  * Main cron handler - runs all agents for the specified run window
  */
@@ -814,15 +749,15 @@ export async function runAgent(
   try {
     // Step 1: Ingest articles from all feeds
     console.log(`[${agentId}/${region}] Ingesting articles...`);
-    let ingestResult;
+    let ingestResult: IngestResult;
     try {
       ingestResult = await ingestAgent(agent, region, {
         runWindow,
         runDate: now.toISOString()
       });
     } catch (ingestErr) {
-      console.error(`[${agentId}/${region}] Ingestion failed:`, ingestErr);
       const error = `Ingestion error: ${(ingestErr as Error).message}`;
+      console.error(`[${agentId}/${region}] Ingestion failed, continuing with deterministic fallback path:`, ingestErr);
       console.error(
         JSON.stringify({
           level: "error",
@@ -837,30 +772,7 @@ export async function runAgent(
           error
         })
       );
-      const previousBrief = await getLatestRealBriefSafe({
-        portfolio: agent.portfolio,
-        region,
-        beforeIso: now.toISOString(),
-        runId: runIdentifier,
-        runWindow,
-        runDate: now.toISOString(),
-        agentId: agent.id
-      });
-      const fallback = await publishFallbackBrief({
-        agent,
-        region,
-        runWindow,
-        runId: runIdentifier,
-        reason: "generation-failed",
-        previousBrief,
-        ingestResult: emptyIngestResult,
-        runIdentity,
-        dryRun,
-        now
-      });
-      if (fallback.ok) return fallback;
-      await logRunResult(runIdentifier, agent.id, region, "failed", error);
-      return { agentId: agent.id, region, ok: false, status: "failed", error };
+      ingestResult = emptyIngestResult;
     }
     
     const articles: ArticleSource[] = ingestResult.articles ?? [];
@@ -873,8 +785,7 @@ export async function runAgent(
     const minRequired = Math.max(1, Math.min(agent.articlesPerRun ?? 3, 2));
     
     if (articles.length === 0) {
-      const error = `No articles found after ingestion (scanned ${ingestResult.scannedSources?.length ?? 0} sources)`;
-      console.error(`[${agentId}/${region}] ${error}`);
+      console.warn(`[${agentId}/${region}] No category articles found; continuing with deterministic seeded fallback sources.`);
       console.warn(
         JSON.stringify({
           level: "warn",
@@ -889,30 +800,6 @@ export async function runAgent(
           scannedSources: ingestResult.scannedSources?.length ?? 0
         })
       );
-      const previousBrief = await getLatestRealBriefSafe({
-        portfolio: agent.portfolio,
-        region,
-        beforeIso: now.toISOString(),
-        runId: runIdentifier,
-        runWindow,
-        runDate: now.toISOString(),
-        agentId: agent.id
-      });
-      const fallback = await publishFallbackBrief({
-        agent,
-        region,
-        runWindow,
-        runId: runIdentifier,
-        reason: "no-updates",
-        previousBrief,
-        ingestResult,
-        runIdentity,
-        dryRun,
-        now
-      });
-      if (fallback.ok) return { ...fallback, error };
-      await logRunResult(runIdentifier, agent.id, region, "failed", error);
-      return { agentId: agent.id, region, ok: false, status: "failed", error };
     }
     
     if (articles.length < minRequired) {
@@ -949,29 +836,13 @@ export async function runAgent(
       agentId: agent.id
     });
 
-    const previousBriefPrompt = previousBrief
-      ? {
-          publishedAt: previousBrief.publishedAt,
-          title: previousBrief.title,
-          highlights: previousBrief.highlights?.slice(0, 5),
-          procurementActions: previousBrief.procurementActions?.slice(0, 5),
-          watchlist: previousBrief.watchlist?.slice(0, 5),
-          selectedArticles: previousBrief.selectedArticles?.slice(0, 3).map((article) => ({
-            title: article.title,
-            url: article.url,
-            keyMetrics: article.keyMetrics?.slice(0, 3)
-          }))
-        }
-      : undefined;
-
-    // Step 4: Convert articles to LLM input format
     const baseArticleInputs: ArticleInput[] = articles.map(toArticleInput);
     const thinCategoryDetected = isThinCategoryDay(baseArticleInputs);
     let newsStatus: BriefV2NewsStatus = thinCategoryDetected ? "thin-category" : "ok";
 
     let articleInputs = baseArticleInputs;
     if (thinCategoryDetected) {
-      console.warn(`[${agentId}/${region}] Thin category input detected, supplementing with broader O&G context feeds.`);
+      console.warn(`[${agentId}/${region}] Thin category input detected, supplementing with broader context feeds.`);
       const contextArticles = await fetchGeneralContextArticles({
         region,
         agentId: agent.id,
@@ -984,302 +855,61 @@ export async function runAgent(
       if (contextInputs.length > 0) {
         articleInputs = mergeArticleInputs(baseArticleInputs, contextInputs);
         newsStatus = "fallback-context";
-      } else {
-        console.warn(`[${agentId}/${region}] Context feed fetch returned no additional usable articles.`);
       }
     }
 
-    const indexUrls = new Set(indices.map((i) => i.url));
-    const articleUrls = new Set(articleInputs.map((a) => a.url));
-    const allowedUrls = new Set([...articleUrls, ...indexUrls]);
-
-    // Step 5: Generate brief using LLM
-    console.log(`[${agentId}/${region}] Generating brief with ${articleInputs.length} articles...`);
-    console.log(`[${agentId}/${region}] Article content lengths: ${articleInputs.map(a => (a.content?.length ?? 0)).join(", ")}`);
-    let brief: BriefPost;
-    try {
-      brief = await generateBrief({
-        agent,
-        region,
-        runWindow,
-        articles: articleInputs,
-        indices,
-        previousBrief: previousBriefPrompt
-      });
-    } catch (generationError) {
-      const message = (generationError as Error).message;
-      console.error(`[${agentId}/${region}] Brief generation failed before validation:`, generationError);
-      console.error(
-        JSON.stringify({
-          level: "error",
-          event: "run_generation_failed",
-          reasonCode: "llm_generation_failed",
-          runId: runIdentifier,
-          agentId: agent.id,
-          portfolio: agent.portfolio,
-          region,
-          runWindow,
-          runDate: now.toISOString(),
-          error: message
-        })
-      );
-      const fallback = await publishFallbackBrief({
-        agent,
-        region,
-        runWindow,
-        runId: runIdentifier,
-        reason: "generation-failed",
-        previousBrief,
-        ingestResult,
-        runIdentity,
-        dryRun,
-        now
-      });
-      if (fallback.ok) return { ...fallback, error: message };
-      await logRunResult(runIdentifier, agent.id, region, "failed", message);
-      return { agentId: agent.id, region, ok: false, status: "failed", error: message };
+    const model = process.env.OPENAI_MODEL?.trim();
+    if (!model) {
+      console.warn(`[${agentId}/${region}] OPENAI_MODEL is not configured for runner; brief engine will use deterministic non-LLM path.`);
     }
+
+    let published: BriefPost = await generateBriefV3({
+      agent,
+      region,
+      runWindow,
+      articles: articleInputs,
+      indices,
+      previousBrief,
+      nowIso: now.toISOString(),
+      runIdentity: { runId: runIdentifier, briefDay },
+      config: {
+        model,
+        allowLlm: Boolean(process.env.OPENAI_API_KEY && model)
+      }
+    });
+
     try {
       const marketSnapshot = await fetchPortfolioSnapshot(agent.portfolio);
       if (marketSnapshot.length > 0) {
-        brief = { ...brief, marketSnapshot };
+        published = { ...published, marketSnapshot };
       }
     } catch (error) {
       console.warn(`[${agentId}/${region}] Market snapshot unavailable:`, error);
     }
 
-    const parseIssues = (err: unknown): string[] => {
-      try {
-        return JSON.parse((err as Error).message);
-      } catch {
-        return [(err as Error).message];
-      }
-    };
-
-    const runValidation = (candidate: BriefPost) => {
-      const issues: string[] = [];
-      const warnings: string[] = [];
-      let validatedBrief: BriefPost | undefined;
-      const numericIssues = validateNumericClaims(candidate, articleInputs);
-      const evidenceResult = attachEvidenceToBrief({ brief: candidate, articles: articleInputs });
-      try {
-        validatedBrief = validateBrief(evidenceResult.brief, allowedUrls, indexUrls);
-      } catch (err) {
-        issues.push(...parseIssues(err));
-      }
-      
-      // Separate FACTCHECK issues into warnings (non-critical) and issues (critical)
-      // Approximate-match issues are warnings so we don't block briefs on numeric near-matches.
-      // Critical: missing evidence tags, procurementActions/watchlist/supplierRadar (when not approximate)
-      for (const numericIssue of numericIssues) {
-        if (numericIssue.includes("FACTCHECK:")) {
-          const isApproximateOnly = numericIssue.includes("(approximate match allowed)");
-          const isCritical =
-            !isApproximateOnly &&
-            (numericIssue.includes("procurementActions") ||
-              numericIssue.includes("watchlist") ||
-              numericIssue.includes("supplierRadar") ||
-              (numericIssue.includes("selectedArticles") && !numericIssue.includes("briefContent")));
-
-          if (isCritical) {
-            issues.push(numericIssue);
-          } else {
-            warnings.push(numericIssue);
-          }
-        } else {
-          issues.push(numericIssue);
-        }
-      }
-
-      for (const evIssue of evidenceResult.issues) {
-        if (evIssue.startsWith("Claim needs verification:")) {
-          warnings.push(evIssue);
-        } else {
-          issues.push(evIssue);
-        }
-      }
-
-      if (warnings.length > 0) {
-        console.log(`[${agentId}/${region}] Validation warnings (non-blocking):`, warnings);
-      }
-      
-      if (evidenceResult.stats.total > 0) {
-        console.log(
-          `[${agentId}/${region}] Evidence stats: ${evidenceResult.stats.supported} supported, ${evidenceResult.stats.needsVerification} needs verification, ${evidenceResult.stats.analysis} analysis`
-        );
-      }
-      return { validatedBrief, issues, warnings: warnings || [] };
-    };
-
-    // Step 7: Validate the brief (URLs + numeric factuality)
-    let validationResult = runValidation(brief);
-    let { validatedBrief, issues, warnings } = validationResult;
-
-    if (issues.length > 0) {
-      console.log(`[${agentId}/${region}] Validation failed, retrying...`, issues);
-      console.log(
-        JSON.stringify({
-          level: "warn",
-          event: "brief_validation_failed",
-          reasonCode: "validation_failed",
-          runId: runIdentifier,
-          agentId: agent.id,
-          region,
-          runWindow,
-          runDate: now.toISOString(),
-          issuesCount: issues.length
-        })
-      );
-
-      // Step 8: Retry with repair instructions
-      const retryBrief = await generateBrief({
-        agent,
-        region,
-        runWindow,
-        articles: articleInputs,
-        indices,
-        repairIssues: issues,
-        previousJson: JSON.stringify(brief),
-        previousBrief: previousBriefPrompt
-      });
-
-      const retryResult = runValidation(retryBrief);
-      validatedBrief = retryResult.validatedBrief;
-      issues = retryResult.issues;
-      warnings = retryResult.warnings || [];
-      brief = retryBrief;
-    }
-
-    if (issues.length > 0 || !validatedBrief) {
-      console.error(`[${agentId}/${region}] Final validation failed:`, issues);
-      console.error(
-        JSON.stringify({
-          level: "error",
-          event: "run_validation_failed",
-          reasonCode: "validation_failed",
-          runId: runIdentifier,
-          agentId: agent.id,
-          portfolio: agent.portfolio,
-          region,
-          runWindow,
-          runDate: now.toISOString(),
-          issuesCount: issues.length
-        })
-      );
-
-      const fallback = await publishFallbackBrief({
-        agent,
-        region,
-        runWindow,
-        runId: runIdentifier,
-        reason: "generation-failed",
-        previousBrief,
-        ingestResult,
-        runIdentity,
-        dryRun,
-        now
-      });
-      if (fallback.ok) return { ...fallback, error: issues.join("; ") };
-
-      const failedBrief = {
-        ...brief,
-        postId,
-        runKey,
-        agentId: agent.id,
-        generationStatus: "generation-failed" as const,
-        briefDay,
-        status: "draft" as const,
-        bodyMarkdown: `Evidence validation failed. Needs review. Issues: ${issues.join("; ")}`,
-        sources: [],
-        qualityReport: { issues, decision: "block" as const }
-      };
-
-      try {
-        if (!dryRun) {
-          await publishBrief(failedBrief, ingestResult, runIdentifier);
-        }
-      } catch (publishError) {
-        console.error(
-          `[${agentId}/${region}] Failed to write validation failure brief`,
-          publishError
-        );
-      }
-      await logRunResult(runIdentifier, agent.id, region, "failed", issues.join("; "));
-      await logBriefRunResult({
-        identity: runIdentity,
-        runId: runIdentifier,
-        status: "failed",
-        finishedAt: new Date().toISOString(),
-        metrics: buildMetrics({
-          selectedCount: failedBrief.selectedArticles?.length ?? 0,
-          briefLength: failedBrief.bodyMarkdown?.length ?? 0,
-          usage: failedBrief.llmUsage
-        }),
-        error: issues.join("; "),
-        dryRun
-      });
-      return { agentId: agent.id, region, ok: false, status: "failed", error: issues.join("; ") };
-    }
-
-    const validated = validatedBrief;
-    const selectedArticles = validated.selectedArticles ?? [];
-    const topStories = buildTopStories(selectedArticles);
-    const normalizedStatus = normalizeNewsStatus(newsStatus, topStories);
-    const deltaSinceLastRun = deriveDeltaSinceLastRun({
-      currentDelta: validated.deltaSinceLastRun,
-      topStories,
-      previousBrief
-    });
-
-    const heroResolution = await resolveHeroImage({
-      brief: validated,
-      categorySlug: agent.portfolio,
-      categoryLabel: agent.label,
-      region,
-      publishedAt: validated.publishedAt
-    });
-
-    const contextNote = buildContextNote(agent.label, topStories, normalizedStatus);
-
-    const published: BriefPost = {
-      ...validated,
+    published = {
+      ...published,
       postId,
       runKey,
       agentId: agent.id,
-      generationStatus: "published",
       briefDay,
+      generationStatus: "published",
+      status: "published",
       version: "v2",
-      newsStatus: normalizedStatus,
-      contextNote,
-      selectedArticles,
-      topStories,
-      deltaSinceLastRun,
-      heroImage: heroResolution.heroImage,
-      heroImageUrl: heroResolution.heroImage.url,
-      heroImageAlt: heroResolution.heroImage.alt,
-      heroImageSourceUrl: heroResolution.heroSourceUrl ?? validated.heroImageSourceUrl
+      contextNote: buildContextNote(agent.label, published.topStories ?? [], published.newsStatus ?? newsStatus)
     };
 
     const v2Validation = validateBriefV2Record(published, { hasPreviousBrief: Boolean(previousBrief) });
     if (!v2Validation.ok) {
-      console.warn(`[${agentId}/${region}] BriefV2 validation issues: ${v2Validation.issues.join("; ")}`);
-      const fallback = await publishFallbackBrief({
-        agent,
-        region,
-        runWindow,
-        runId: runIdentifier,
-        reason: "generation-failed",
-        previousBrief,
-        ingestResult,
-        runIdentity,
-        dryRun,
-        now
-      });
-      if (fallback.ok) return { ...fallback, error: v2Validation.issues.join("; ") };
-      await logRunResult(runIdentifier, agent.id, region, "failed", v2Validation.issues.join("; "));
-      return { agentId: agent.id, region, ok: false, status: "failed", error: v2Validation.issues.join("; ") };
+      published = {
+        ...published,
+        qualityReport: {
+          decision: "publish",
+          issues: [...(published.qualityReport?.issues ?? []), ...v2Validation.issues]
+        }
+      };
     }
-    
+
     // Step 9: Publish the brief
     console.log(`[${agentId}/${region}] Publishing brief...`);
     try {

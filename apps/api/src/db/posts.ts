@@ -21,8 +21,9 @@ function normalizeBrief(post: BriefPost): BriefPost {
   };
 }
 
-function keepUserVisibleBrief(post: BriefPost): boolean {
+function keepUserVisibleBrief(post: BriefPost, includeHidden = false): boolean {
   if (post.status !== "published") return false;
+  if (includeHidden) return true;
   return !isUserVisiblePlaceholderBrief(post);
 }
 
@@ -32,6 +33,7 @@ function positiveInt(value: number, fallback: number): number {
 }
 
 async function queryPublishedPosts(params: {
+  includeHidden?: boolean;
   indexName: "GSI1" | "GSI2";
   keyConditionExpression: string;
   expressionAttributeValues: Record<string, unknown>;
@@ -62,7 +64,7 @@ async function queryPublishedPosts(params: {
     const pageItems = (page.Items ?? []) as BriefPost[];
     for (const item of pageItems) {
       const normalized = normalizeBrief(item);
-      if (!keepUserVisibleBrief(normalized)) continue;
+      if (!keepUserVisibleBrief(normalized, params.includeHidden)) continue;
       items.push(normalized);
       if (items.length >= limit) {
         return items.slice(0, limit);
@@ -76,7 +78,7 @@ async function queryPublishedPosts(params: {
   return items.slice(0, limit);
 }
 
-async function fetchRegionFromDynamo(region: string, limit = DEFAULT_REGION_FETCH_LIMIT): Promise<BriefPost[]> {
+async function fetchRegionFromDynamo(region: string, limit = DEFAULT_REGION_FETCH_LIMIT, includeHidden = false): Promise<BriefPost[]> {
   return queryPublishedPosts({
     indexName: "GSI2",
     keyConditionExpression: "GSI2PK = :pk",
@@ -88,7 +90,8 @@ async function fetchRegionFromDynamo(region: string, limit = DEFAULT_REGION_FETC
       "#status": "status"
     },
     filterExpression: "#status = :status",
-    limit: positiveInt(limit, DEFAULT_REGION_FETCH_LIMIT)
+    limit: positiveInt(limit, DEFAULT_REGION_FETCH_LIMIT),
+    includeHidden
   });
 }
 
@@ -96,6 +99,7 @@ async function fetchPortfolioFromDynamo(params: {
   region: string;
   portfolio: string;
   limit: number;
+  includeHidden?: boolean;
 }): Promise<BriefPost[]> {
   return queryPublishedPosts({
     indexName: "GSI1",
@@ -110,13 +114,14 @@ async function fetchPortfolioFromDynamo(params: {
       "#region": "region"
     },
     filterExpression: "#status = :status AND #region = :region",
-    limit: positiveInt(params.limit, DEFAULT_PORTFOLIO_FETCH_LIMIT)
+    limit: positiveInt(params.limit, DEFAULT_PORTFOLIO_FETCH_LIMIT),
+    includeHidden: params.includeHidden
   });
 }
 
 export function latestPerPortfolio(posts: BriefPost[]): BriefPost[] {
   const latestByPortfolio = new Map<string, BriefPost>();
-  for (const post of sortByPublished(posts).filter(keepUserVisibleBrief)) {
+  for (const post of sortByPublished(posts).filter((item) => keepUserVisibleBrief(item))) {
     if (!latestByPortfolio.has(post.portfolio)) {
       latestByPortfolio.set(post.portfolio, post);
     }
@@ -127,11 +132,11 @@ export function latestPerPortfolio(posts: BriefPost[]): BriefPost[] {
 /**
  * Load published briefs for a region from DynamoDB.
  */
-export async function getRegionPosts(region: string, limit = DEFAULT_REGION_FETCH_LIMIT): Promise<BriefPost[]> {
+export async function getRegionPosts(region: string, limit = DEFAULT_REGION_FETCH_LIMIT, includeHidden = false): Promise<BriefPost[]> {
   const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
   if (!region || !validRegions.has(region)) return [];
   try {
-    const live = await fetchRegionFromDynamo(region, limit);
+    const live = await fetchRegionFromDynamo(region, limit, includeHidden);
     return sortByPublished(live);
   } catch (err) {
     console.error(
@@ -155,6 +160,7 @@ export async function filterPosts(params: {
   portfolio?: string;
   runWindow?: string;
   limit?: number;
+  includeHidden?: boolean;
 }): Promise<BriefPost[]> {
   const targetLimit = positiveInt(params.limit ?? 20, 20);
   let posts: BriefPost[] = [];
@@ -164,14 +170,15 @@ export async function filterPosts(params: {
       posts = await fetchPortfolioFromDynamo({
         region: params.region,
         portfolio: params.portfolio,
-        limit: Math.max(targetLimit, DEFAULT_PORTFOLIO_FETCH_LIMIT)
+        limit: Math.max(targetLimit, DEFAULT_PORTFOLIO_FETCH_LIMIT),
+        includeHidden: params.includeHidden
       });
     } catch (err) {
       console.warn("Falling back to region-scan portfolio query", params.portfolio, (err as Error).message);
-      posts = await getRegionPosts(params.region, DEFAULT_REGION_FETCH_LIMIT);
+      posts = await getRegionPosts(params.region, DEFAULT_REGION_FETCH_LIMIT, params.includeHidden);
     }
   } else {
-    posts = await getRegionPosts(params.region, Math.max(targetLimit, DEFAULT_REGION_FETCH_LIMIT));
+    posts = await getRegionPosts(params.region, Math.max(targetLimit, DEFAULT_REGION_FETCH_LIMIT), params.includeHidden);
   }
 
   const filtered = posts.filter(
