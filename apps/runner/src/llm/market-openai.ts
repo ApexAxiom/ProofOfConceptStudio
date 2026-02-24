@@ -5,7 +5,6 @@ import { renderBriefMarkdown } from "./render.js";
 import { selectHeroArticle } from "./hero-selection.js";
 import { MarketPromptInput, MarketOutput, buildMarketPrompt, parseMarketOutput } from "./market-prompts.js";
 
-const DEFAULT_MODEL = "gpt-4o";
 let cachedKey: string | null = null;
 let cachedClient: OpenAI | null = null;
 
@@ -19,7 +18,11 @@ function getOpenAIClient(): OpenAI | null {
 }
 
 function getModel() {
-  return process.env.OPENAI_MODEL || DEFAULT_MODEL;
+  const configured = process.env.OPENAI_MODEL?.trim();
+  if (!configured) {
+    throw new Error("OPENAI_MODEL is required for runner LLM calls");
+  }
+  return configured;
 }
 
 function isReasoningModel(model?: string) {
