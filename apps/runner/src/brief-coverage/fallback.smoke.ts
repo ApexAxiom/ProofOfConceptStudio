@@ -100,10 +100,7 @@ const prodCarryForward = resolveFallbackBrief({
   reason: "no-updates",
   previousBrief
 });
-assert.ok(prodCarryForward, "Production should still return carry-forward when prior real brief exists");
-assert.equal(prodCarryForward.generationStatus, "published");
-assert.equal(prodCarryForward.summary, previousBrief.summary);
-assert.ok(prodCarryForward.tags?.includes("carry-forward"));
+assert.equal(prodCarryForward, null, "Production should suppress carry-forward publication");
 
 const prodBaseline = resolveFallbackBrief({
   agent,
@@ -114,9 +111,7 @@ const prodBaseline = resolveFallbackBrief({
 });
 assert.equal(prodBaseline, null);
 
-// Carry-forward chain test: a carry-forward brief should be usable as a base for
-// another carry-forward, preventing the "death spiral" where production stops
-// publishing briefs after the first fallback day.
+// Carry-forward chain is intentionally disabled in production.
 const chainBase = resolveFallbackBrief({
   agent,
   region: "au",
@@ -124,30 +119,25 @@ const chainBase = resolveFallbackBrief({
   reason: "no-updates",
   previousBrief
 });
-assert.ok(chainBase, "First carry-forward should succeed");
-assert.ok(chainBase.tags?.includes("carry-forward"), "Should be tagged as carry-forward");
+assert.equal(chainBase, null, "First carry-forward should be suppressed in production");
 
 const chainSecond = resolveFallbackBrief({
   agent,
   region: "au",
   runWindow: "apac",
   reason: "no-updates",
-  previousBrief: chainBase
+  previousBrief: chainBase ?? undefined
 });
-assert.ok(chainSecond, "Second carry-forward from a carry-forward should also succeed in production");
-assert.equal(chainSecond.generationStatus, "published");
-assert.equal(chainSecond.summary, previousBrief.summary, "Chain should preserve original content");
-assert.ok(chainSecond.tags?.includes("carry-forward"));
+assert.equal(chainSecond, null, "Second carry-forward should be suppressed in production");
 
 const chainThird = resolveFallbackBrief({
   agent,
   region: "au",
   runWindow: "apac",
   reason: "generation-failed",
-  previousBrief: chainSecond
+  previousBrief: chainSecond ?? undefined
 });
-assert.ok(chainThird, "Third carry-forward should also succeed");
-assert.equal(chainThird.summary, previousBrief.summary, "Content preserved through chain");
+assert.equal(chainThird, null, "Third carry-forward should be suppressed in production");
 
 process.env.NODE_ENV = ORIGINAL_NODE_ENV;
 if (ORIGINAL_PLACEHOLDER_FLAG === undefined) {

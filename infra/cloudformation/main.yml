@@ -15,6 +15,9 @@ Resources:
     Properties:
       TableName: CMHub
       BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
       AttributeDefinitions:
         - AttributeName: PK
           AttributeType: S

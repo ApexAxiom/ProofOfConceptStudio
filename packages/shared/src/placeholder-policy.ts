@@ -60,11 +60,16 @@ function hasPattern(value: string | undefined, patterns: RegExp[]): boolean {
 
 function sourceLooksSynthetic(source: BriefSourceInput): boolean {
   if (typeof source === "string") {
-    return source.includes("example.com");
+    return source.toLowerCase().includes("example.com");
   }
-  const title = source.title ?? "";
-  const url = source.url ?? "";
-  return title.toLowerCase() === "system" || url.includes("example.com");
+  const title = (source.title ?? "").trim().toLowerCase();
+  const url = (source.url ?? "").trim().toLowerCase();
+  return title === "system" || url.includes("example.com");
+}
+
+function allSourcesSynthetic(sources: BriefPost["sources"] | undefined): boolean {
+  if (!sources || sources.length === 0) return false;
+  return sources.every((source) => sourceLooksSynthetic(source));
 }
 
 export function isPlaceholdersAllowed(options?: PlaceholderPolicyOptions): boolean {
@@ -96,7 +101,7 @@ export function isUserVisiblePlaceholderBrief(brief: Partial<BriefPost> | null |
     return true;
   }
 
-  if ((brief.sources ?? []).some((source) => sourceLooksSynthetic(source))) {
+  if (allSourcesSynthetic(brief.sources)) {
     return true;
   }
 

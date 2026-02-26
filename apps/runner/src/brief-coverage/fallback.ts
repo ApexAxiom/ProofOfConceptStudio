@@ -23,6 +23,10 @@ export function resolveFallbackBrief(options: {
   previousBrief?: BriefPost | null;
   now?: Date;
 }): BriefPost | null {
+  // Production intelligence policy: never publish synthetic/carry-forward briefs.
+  // If a run has no new signal, we surface that state in status/monitoring instead.
+  if (!isPlaceholdersAllowed()) return null;
+
   if (options.previousBrief && (!isUserVisiblePlaceholderBrief(options.previousBrief) || hasRealContent(options.previousBrief))) {
     return buildCarryForwardBrief({
       agent: options.agent,
@@ -33,8 +37,6 @@ export function resolveFallbackBrief(options: {
       now: options.now
     });
   }
-
-  if (!isPlaceholdersAllowed()) return null;
 
   return buildPlaceholderBrief({
     agent: options.agent,

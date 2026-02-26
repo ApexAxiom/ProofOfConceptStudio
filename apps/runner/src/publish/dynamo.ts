@@ -3,6 +3,15 @@ import { BriefPost, BriefRunIdentity, BriefRunMetrics, BriefRunStatus, buildBrie
 import { IngestResult } from "../ingest/fetch.js";
 import { documentClient as client, tableName } from "../db/client.js";
 
+const RETENTION_DAYS = 90;
+const RETENTION_SECONDS = RETENTION_DAYS * 24 * 60 * 60;
+
+function ttlSecondsFromIso(baseIso?: string): number {
+  const parsed = baseIso ? Date.parse(baseIso) : Date.now();
+  const baseMs = Number.isFinite(parsed) ? parsed : Date.now();
+  return Math.floor(baseMs / 1000) + RETENTION_SECONDS;
+}
+
 /**
  * Recursively remove undefined values from objects/arrays so DynamoDB Put never receives them.
  */
@@ -31,7 +40,7 @@ export function buildDynamoItem(
   ingestResult: IngestResult,
   runId: string
 ) {
-  const ttlSeconds = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180; // ~6 months retention
+  const ttlSeconds = ttlSecondsFromIso(brief.publishedAt);
   const briefDay = brief.briefDay ?? "";
 
   return {
@@ -122,6 +131,7 @@ export async function logBriefRunStart(
   dryRun = false
 ) {
   const keys = briefRunKeys(identity);
+  const ttlSeconds = ttlSecondsFromIso(startedAt);
   const update = new UpdateCommand({
     TableName: tableName,
     Key: { PK: keys.pk, SK: keys.sk },
@@ -129,7 +139,7 @@ export async function logBriefRunStart(
       "SET #type = :type, #schema = :schema, #runId = :runId, #status = :status, " +
       "#runWindow = :runWindow, #region = :region, #portfolio = :portfolio, #briefDay = :briefDay, " +
       "#startedAt = if_not_exists(#startedAt, :startedAt), #updatedAt = :updatedAt, " +
-      "#gsi2pk = :gsi2pk, #gsi2sk = :gsi2sk, #dryRun = :dryRun " +
+      "#gsi2pk = :gsi2pk, #gsi2sk = :gsi2sk, #dryRun = :dryRun, #ttl = :ttl " +
       "REMOVE #finishedAt, #metrics, #error " +
       "ADD #attempts :one",
     ExpressionAttributeNames: {
@@ -146,6 +156,7 @@ export async function logBriefRunStart(
       "#gsi2pk": "GSI2PK",
       "#gsi2sk": "GSI2SK",
       "#dryRun": "dryRun",
+      "#ttl": "ttl",
       "#attempts": "attempts",
       "#finishedAt": "finishedAt",
       "#metrics": "metrics",
@@ -165,6 +176,7 @@ export async function logBriefRunStart(
       ":gsi2pk": keys.gsi2pk,
       ":gsi2sk": keys.gsi2sk,
       ":dryRun": dryRun,
+      ":ttl": ttlSeconds,
       ":one": 1
     }
   });
@@ -184,6 +196,7 @@ export async function logBriefRunResult(params: {
   dryRun?: boolean;
 }) {
   const keys = briefRunKeys(params.identity);
+  const ttlSeconds = ttlSecondsFromIso(params.finishedAt);
   const updates: string[] = [
     "#status = :status",
     "#runId = :runId",
@@ -195,7 +208,8 @@ export async function logBriefRunResult(params: {
     "#briefDay = :briefDay",
     "#gsi2pk = :gsi2pk",
     "#gsi2sk = :gsi2sk",
-    "#dryRun = :dryRun"
+    "#dryRun = :dryRun",
+    "#ttl = :ttl"
   ];
   const names: Record<string, string> = {
     "#status": "status",
@@ -208,7 +222,8 @@ export async function logBriefRunResult(params: {
     "#briefDay": "briefDay",
     "#gsi2pk": "GSI2PK",
     "#gsi2sk": "GSI2SK",
-    "#dryRun": "dryRun"
+    "#dryRun": "dryRun",
+    "#ttl": "ttl"
   };
   const values: Record<string, unknown> = {
     ":status": params.status,
@@ -221,7 +236,8 @@ export async function logBriefRunResult(params: {
     ":briefDay": params.identity.briefDay,
     ":gsi2pk": keys.gsi2pk,
     ":gsi2sk": keys.gsi2sk,
-    ":dryRun": params.dryRun ?? false
+    ":dryRun": params.dryRun ?? false,
+    ":ttl": ttlSeconds
   };
   if (params.metrics) {
     names["#metrics"] = "metrics";
@@ -254,6 +270,7 @@ export async function logRunResult(
   error?: string
 ) {
   const now = new Date().toISOString();
+  const ttl = ttlSecondsFromIso(now);
   const item: Record<string, any> = {
     PK: `RUN#${runId}`,
     SK: `AGENT#${agentId}#REGION#${region}`,
@@ -261,7 +278,8 @@ export async function logRunResult(
     agentId,
     region,
     status,
-    finishedAt: now
+    finishedAt: now,
+    ttl
   };
   
   if (error) {
