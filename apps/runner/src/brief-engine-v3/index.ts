@@ -230,7 +230,9 @@ function renderMarkdown(title: string, summary: string, selected: SelectedArticl
 function validateHardAndRepair(brief: BriefPost, previousBrief?: BriefPost | null): BriefPost {
   const repaired = { ...brief };
   if (!repaired.topStories || repaired.topStories.length === 0) {
-    repaired.topStories = [{ sourceArticleIndex: 1, title: repaired.selectedArticles?.[0]?.title ?? repaired.title, url: repaired.selectedArticles?.[0]?.url ?? repaired.sources?.[0]?.url ?? "data:text/plain,source-unavailable" }];
+    const firstSource = repaired.sources?.[0];
+    const firstSourceUrl = typeof firstSource === "string" ? firstSource : firstSource?.url;
+    repaired.topStories = [{ sourceArticleIndex: 1, title: repaired.selectedArticles?.[0]?.title ?? repaired.title, url: repaired.selectedArticles?.[0]?.url ?? firstSourceUrl ?? "data:text/plain,source-unavailable" }];
   }
   if (!repaired.heroImage?.url || (!repaired.heroImage.url.startsWith("https://") && !repaired.heroImage.url.startsWith("data:image/"))) {
     repaired.heroImage = { url: makeCategoryPlaceholderDataUrl(repaired.portfolio), alt: repaired.title, sourceArticleIndex: 1 };
