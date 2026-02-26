@@ -468,7 +468,14 @@ export async function handleCron(
   const allRegions = Object.keys(REGIONS) as RegionSlug[];
   const auditRegions = regionList ?? allRegions;
   const coverageAgentIds = opts?.agentIds;
-  const coverageDayByRegion = new Map(auditRegions.map((region) => [region, expectedCoverageDayKey(region, new Date())]));
+  const runNow = opts?.runDate ? new Date(opts.runDate) : new Date();
+  const shouldUseScheduledCoverageWindow = opts?.scheduled === true;
+  const coverageDayByRegion = new Map(
+    auditRegions.map((region) => [
+      region,
+      shouldUseScheduledCoverageWindow ? expectedCoverageDayKey(region, runNow) : getBriefDayKey(region, runNow)
+    ])
+  );
   const coverageResults = await Promise.all(
     auditRegions.map((region) =>
       auditCoverage({
@@ -592,24 +599,26 @@ export async function handleCron(
     );
   }
 
-  try {
-    await backfillMissedDay({
-      regions: auditRegions,
-      runId,
-      agentIds: coverageAgentIds
-    });
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: "error",
-        event: "coverage_backfill_failed",
-        reasonCode: "coverage_backfill_failed",
+  if (opts?.scheduled === true) {
+    try {
+      await backfillMissedDay({
+        regions: auditRegions,
         runId,
-        runWindow,
-        runDate: opts?.runDate ?? new Date().toISOString(),
-        error: (error as Error).message
-      })
-    );
+        agentIds: coverageAgentIds
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "coverage_backfill_failed",
+          reasonCode: "coverage_backfill_failed",
+          runId,
+          runWindow,
+          runDate: opts?.runDate ?? new Date().toISOString(),
+          error: (error as Error).message
+        })
+      );
+    }
   }
 
   const allResults = [...results, ...retryResults];
