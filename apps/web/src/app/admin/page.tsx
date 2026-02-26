@@ -12,6 +12,17 @@ interface FeedHealthEntry {
   consecutiveEmpty: number;
 }
 
+interface AdminBriefEntry {
+  postId: string;
+  title: string;
+  region: string;
+  portfolio: string;
+  status: string;
+  generationStatus?: string;
+  publishedAt: string;
+  briefDay?: string;
+}
+
 function TerminalIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -39,6 +50,8 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [feedHealth, setFeedHealth] = useState<FeedHealthEntry[]>([]);
   const [feedHealthUpdatedAt, setFeedHealthUpdatedAt] = useState<string>("");
+  const [storedBriefs, setStoredBriefs] = useState<AdminBriefEntry[]>([]);
+  const [storedBriefCount, setStoredBriefCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   const runRequest = async (payload: {
@@ -159,6 +172,56 @@ export default function AdminPage() {
       setFeedHealthUpdatedAt(typeof json.updatedAt === "string" ? json.updatedAt : "");
     } catch (err) {
       setMessage("Failed to load feed health.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStoredBriefs = async () => {
+    if (!adminToken) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/briefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminToken,
+          region,
+          portfolio: agentId || undefined,
+          runWindow,
+          limit: 200
+        })
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage(JSON.stringify(json, null, 2));
+        return;
+      }
+      const posts = Array.isArray(json.posts) ? (json.posts as AdminBriefEntry[]) : [];
+      setStoredBriefs(posts);
+      setStoredBriefCount(typeof json.count === "number" ? json.count : posts.length);
+      setMessage(
+        JSON.stringify(
+          {
+            region: json.region,
+            portfolio: json.portfolio,
+            runWindow: json.runWindow,
+            count: typeof json.count === "number" ? json.count : posts.length,
+            sample: posts.slice(0, 5).map((post) => ({
+              postId: post.postId,
+              publishedAt: post.publishedAt,
+              status: post.status,
+              generationStatus: post.generationStatus,
+              title: post.title
+            }))
+          },
+          null,
+          2
+        )
+      );
+    } catch (err) {
+      setMessage("Failed to load stored briefs.");
     } finally {
       setLoading(false);
     }
@@ -311,11 +374,45 @@ export default function AdminPage() {
           >
             Load Feed Health
           </button>
+          <button
+            onClick={loadStoredBriefs}
+            disabled={loading || !adminToken}
+            className="btn-secondary"
+          >
+            Load Stored Briefs
+          </button>
           <span className="text-sm text-muted-foreground">
             {!adminToken ? "Enter admin token to enable" : "All-portfolio runs dispatch in batches of 3."}
           </span>
         </div>
       </div>
+
+      {/* Stored briefs */}
+      {storedBriefs.length > 0 ? (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Stored briefs</h3>
+            <p className="text-xs text-muted-foreground">
+              Showing {Math.min(storedBriefs.length, 25)} of {storedBriefCount} records
+            </p>
+          </div>
+          <div className="space-y-2">
+            {storedBriefs.slice(0, 25).map((brief) => (
+              <div key={`${brief.postId}-${brief.publishedAt}`} className="rounded-lg border border-border bg-background p-3 text-sm">
+                <p className="font-semibold text-foreground line-clamp-1">{brief.title}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>ID: {brief.postId}</span>
+                  <span>Region: {brief.region}</span>
+                  <span>Portfolio: {brief.portfolio}</span>
+                  <span>Status: {brief.status}</span>
+                  <span>Generation: {brief.generationStatus ?? "n/a"}</span>
+                  <span>Published: {new Date(brief.publishedAt).toLocaleString("en-US")}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Feed health */}
       {feedHealth.length > 0 ? (

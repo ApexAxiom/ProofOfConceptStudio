@@ -14,15 +14,22 @@ function sortByPublished(posts: BriefPost[]): BriefPost[] {
 
 function normalizeBrief(post: BriefPost): BriefPost {
   const briefDay = post.briefDay ?? getBriefDayKey(post.region, new Date(post.publishedAt));
+  const normalizedStatus: BriefPost["status"] =
+    post.status === "published" || post.status === "draft" || post.status === "failed"
+      ? post.status
+      : post.generationStatus === "published"
+        ? "published"
+        : "draft";
   return {
     ...post,
+    status: normalizedStatus,
     briefDay,
     sources: normalizeBriefSources(post.sources)
   };
 }
 
 function keepUserVisibleBrief(post: BriefPost, includeHidden = false): boolean {
-  if (post.status !== "published") return false;
+  if (post.status !== "published" && post.generationStatus !== "published") return false;
   if (includeHidden) return true;
   return !isUserVisiblePlaceholderBrief(post);
 }
@@ -84,12 +91,14 @@ async function fetchRegionFromDynamo(region: string, limit = DEFAULT_REGION_FETC
     keyConditionExpression: "GSI2PK = :pk",
     expressionAttributeValues: {
       ":pk": `REGION#${region}`,
-      ":status": "published"
+      ":status": "published",
+      ":generationStatus": "published"
     },
     expressionAttributeNames: {
-      "#status": "status"
+      "#status": "status",
+      "#generationStatus": "generationStatus"
     },
-    filterExpression: "#status = :status",
+    filterExpression: "(#status = :status OR #generationStatus = :generationStatus)",
     limit: positiveInt(limit, DEFAULT_REGION_FETCH_LIMIT),
     includeHidden
   });
@@ -107,13 +116,15 @@ async function fetchPortfolioFromDynamo(params: {
     expressionAttributeValues: {
       ":pk": `PORTFOLIO#${params.portfolio}`,
       ":status": "published",
+      ":generationStatus": "published",
       ":region": params.region
     },
     expressionAttributeNames: {
       "#status": "status",
+      "#generationStatus": "generationStatus",
       "#region": "region"
     },
-    filterExpression: "#status = :status AND #region = :region",
+    filterExpression: "(#status = :status OR #generationStatus = :generationStatus) AND #region = :region",
     limit: positiveInt(params.limit, DEFAULT_PORTFOLIO_FETCH_LIMIT),
     includeHidden: params.includeHidden
   });

@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
-import { getAdminToken, getCronSecret, runWindowForRegion, RegionSlug } from "@proof/shared";
+import { getAdminToken, getCronSecret, runWindowForRegion, RegionSlug, REGION_LIST, RunWindow } from "@proof/shared";
 import { fetchRunStatus } from "../db/run-status.js";
+import { filterPosts } from "../db/posts.js";
 
 const ADMIN_TOKEN = getAdminToken();
 const RUNNER_BASE_URL = process.env.RUNNER_BASE_URL ?? "http://localhost:3002";
@@ -99,6 +100,44 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       briefDay: query.briefDay,
       limit
     });
+  });
+
+  fastify.get("/briefs", async (request, reply) => {
+    const query = request.query as {
+      region?: RegionSlug;
+      portfolio?: string;
+      runWindow?: string;
+      limit?: string;
+    };
+    const region = query.region ?? "us-mx-la-lng";
+    const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
+    if (!validRegions.has(region)) {
+      reply.code(400).send({ error: "region must be a valid RegionSlug" });
+      return;
+    }
+
+    const limitRaw = Number(query.limit ?? 200);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 200;
+    const runWindow = query.runWindow === "apac" || query.runWindow === "international"
+      ? (query.runWindow as RunWindow)
+      : undefined;
+    const portfolio = query.portfolio?.trim() || undefined;
+
+    const posts = await filterPosts({
+      region,
+      portfolio,
+      runWindow,
+      limit,
+      includeHidden: true
+    });
+
+    return {
+      region,
+      portfolio: portfolio ?? null,
+      runWindow: runWindow ?? null,
+      count: posts.length,
+      posts
+    };
   });
 };
 

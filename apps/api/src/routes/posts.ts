@@ -5,7 +5,7 @@ import { filterPosts, getPost, getRegionPosts, latestPerPortfolio } from "../db/
 
 function canIncludeHidden(request: { headers: Record<string, unknown> }, includeHidden?: string): boolean {
   if (includeHidden !== "true") return false;
-  const token = process.env.ADMIN_DEBUG_TOKEN?.trim();
+  const token = process.env.ADMIN_DEBUG_TOKEN?.trim() || process.env.ADMIN_TOKEN?.trim();
   if (!token) return false;
   const header = String(request.headers["x-admin-token"] ?? "").trim();
   return header.length > 0 && header === token;
