@@ -56,29 +56,33 @@ export default async function ExecutiveViewPage() {
 
   return (
     <div className="space-y-8">
-      <header className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
+      <header className="rounded-2xl border border-border bg-card p-6 md:p-7">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0 max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Executive View</p>
             <h1 className="mt-2 text-2xl font-semibold text-foreground">Market and category intelligence dashboard</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               Immediate view of market moves, Woodside signal flow, regional Oil & Gas coverage, and the latest category briefs.
             </p>
           </div>
-          <Link href="/morning-scan" className="btn-secondary text-sm">
-            Open Morning Scan
-          </Link>
+          <div className="flex shrink-0 items-start md:pt-1">
+            <Link href="/morning-scan" className="btn-secondary text-sm">
+              Open Morning Scan
+            </Link>
+          </div>
         </div>
       </header>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Market Indices</h2>
             <p className="text-sm text-muted-foreground">Procurement-relevant commodities and macro benchmarks.</p>
             <p className="mt-1 text-xs text-muted-foreground">Refreshes hourly (cached). Click any quote for the source.</p>
           </div>
-          {sectionTimestamp("Last updated", executiveData.market.lastUpdated)}
+          <div className="md:w-72 md:justify-self-end md:text-right">
+            {sectionTimestamp("Last updated", executiveData.market.lastUpdated)}
+          </div>
         </div>
 
         <div className="mt-4">
@@ -87,11 +91,13 @@ export default async function ExecutiveViewPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Woodside News</h2>
+            <h2 className="text-lg font-semibold text-foreground">Woodside Energy &amp; Related News</h2>
           </div>
-          {sectionTimestamp("Last updated", executiveData.woodside.lastUpdated)}
+          <div className="md:w-72 md:justify-self-end md:text-right">
+            {sectionTimestamp("Last updated", executiveData.woodside.lastUpdated)}
+          </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {woodsideArticles.length > 0 ? woodsideArticles.map((article) => <NewsCard key={article.url} article={article} />) : (
@@ -101,12 +107,14 @@ export default async function ExecutiveViewPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Top Oil & Gas News in APAC</h2>
             <p className="text-sm text-muted-foreground">Regional APAC updates relevant to offshore and LNG procurement.</p>
           </div>
-          {sectionTimestamp("Last updated", executiveData.apac.lastUpdated)}
+          <div className="md:w-72 md:justify-self-end md:text-right">
+            {sectionTimestamp("Last updated", executiveData.apac.lastUpdated)}
+          </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {apacArticles.length > 0 ? apacArticles.map((article) => <NewsCard key={article.url} article={article} />) : (
@@ -116,12 +124,14 @@ export default async function ExecutiveViewPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Top Oil & Gas News in International</h2>
             <p className="text-sm text-muted-foreground">Filtered for USA, Mexico, and Senegal relevance.</p>
           </div>
-          {sectionTimestamp("Last updated", executiveData.international.lastUpdated)}
+          <div className="md:w-72 md:justify-self-end md:text-right">
+            {sectionTimestamp("Last updated", executiveData.international.lastUpdated)}
+          </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {internationalArticles.length > 0 ? internationalArticles.map((article) => <NewsCard key={article.url} article={article} />) : (
@@ -131,12 +141,14 @@ export default async function ExecutiveViewPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Top 10 Latest Briefs</h2>
             <p className="text-sm text-muted-foreground">Across all portfolios and both regions.</p>
           </div>
-          {sectionTimestamp("Last refreshed", executiveData.generatedAt)}
+          <div className="md:w-72 md:justify-self-end md:text-right">
+            {sectionTimestamp("Last refreshed", executiveData.generatedAt)}
+          </div>
         </div>
 
         <div className="mt-4 space-y-2">
@@ -146,7 +158,7 @@ export default async function ExecutiveViewPage() {
               href={`/brief/${encodeURIComponent(row.postId)}`}
               className="block rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
             >
-              <p className="text-sm font-semibold text-foreground line-clamp-1">{row.title}</p>
+              <p className="min-h-[2.5rem] text-sm font-semibold text-foreground line-clamp-2">{row.title}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {portfolioLabel(row.portfolio)} · {regionLabel(row.region)} ·{" "}
                 {new Date(row.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

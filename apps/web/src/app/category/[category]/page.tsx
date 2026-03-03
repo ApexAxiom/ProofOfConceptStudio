@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect, notFound } from "next/navigation";
 import { PORTFOLIOS, CATEGORY_META, CategoryGroup, RegionSlug, categoryForPortfolio, regionLabel, toBriefViewModelV2 } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
@@ -75,9 +76,13 @@ export default async function CategoryDashboard({ params, searchParams }: Catego
         </div>
         {latestCategoryView ? (
           <article className="mt-4 space-y-3">
-            <img
+            <Image
               src={latestCategoryView.heroImage.url}
               alt={latestCategoryView.heroImage.alt}
+              width={1600}
+              height={900}
+              sizes="(min-width: 1024px) 420px, 100vw"
+              unoptimized
               className="h-48 w-full rounded-lg border border-border bg-background object-cover"
               loading="lazy"
             />

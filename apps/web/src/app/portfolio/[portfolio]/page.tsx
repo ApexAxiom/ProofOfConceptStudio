@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   BriefPost,
   BriefSourceInput,
@@ -314,6 +315,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
   const hiddenNews = selectedRegionNews.slice(8);
   const visibleBriefs = displayBriefs.slice(0, 6);
   const hiddenBriefs = displayBriefs.slice(6);
+  const dailyBriefTitleClassName = `${styles.rowTitle} ${styles.rowTitleClamp2}`;
   const normalizedSources = normalizeSources(activeBrief?.sources);
   const visibleSources = normalizedSources.slice(0, 8);
   const hiddenSources = normalizedSources.slice(8);
@@ -381,9 +383,13 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 <h3 className={styles.headline}>{activeBriefView.title}</h3>
                 <p className={styles.lede}>{insight.summary}</p>
                 {hasRenderableHero ? (
-                  <img
+                  <Image
                     src={activeBriefView.heroImage.url}
                     alt={activeBriefView.heroImage.alt}
+                    width={1600}
+                    height={900}
+                    sizes="(min-width: 1024px) 760px, 100vw"
+                    unoptimized
                     className={styles.heroImage}
                     loading="lazy"
                   />
@@ -560,7 +566,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                     meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
                     note={sanitizeInsightText(brief.summary)}
                     className={styles.listRow}
-                    titleClassName={styles.rowTitle}
+                    titleClassName={dailyBriefTitleClassName}
                     metaClassName={styles.rowMeta}
                     noteClassName={styles.rowNote}
                   />
@@ -584,7 +590,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                       meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
                       note={sanitizeInsightText(brief.summary)}
                       className={styles.listRow}
-                      titleClassName={styles.rowTitle}
+                      titleClassName={dailyBriefTitleClassName}
                       metaClassName={styles.rowMeta}
                       noteClassName={styles.rowNote}
                     />

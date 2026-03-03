@@ -55,7 +55,7 @@ export function PortfolioBriefHistory({ briefs }: PortfolioBriefHistoryProps) {
             href={`/brief/${encodeURIComponent(brief.postId)}`}
             className="block rounded-lg border border-border bg-background p-3 transition hover:border-primary/40"
           >
-            <p className="text-sm font-semibold text-foreground line-clamp-1">{brief.title}</p>
+            <p className="min-h-[2.5rem] text-sm font-semibold text-foreground line-clamp-2">{brief.title}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="rounded-full border border-border px-2 py-0.5 font-semibold uppercase tracking-[0.1em]">
                 {regionBadge(brief)}

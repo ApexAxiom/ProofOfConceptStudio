@@ -137,6 +137,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  min-width: 0;
 }
 
 .railColumn {
@@ -144,6 +145,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  min-width: 0;
 }
 
 .fullWidth {
@@ -156,6 +158,7 @@
   background: var(--surface);
   box-shadow: 0 10px 24px hsl(0 0% 0% / 0.18);
   padding: 20px;
+  min-width: 0;
 }
 
 .cardHeader {
@@ -170,6 +173,7 @@
   color: var(--text);
   font-size: var(--font-body);
   line-height: 1.58;
+  min-width: 0;
 }
 
 .metaLine {
@@ -244,6 +248,7 @@
 .listStack {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .listRow {
@@ -252,6 +257,9 @@
   background: hsl(var(--secondary) / 0.45);
   padding: 11px 12px;
   transition: border-color 140ms ease, background-color 140ms ease;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .listRow:hover {
@@ -268,11 +276,22 @@
   font-size: 15px;
   line-height: 1.35;
   font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.rowTitleClamp2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .rowMeta {
   font-size: var(--font-meta);
   color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .rowNote {
@@ -282,6 +301,8 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .actionsList {
@@ -295,6 +316,8 @@
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .details {

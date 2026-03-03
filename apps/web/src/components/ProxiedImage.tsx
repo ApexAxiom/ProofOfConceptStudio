@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { CSSProperties, useState } from "react";
 import { getProxiedImageUrl } from "../lib/image-proxy";
 
@@ -46,9 +47,13 @@ export function ProxiedImage({
   }
   
   return (
-    <img
+    <Image
       src={proxiedSrc}
       alt={alt}
+      width={1600}
+      height={900}
+      sizes="100vw"
+      unoptimized
       className={`${className} ${isLoading ? "animate-pulse bg-muted" : ""}`}
       loading={loading}
       style={style}

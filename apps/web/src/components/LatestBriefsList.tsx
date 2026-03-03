@@ -74,7 +74,7 @@ export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
                     
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-display text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                      <p className="min-h-[2.5rem] font-display text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
                         {brief.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">

@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   BriefCitedBullet,
   BriefPost,
@@ -236,9 +237,13 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
 
       {shouldRenderHero ? (
         <section className="rounded-xl border border-border bg-card p-5">
-          <img
+          <Image
             src={view.heroImage.url}
             alt={view.heroImage.alt}
+            width={1600}
+            height={900}
+            sizes="(min-width: 1024px) 896px, 100vw"
+            unoptimized
             className="h-64 w-full rounded-lg border border-border bg-background object-cover sm:h-80"
             loading="eager"
           />
