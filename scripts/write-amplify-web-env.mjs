@@ -7,13 +7,33 @@ const repoRoot = path.resolve(scriptDir, "..");
 const targetPath = path.join(repoRoot, "apps", "web", ".env.production");
 
 const allowedKeys = [
-  "API_BASE_URL",
   "AWS_REGION",
   "AWS_SECRET_NAME",
   "SECRETS_CACHE_TTL_MS",
-  "CHAT_PROXY_TIMEOUT_MS",
+  "DDB_TABLE_NAME",
+  "DDB_ENDPOINT",
+  "OPENAI_API_KEY",
+  "OPENAI_MODEL",
+  "OPENAI_BASE_URL",
+  "OPENAI_MAX_OUTPUT_TOKENS",
+  "OPENAI_REASONING_EFFORT",
+  "OPENAI_REASONING_RETRY_MAX_OUTPUT_TOKENS",
+  "WEB_SEARCH_ENABLED",
+  "CHAT_STATUS_CACHE_MS",
+  "CHAT_STATUS_VERIFY",
+  "CHAT_STATUS_VERIFY_TIMEOUT_MS",
+  "CHAT_FALLBACK_CONTEXT",
+  "CHAT_MAX_CLAIMS",
+  "CHAT_RATE_LIMIT_DISABLED",
+  "CHAT_RATE_LIMIT_RPM",
+  "CHAT_RATE_LIMIT_BURST",
+  "DEBUG_CHAT_LOGGING",
   "CHAT_ADMIN_USERNAME",
   "CHAT_ADMIN_PASSWORD",
+  "ADMIN_TOKEN",
+  "AWS_LAMBDA_REGION",
+  "RUNNER_LAMBDA_FUNCTION_NAME",
+  "RUNNER_DEFAULT_BATCH_COUNT",
   "EXECUTIVE_GOOGLE_NEWS_ENABLED",
   "GOOGLE_NEWS_ENABLED"
 ];
@@ -32,9 +52,5 @@ for (const key of allowedKeys) {
 }
 
 await fs.writeFile(targetPath, `${lines.join("\n")}\n`);
-
-if (!process.env.API_BASE_URL) {
-  console.warn("API_BASE_URL is not set; web API proxy routes will fall back to localhost.");
-}
 
 console.log(`Wrote ${exportedCount} Amplify runtime env vars to ${targetPath}`);

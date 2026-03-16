@@ -1,68 +1,72 @@
 import { NextResponse } from "next/server";
-import { getApiBaseUrl } from "../../../lib/api-base";
+import { answerChat, ChatRouteError, getChatStatus } from "../../../lib/server/chat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const CHAT_PROXY_TIMEOUT_MS = Number(process.env.CHAT_PROXY_TIMEOUT_MS ?? 45000);
 
-export async function GET() {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+function canDebug(request: Request) {
+  const adminToken = process.env.ADMIN_TOKEN?.trim();
+  const providedToken = request.headers.get("x-admin-token")?.trim();
+  return Boolean(adminToken && providedToken && providedToken === adminToken);
+}
+
+export async function GET(request: Request) {
   try {
-    const base = await getApiBaseUrl();
-    const res = await fetch(`${base}/chat/status`, {
-      cache: "no-store",
-      signal: controller.signal
-    });
-    const json = await res.json();
-    return NextResponse.json(json, {
-      status: res.status,
+    const status = await getChatStatus();
+    return NextResponse.json(status, {
       headers: { "Cache-Control": "no-store" }
     });
   } catch (err) {
-    if ((err as Error).name === "AbortError") {
+    const message = err instanceof Error ? err.message : "unknown_error";
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "chat_status_failed",
+        error: message
+      })
+    );
+    if (canDebug(request)) {
       return NextResponse.json(
-        { enabled: false, model: null, runnerConfigured: false, error: "timeout" },
-        { status: 504 }
+        { enabled: false, model: null, runnerConfigured: false, error: message },
+        { status: 503 }
       );
     }
     return NextResponse.json(
       { enabled: false, model: null, runnerConfigured: false, error: "unavailable" },
       { status: 503 }
     );
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 export async function POST(request: Request) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), CHAT_PROXY_TIMEOUT_MS);
   try {
     const body = await request.json();
-    const base = await getApiBaseUrl();
-    const res = await fetch(`${base}/chat`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
+    const response = await answerChat({
+      ...body,
+      clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined
     });
-    const json = await res.json();
-    return NextResponse.json(json, { status: res.status });
+    return NextResponse.json(response);
   } catch (err) {
-    if ((err as Error).name === "AbortError") {
+    if (err instanceof ChatRouteError) {
+      return NextResponse.json(err.payload, { status: err.status });
+    }
+    const message = err instanceof Error ? err.message : "unknown_error";
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "chat_request_failed",
+        error: message
+      })
+    );
+    if (canDebug(request)) {
       return NextResponse.json(
-        { answer: "AI service timed out. Please try again in a moment." },
-        { status: 504 }
+        { answer: "AI service is unavailable. Please try again once configuration is complete.", error: message },
+        { status: 503 }
       );
     }
     return NextResponse.json(
       { answer: "AI service is unavailable. Please try again once configuration is complete." },
       { status: 503 }
     );
-  } finally {
-    clearTimeout(timeout);
   }
 }

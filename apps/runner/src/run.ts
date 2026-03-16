@@ -421,8 +421,9 @@ export async function handleCron(
   }
 ) {
   const agents = loadAgents();
+  const skipMarketDashboard = process.env.RUNNER_SKIP_MARKET_DASHBOARD === "true";
   const normalAgents = agents.filter((a) => a.mode !== "market-dashboard");
-  const dashboardAgents = agents.filter((a) => a.mode === "market-dashboard");
+  const dashboardAgents = skipMarketDashboard ? [] : agents.filter((a) => a.mode === "market-dashboard");
   const agentFilter = opts?.agentIds?.length ? new Set(opts.agentIds) : null;
   const filteredNormalAgents = agentFilter
     ? normalAgents.filter((agent) => agentFilter.has(agent.id))
@@ -983,7 +984,7 @@ export async function runAgent(
       })
     );
     
-    console.log(`[${agentId}/${region}] ✓ Brief ${dryRun ? "validated (dry-run)" : "published"} successfully`);
+    console.log(`[${agentId}/${region}] Brief ${dryRun ? "validated (dry-run)" : "published"} successfully`);
     return { agentId: agent.id, region, ok: true, status: dryRun ? "dry-run" : "published" };
     
   } catch (err) {

@@ -1,5 +1,6 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { BriefPost, PORTFOLIOS, RunWindow, isUserVisiblePlaceholderBrief } from "@proof/shared";
-import { getApiBaseUrl } from "./api-base";
+import { filterPosts, getPost, getRegionPosts } from "./server/posts";
 
 function sortByPublished(posts: BriefPost[]): BriefPost[] {
   return [...posts].sort((a, b) => (a.publishedAt > b.publishedAt ? -1 : 1));
@@ -13,11 +14,9 @@ function filterVisibleBriefs(posts: BriefPost[]): BriefPost[] {
  * Fetch the newest briefs for a region.
  */
 export async function fetchLatest(region: string): Promise<BriefPost[]> {
+  noStore();
   try {
-    const apiBaseUrl = await getApiBaseUrl();
-    const res = await fetch(`${apiBaseUrl}/posts/latest?region=${region}`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const posts = (await res.json()) as BriefPost[];
+    const posts = await getRegionPosts(region, 120);
     return sortByPublished(filterVisibleBriefs(posts)).slice(0, 30);
   } catch {
     return [];
@@ -33,16 +32,14 @@ export async function fetchPosts(params: {
   runWindow?: RunWindow;
   limit?: number;
   }): Promise<BriefPost[]> {
+  noStore();
   try {
-    const apiBaseUrl = await getApiBaseUrl();
-    const query = new URLSearchParams();
-    if (params.region) query.set("region", params.region);
-    if (params.portfolio) query.set("portfolio", params.portfolio);
-    if (params.runWindow) query.set("runWindow", params.runWindow);
-    if (params.limit) query.set("limit", String(params.limit));
-    const res = await fetch(`${apiBaseUrl}/posts?${query.toString()}`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const posts = (await res.json()) as BriefPost[];
+    const posts = await filterPosts({
+      region: params.region,
+      portfolio: params.portfolio,
+      runWindow: params.runWindow,
+      limit: params.limit
+    });
     const filtered = filterVisibleBriefs(posts);
     const sorted = sortByPublished(filtered);
     return typeof params.limit === "number" ? sorted.slice(0, params.limit) : sorted;
@@ -65,14 +62,9 @@ function pickLatestPerPortfolio(briefs: BriefPost[]): BriefPost[] {
  * Fetch the latest brief for each portfolio in a region.
  */
 export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[]> {
+  noStore();
   try {
-    const apiBaseUrl = await getApiBaseUrl();
-    const res = await fetch(`${apiBaseUrl}/posts/latest-by-portfolio?region=${region}`, { cache: "no-store" });
-    if (!res.ok) {
-      const posts = await fetchPosts({ region, limit: 400 });
-      return pickLatestPerPortfolio(posts);
-    }
-    const posts = filterVisibleBriefs((await res.json()) as BriefPost[]);
+    const posts = filterVisibleBriefs(await getRegionPosts(region, 800));
     return pickLatestPerPortfolio(posts);
   } catch {
     const posts = await fetchPosts({ region, limit: 400 });
@@ -85,18 +77,12 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
  * Validates the response body to avoid treating an API 200-with-null as a found post.
  */
 export async function fetchPost(postId: string): Promise<BriefPost | null> {
+  noStore();
   try {
-    const apiBaseUrl = await getApiBaseUrl();
-    // postId contains "#" (e.g. `brief_YYYY-MM-DD#region#agentId`), so it must be URL-encoded.
-    const encodedPostId = encodeURIComponent(postId);
-    const res = await fetch(`${apiBaseUrl}/posts/${encodedPostId}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const data = await res.json();
-    // Guard against API returning null/empty with 200 status
-    if (!data || typeof data !== "object" || !data.postId) {
+    const brief = await getPost(postId);
+    if (!brief || typeof brief !== "object" || !brief.postId) {
       return null;
     }
-    const brief = data as BriefPost;
     return isUserVisiblePlaceholderBrief(brief) ? null : brief;
   } catch {
     return null;

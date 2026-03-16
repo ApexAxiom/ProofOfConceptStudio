@@ -652,18 +652,18 @@ export default function ChatPage({
             </p>
             {assistantStatus && !assistantStatus.enabled && (
               <p className="mt-2 text-xs text-amber-500">
-                Set OPENAI_API_KEY (and optional OPENAI_MODEL) on the API service to enable AI responses.
+                Set OPENAI_API_KEY (and optional OPENAI_MODEL) on the Amplify app to enable AI responses.
               </p>
             )}
             {assistantStatus && assistantStatus.enabled && assistantStatus.reachable === false && (
               <p className="mt-2 text-xs text-amber-500">
-                AI connection check failed. Verify OPENAI_API_KEY/model access and outbound internet for the API service.
+                AI connection check failed. Verify OPENAI_API_KEY/model access and outbound internet for the Amplify runtime.
                 {assistantStatus.error ? ` (${assistantStatus.error})` : ""}
               </p>
             )}
             {assistantStatus && assistantStatus.runnerConfigured === false && (
               <p className="mt-1 text-xs text-amber-500">
-                Set RUNNER_BASE_URL on the API service to load the agent catalog.
+                Agent catalog is unavailable in this deployment.
               </p>
             )}
           </div>

@@ -36,7 +36,8 @@ interface FeedHealthStore {
   entries: Record<string, FeedHealthEntry>;
 }
 
-const CACHE_DIR = path.join(process.cwd(), ".cache");
+const CACHE_ROOT = process.env.RUNNER_CACHE_DIR?.trim() || (process.env.AWS_EXECUTION_ENV ? "/tmp" : process.cwd());
+const CACHE_DIR = path.join(CACHE_ROOT, ".cache");
 const CACHE_FILE = path.join(CACHE_DIR, "feed-health.json");
 
 function normalizeUrl(url: string): string {

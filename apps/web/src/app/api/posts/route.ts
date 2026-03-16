@@ -1,30 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getApiBaseUrl } from "../../../lib/api-base";
+import { filterPosts } from "../../../lib/server/posts";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function canDebug(request: NextRequest) {
+  const adminToken = process.env.ADMIN_TOKEN?.trim();
+  const providedToken = request.headers.get("x-admin-token")?.trim();
+  return Boolean(adminToken && providedToken && providedToken === adminToken);
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const region = searchParams.get("region") ?? "";
   const portfolio = searchParams.get("portfolio") ?? "";
   const limit = searchParams.get("limit") ?? "10";
+  const runWindow = searchParams.get("runWindow") ?? "";
 
   try {
-    const apiBaseUrl = await getApiBaseUrl();
-    const query = new URLSearchParams();
-    if (region) query.set("region", region);
-    if (portfolio) query.set("portfolio", portfolio);
-    if (limit) query.set("limit", limit);
-
-    const res = await fetch(`${apiBaseUrl}/posts?${query.toString()}`, {
-      cache: "no-store"
+    const posts = await filterPosts({
+      region,
+      portfolio: portfolio || undefined,
+      runWindow: runWindow || undefined,
+      limit: limit ? Number(limit) : 10
     });
-
-    if (!res.ok) {
-      return NextResponse.json([], { status: res.status });
-    }
-
-    const posts = await res.json();
     return NextResponse.json(posts);
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown_error";
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "posts_route_failed",
+        region,
+        portfolio: portfolio || null,
+        runWindow: runWindow || null,
+        limit,
+        error: message
+      })
+    );
+    if (canDebug(request)) {
+      return NextResponse.json({ posts: [], error: message }, { status: 500 });
+    }
     return NextResponse.json([], { status: 500 });
   }
 }

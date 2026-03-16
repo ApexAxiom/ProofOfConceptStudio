@@ -35,7 +35,7 @@ const isAuthorized = async () => {
 export async function GET() {
   const config = getConfig();
   if (!config) {
-    return NextResponse.json({ authenticated: false, configured: false }, { status: 503 });
+    return NextResponse.json({ authenticated: true, configured: false });
   }
 
   const authenticated = await isAuthorized();
@@ -48,7 +48,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const config = getConfig();
   if (!config) {
-    return NextResponse.json({ error: "chat access login is not configured" }, { status: 503 });
+    return NextResponse.json({ authenticated: true, configured: false });
   }
 
   let payload: { username?: string; password?: string };

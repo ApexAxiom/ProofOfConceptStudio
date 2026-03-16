@@ -1,0 +1,20 @@
+FROM node:20-slim AS builder
+WORKDIR /app
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
+COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY infra ./infra
+COPY pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @proof/runner... build
+RUN pnpm --filter @proof/runner deploy --prod /app/deploy/runner
+
+FROM public.ecr.aws/lambda/nodejs:20
+WORKDIR ${LAMBDA_TASK_ROOT}
+COPY --from=builder /app/deploy/runner ./
+
+CMD ["dist/lambda.handler"]
