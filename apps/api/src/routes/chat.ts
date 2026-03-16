@@ -1,17 +1,18 @@
 import { FastifyPluginAsync } from "fastify";
 import {
-  AgentFeed,
   BriefPost,
   BriefClaim,
   BriefSource,
   buildAgentSystemPrompt,
   buildSourceId,
   dedupeSources,
+  findAgentSummary,
   getAgentFramework,
   keywordsForPortfolio,
+  listAgentSummaries,
   normalizeBriefSources,
   portfolioLabel,
-  regionLabel
+  type AgentCatalogSummary
 } from "@proof/shared";
 import { getPost, getRegionPosts } from "../db/posts.js";
 import { OpenAI } from "openai";
@@ -24,7 +25,6 @@ const REASONING_RETRY_MAX_OUTPUT_TOKENS = 32_000;
 const DEFAULT_REASONING_EFFORT = "low";
 const MAX_QUESTION_CHARS = 8000;
 const MAX_MESSAGE_COUNT = 40;
-const FALLBACK_AGENT_URL = "http://localhost:3002";
 const PROOF_OF_CONCEPT_STUDIO_URL = "https://proofofconceptstudio.com";
 const MAX_WEB_DOCS = 3;
 const MAX_WEB_DOC_CHARS = 2200;
@@ -39,17 +39,6 @@ let cachedOpenAIKey: string | null = null;
 let cachedOpenAI: OpenAI | null = null;
 let cachedStatus: { ok: boolean; error?: string; checkedAt: number } | null = null;
 
-type AgentSummary = {
-  id: string;
-  region?: string;
-  portfolio: string;
-  label: string;
-  description?: string;
-  maxArticlesToConsider?: number;
-  articlesPerRun: number;
-  feeds?: AgentFeed[];
-};
-
 type IncomingMessage = {
   role?: string;
   content?: string;
@@ -59,10 +48,6 @@ type ExternalContext = {
   blocks: string[];
   urls: string[];
 };
-
-function getRunnerBaseUrl() {
-  return process.env.RUNNER_BASE_URL ?? FALLBACK_AGENT_URL;
-}
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -535,25 +520,11 @@ function buildLogContext(params: {
 
 async function findAgent(agentId?: string, portfolio?: string, region?: string) {
   if (!agentId && !portfolio) return undefined;
-  const runnerBaseUrl = getRunnerBaseUrl();
-  try {
-    const res = await fetch(`${runnerBaseUrl}/agents`);
-    if (!res.ok) return undefined;
-    const payload = (await res.json()) as { agents?: AgentSummary[] } | AgentSummary[];
-    const agents = Array.isArray(payload) ? payload : payload.agents ?? [];
-    const byIdAndRegion =
-      agentId && region ? agents.find((agent) => agent.id === agentId && agent.region === region) : undefined;
-    const byId = agentId ? agents.find((agent) => agent.id === agentId) : undefined;
-    const byPortfolioAndRegion =
-      portfolio && region
-        ? agents.find((agent) => agent.portfolio === portfolio && agent.region === region)
-        : undefined;
-    const byPortfolio = portfolio ? agents.find((agent) => agent.portfolio === portfolio) : undefined;
-    return byIdAndRegion ?? byId ?? byPortfolioAndRegion ?? byPortfolio;
-  } catch (err) {
-    console.warn("Unable to load agent catalog", (err as Error).message);
-    return undefined;
-  }
+  return findAgentSummary({
+    agentId,
+    portfolio,
+    region
+  });
 }
 
 /**
@@ -562,6 +533,7 @@ async function findAgent(agentId?: string, portfolio?: string, region?: string) 
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/status", async () => {
     const enabled = Boolean(process.env.OPENAI_API_KEY);
+    const agentCatalogAvailable = listAgentSummaries().length > 0;
     let reachable: boolean | undefined = undefined;
     let error: string | undefined = undefined;
     if (enabled && STATUS_VERIFY_ENABLED) {
@@ -572,7 +544,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     return {
       enabled,
       model: enabled ? getModel() : null,
-      runnerConfigured: Boolean(process.env.RUNNER_BASE_URL),
+      runnerConfigured: agentCatalogAvailable,
       reachable,
       error
     };
@@ -629,7 +601,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       questionLength: effectiveQuestion.length
     });
 
-    const agent = await findAgent(agentId, portfolio, region);
+    const agent = await findAgent(agentId, portfolio, region) as AgentCatalogSummary | undefined;
     let targetBrief: BriefPost | null = null;
     if (briefId) {
       targetBrief = await getPost(briefId);

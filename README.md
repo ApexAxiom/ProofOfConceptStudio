@@ -67,6 +67,12 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 - Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge schedules to `runner` `/cron` with Bearer `CRON_SECRET`.
   - All Categories & Regions: 05:00 AM CST / 11:00 PM AWST (prev day) with body `{ "regions": ["au", "us-mx-la-lng"], "scheduled": true }`.
 
+### Amplify Transition
+- `amplify.yml` at the repo root deploys `apps/web` to Amplify Hosting as a pnpm monorepo app.
+- Amplify writes server-side web env vars into `apps/web/.env.production` during the build via `node scripts/write-amplify-web-env.mjs`.
+- During the hybrid phase, keep `apps/api` and `apps/runner` on App Runner and set Amplify `API_BASE_URL` to the deployed API URL.
+- The API agent catalog no longer depends on runner `/agents`; if `apps/runner/src/agents/agents.yaml` changes, regenerate the shared catalog with `pnpm --filter runner run generate:agent-catalog`.
+
 ### App Runner configuration files
 When creating App Runner services, choose **Use a configuration file**. Set the Source directory to the service folder so App Runner can find `apprunner.yaml`:
 - Web: `apps/web`

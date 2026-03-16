@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { getApiBaseUrl } from "../../../lib/api-base";
+import { listAgentSummaries } from "@proof/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Proxies the agent catalog through the web app so client components stay server-only.
+ * Exposes the shared agent catalog directly so the web tier does not need a live API/runner dependency for agent metadata.
  */
 export async function GET() {
   try {
-    const base = await getApiBaseUrl();
-    const res = await fetch(`${base}/agents`);
-    const json = await res.json();
-    return NextResponse.json(json, { status: res.status });
+    return NextResponse.json({
+      agents: listAgentSummaries({ includeFeeds: true })
+    });
   } catch (err) {
     return NextResponse.json({ agents: [], error: "unavailable" }, { status: 503 });
   }
