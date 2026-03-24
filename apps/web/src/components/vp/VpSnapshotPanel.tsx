@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import { useMemo } from "react";
 import { BriefPost, VpSignal } from "@proof/shared";
 

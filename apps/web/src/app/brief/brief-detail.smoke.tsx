@@ -154,13 +154,16 @@ const brief: BriefPost = {
 const html = renderToStaticMarkup(<BriefDetailContent brief={brief} />);
 
 assert(html.includes("Executive Snapshot"));
+assert(html.includes("What to Watch This Week"));
 assert(html.includes("Executive Summary"));
 assert(html.includes("Impact"));
+assert(html.includes("Executive Risk &amp; Action View"));
+assert(html.includes("Category Manager Decision Detail"));
 assert(html.includes("Action Plan"));
 assert(html.includes("Sources"));
 const executiveSummaryStart = html.indexOf("Executive Summary");
-const actionPlanStart = html.indexOf("Action Plan");
-const executiveSummarySection = html.slice(executiveSummaryStart, actionPlanStart);
+const impactStart = html.indexOf("Impact");
+const executiveSummarySection = html.slice(executiveSummaryStart, impactStart);
 assert(!executiveSummarySection.includes("Takeaway one"));
 assert(!executiveSummarySection.includes("Takeaway two"));
 assert(!executiveSummarySection.includes("Takeaway three"));
