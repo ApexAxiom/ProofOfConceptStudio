@@ -12,8 +12,10 @@ import {
   regionLabel,
   toBriefViewModelV2
 } from "@proof/shared";
+import { CmSnapshotPanel } from "../../components/cm/CmSnapshotPanel";
 import { NegotiationLevers } from "../../components/NegotiationLevers";
 import { SupplierRadar } from "../../components/SupplierRadar";
+import { VpSnapshotPanel } from "../../components/vp/VpSnapshotPanel";
 
 const OPERATIONAL_PATTERNS: RegExp[] = [
   /brief generation failed/gi,
@@ -214,6 +216,13 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         .filter((metric): metric is string => Boolean(metric))
     )
   ).slice(0, 10);
+  const watchThisWeek = unique([
+    ...(brief.decisionSummary?.watchThisWeek ?? []),
+    ...(brief.watchlist ?? []),
+    ...(brief.cmSnapshot?.intelGaps ?? []),
+    ...(brief.cmSnapshot?.talkingPoints ?? [])
+  ]).slice(0, 6);
+  const topMove = sanitizePresentationText(brief.decisionSummary?.topMove);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -252,6 +261,12 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
 
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Executive Snapshot</h2>
+        {topMove ? (
+          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">Top move</p>
+            <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">{topMove}</p>
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-6 md:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key takeaways</p>
@@ -334,6 +349,19 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         ) : null}
       </section>
 
+      {watchThisWeek.length > 0 ? (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-semibold text-foreground">What to Watch This Week</h2>
+          <ul className="mt-4 grid gap-3 md:grid-cols-2">
+            {watchThisWeek.map((item, idx) => (
+              <li key={`${item}-${idx}`} className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground">Executive Summary</h2>
         <p className="mt-3 text-sm text-foreground leading-relaxed">{fallbackSummary}</p>
@@ -400,6 +428,10 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
           </ul>
         )}
       </section>
+
+      {brief.vpSnapshot ? <VpSnapshotPanel brief={brief} /> : null}
+
+      {brief.cmSnapshot ? <CmSnapshotPanel brief={brief} /> : null}
 
       {brief.cmSnapshot?.supplierRadar?.length ? (
         <section className="rounded-xl border border-border bg-card p-5">

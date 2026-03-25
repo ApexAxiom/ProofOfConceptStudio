@@ -12,6 +12,18 @@ function previewText(brief: BriefPost): string {
   return firstLine.replace(/^\*\*Overview:\*\*\s*/i, "").trim();
 }
 
+function topMove(brief: BriefPost): string | undefined {
+  return brief.decisionSummary?.topMove?.trim() || brief.report?.summaryBullets?.[0]?.text?.trim();
+}
+
+function nextAction(brief: BriefPost): string | undefined {
+  return (
+    brief.decisionSummary?.doNext?.[0]?.trim() ||
+    brief.cmSnapshot?.todayPriorities?.[0]?.title?.trim() ||
+    brief.report?.actionGroups?.[0]?.actions?.[0]?.action?.trim()
+  );
+}
+
 function truncate(text: string, max = 120): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max).trim()}…`;
@@ -49,6 +61,8 @@ function TimeAgo({ date }: { date: string }) {
  */
 export function BriefCard({ brief }: { brief: BriefPost }) {
   const summary = truncate(previewText(brief) || brief.title);
+  const move = topMove(brief);
+  const action = nextAction(brief);
   const normalizedSources = normalizeBriefSources(brief.sources);
   const hasEvidence = Array.isArray(brief.claims) && brief.claims.length > 0;
   const allowedSourceIds = new Set(normalizedSources.map((source) => source.sourceId));
@@ -137,10 +151,32 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
           </div>
         )}
         
+        {move && (
+          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/80">
+              Top move
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-foreground line-clamp-2">
+              {move}
+            </p>
+          </div>
+        )}
+
         {/* Summary */}
         <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2 flex-1">
           {summary}
         </p>
+
+        {action && (
+          <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-300">
+              Recommended next step
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-foreground line-clamp-2">
+              {action}
+            </p>
+          </div>
+        )}
         
         {/* Actions - Premium styling */}
         <div className="flex items-center gap-2 pt-3 border-t border-border mt-auto">
