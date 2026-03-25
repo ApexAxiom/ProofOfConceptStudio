@@ -49,6 +49,10 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
                   <p className="capitalize">{item.confidence}</p>
                 </div>
               </div>
+              <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-foreground">
+                <span className="font-semibold uppercase tracking-[0.12em] text-muted-foreground">CM move</span>
+                <p className="mt-1">Use this as the immediate supplier or contract action to move before the next sourcing gate.</p>
+              </div>
             </div>
           ))}
         </div>
@@ -64,7 +68,9 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
                 <p className="text-sm font-semibold text-foreground">{item.supplier}</p>
                 <span className="text-xs capitalize text-muted-foreground">{item.confidence}</span>
               </div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Observed supplier signal</p>
               <p className="text-sm text-foreground">{item.signal}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Commercial implication</p>
               <p className="text-sm text-muted-foreground">{item.implication}</p>
               <div className="rounded-md bg-muted/40 px-3 py-2 text-sm text-foreground">
                 <span className="font-semibold">Next step:</span> {item.nextStep}
@@ -85,6 +91,7 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
               <p className="text-sm font-semibold text-foreground">{item.lever}</p>
               <p className="text-sm text-muted-foreground">When to use: {item.whenToUse}</p>
               <p className="text-sm text-muted-foreground">Expected outcome: {item.expectedOutcome}</p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Commercial mechanism to carry into the next supplier conversation</p>
             </div>
           ))}
         </div>

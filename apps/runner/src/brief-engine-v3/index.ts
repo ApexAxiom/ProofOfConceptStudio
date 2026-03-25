@@ -1,5 +1,6 @@
 import {
   AgentConfig,
+  AgentFramework,
   BriefCitedBullet,
   BriefMarketIndicator,
   BriefPost,
@@ -17,6 +18,7 @@ import {
   VpSignalType,
   buildSourceId,
   dedupeSources,
+  getAgentFramework,
   makeCategoryPlaceholderDataUrl,
   validateBriefV2Record
 } from "@proof/shared";
@@ -417,29 +419,54 @@ function themeConfidence(article: ArticleInput): VpConfidence {
   return extractMetrics(article.content).length >= 2 ? "high" : "medium";
 }
 
-function buildCategoryImplication(article: ArticleInput, categoryLabel: string): string {
+function frameworkForAgent(agent: AgentConfig): AgentFramework {
+  return getAgentFramework(agent.id || agent.portfolio);
+}
+
+function pickFrameworkSupplier(article: ArticleInput, framework: AgentFramework, idx = 0): string {
+  const titleAndContent = `${article.title} ${article.content ?? ""}`;
+  const matched = framework.keySuppliers.find((supplier) => new RegExp(`\\b${supplier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(titleAndContent));
+  if (matched) return matched;
+  if (framework.keySuppliers.length === 0) {
+    return article.sourceName ? `${article.sourceName} counterparties` : "priority suppliers";
+  }
+  return framework.keySuppliers[idx % framework.keySuppliers.length];
+}
+
+function pickFrameworkValue(values: string[], fallback: string, idx = 0): string {
+  if (values.length === 0) return fallback;
+  return values[idx % values.length];
+}
+
+function buildSupplierSignal(article: ArticleInput, framework: AgentFramework, idx = 0): string {
+  return pickKeySentences(article.content, 1)[0] ?? `${shortSubject(article.title)} is changing supplier posture across the category.`;
+}
+
+function buildCategoryImplication(article: ArticleInput, categoryLabel: string, framework?: AgentFramework, idx = 0): string {
   const theme = dominantTheme(`${article.title} ${article.content ?? ""}`);
   const metrics = extractMetrics(article.content);
   const metricNote = metrics.length > 0 ? `with ${metrics.join(", ")} as the clearest commercial anchors` : "even without clean benchmark data";
+  const supplierBehavior = framework ? pickFrameworkValue(framework.dailyCMLens.supplierBehavior, "supplier posture is shifting", idx) : "supplier posture is shifting";
+  const contractingImplication = framework ? pickFrameworkValue(framework.dailyCMLens.contractingImplications, "contract flexibility matters", idx) : "contract flexibility matters";
   switch (theme) {
     case "cost":
-      return `This matters for ${categoryLabel} because fresh price movement and input-cost detail should reset bid assumptions, escalation logic, and negotiation guardrails ${metricNote}.`;
+      return `This matters for ${categoryLabel} because fresh price movement and input-cost detail should reset bid assumptions, ${contractingImplication.toLowerCase()}, and negotiation guardrails ${metricNote}; expect ${supplierBehavior.toLowerCase()}.`;
     case "supply":
-      return `This matters for ${categoryLabel} because capacity and lead-time signals can move supplier prioritization, award timing, and contingency lanes ${metricNote}.`;
+      return `This matters for ${categoryLabel} because capacity and lead-time signals can move supplier prioritization, award timing, and contingency lanes ${metricNote}; buyers should plan for ${supplierBehavior.toLowerCase()}.`;
     case "commercial":
-      return `This matters for ${categoryLabel} because contracting activity changes leverage, market appetite, and which clauses buyers can credibly trade ${metricNote}.`;
+      return `This matters for ${categoryLabel} because contracting activity changes leverage, market appetite, and which clauses buyers can credibly trade ${metricNote}; ${contractingImplication} is now more valuable.`;
     case "regulatory":
-      return `This matters for ${categoryLabel} because compliance and policy shifts can alter supplier eligibility, import cost, and pass-through exposure ${metricNote}.`;
+      return `This matters for ${categoryLabel} because compliance and policy shifts can alter supplier eligibility, import cost, and pass-through exposure ${metricNote}; contracts need room for ${contractingImplication.toLowerCase()}.`;
     case "schedule":
-      return `This matters for ${categoryLabel} because timeline movement can quickly cascade into expediting costs, vessel or crew conflicts, and change-order pressure ${metricNote}.`;
+      return `This matters for ${categoryLabel} because timeline movement can quickly cascade into expediting costs, vessel or crew conflicts, and change-order pressure ${metricNote}; expect suppliers to test ${contractingImplication.toLowerCase()}.`;
     default:
       return `This matters for ${categoryLabel} because the signal changes the near-term supplier conversation, especially around price discipline, optionality, and execution readiness.`;
   }
 }
 
-function buildHeuristicStoryBrief(article: ArticleInput, categoryLabel: string): string {
+function buildHeuristicStoryBrief(article: ArticleInput, categoryLabel: string, framework?: AgentFramework, idx = 0): string {
   const facts = pickKeySentences(article.content, 2).join(" ");
-  const implication = buildCategoryImplication(article, categoryLabel);
+  const implication = buildCategoryImplication(article, categoryLabel, framework, idx);
   return [facts || article.title, implication].filter(Boolean).join(" ");
 }
 
@@ -448,50 +475,56 @@ function shortSubject(title: string): string {
   return cleaned.split(" ").slice(0, 6).join(" ");
 }
 
-function buildHeuristicHighlights(selectedInputs: ArticleInput[], categoryLabel: string): string[] {
+function buildHeuristicHighlights(selectedInputs: ArticleInput[], categoryLabel: string, framework: AgentFramework): string[] {
   return selectedInputs.slice(0, 5).map((article, idx) => {
     const theme = dominantTheme(`${article.title} ${article.content ?? ""}`);
     const fact = pickKeySentences(article.content, 1)[0] ?? article.title;
-    return `${idx === 0 ? "Lead move:" : "Signal:"} ${fact} That shifts ${categoryLabel} focus toward ${themeLabel(theme)}.`;
+    const supplier = pickFrameworkSupplier(article, framework, idx);
+    return `${idx === 0 ? "Lead move:" : "Signal:"} ${fact} That shifts ${categoryLabel} focus toward ${themeLabel(theme)} and changes the ask to ${supplier}.`;
   });
 }
 
-function buildHeuristicActions(selectedInputs: ArticleInput[]): string[] {
+function buildHeuristicActions(selectedInputs: ArticleInput[], framework: AgentFramework): string[] {
   const actions = selectedInputs.map((article) => {
     const subject = shortSubject(article.title);
+    const supplier = pickFrameworkSupplier(article, framework);
+    const costDriver = pickFrameworkValue(framework.dailyCMLens.costDrivers, "current cost drivers");
+    const capacityDriver = pickFrameworkValue(framework.dailyCMLens.capacityDrivers, "capacity constraints");
+    const contractingImplication = pickFrameworkValue(framework.dailyCMLens.contractingImplications, "contract flexibility");
     switch (dominantTheme(`${article.title} ${article.content ?? ""}`)) {
       case "cost":
-        return `Refresh open pricing assumptions and ask suppliers tied to ${subject} to reconfirm index logic, validity windows, and surcharge language.`;
+        return `Email ${supplier} to reconfirm ${costDriver.toLowerCase()}, keep quote validity short around ${subject}, and push for ${contractingImplication.toLowerCase()} instead of open-ended surcharge language.`;
       case "supply":
-        return `Call suppliers exposed to ${subject} to validate slot availability, realistic lead times, and fallback capacity before the next sourcing gate.`;
+        return `Schedule a supplier call with ${supplier} to validate ${capacityDriver.toLowerCase()}, secure fallback slots around ${subject}, and trade extension options for committed capacity if needed.`;
       case "commercial":
-        return `Review active contracts and renewals touched by ${subject} for extension options, minimum-volume trades, and tighter change-control wording.`;
+        return `Review renewals with ${supplier} tied to ${subject} and reopen the clause set for minimum-volume trades, extension options, and tighter change-control wording.`;
       case "regulatory":
-        return `Check supplier exposure linked to ${subject} and prepare compliance pass-through, termination, or substitution language before commitments are expanded.`;
+        return `Ask ${supplier} for a written position on ${subject} and prepare compliance pass-through, substitution, and termination language before the next commitment is approved.`;
       case "schedule":
-        return `Stress-test delivery plans affected by ${subject} and align expediting triggers, alternates, and liquidated-damages protection with project teams.`;
+        return `Stress-test delivery plans with ${supplier} around ${subject}, confirm alternates, and tighten LD or expediting triggers before schedule pressure hardens.`;
       default:
-        return `Re-rank current supplier conversations around ${subject} and confirm what commercial flexibility still exists before demand hardens.`;
+        return `Re-rank the supplier conversation with ${supplier} around ${subject} and confirm what commercial flexibility still exists before market leverage deteriorates.`;
     }
   });
   return Array.from(new Set(actions)).slice(0, 6);
 }
 
-function buildHeuristicWatchlist(selectedInputs: ArticleInput[]): string[] {
+function buildHeuristicWatchlist(selectedInputs: ArticleInput[], framework: AgentFramework): string[] {
   return selectedInputs.slice(0, 4).map((article) => {
     const subject = shortSubject(article.title);
     const theme = dominantTheme(`${article.title} ${article.content ?? ""}`);
+    const supplier = pickFrameworkSupplier(article, framework);
     switch (theme) {
       case "cost":
-        return `Watch whether ${subject} becomes a broader repricing reference in supplier quotes and budget conversations.`;
+        return `Watch whether ${supplier} starts using ${subject} as a repricing reference in quotes, escalator asks, or budget resets.`;
       case "supply":
-        return `Watch whether ${subject} turns into visible slot scarcity, missed delivery confidence, or longer qualification queues.`;
+        return `Watch whether ${subject} turns into visible slot scarcity, longer qualification queues, or firmer allocation language from ${supplier}.`;
       case "commercial":
-        return `Watch whether ${subject} reduces buyer leverage in renewals or shifts suppliers toward firmer commercial positions.`;
+        return `Watch whether ${subject} reduces buyer leverage in renewals and pushes ${supplier} toward firmer commercial positions.`;
       case "regulatory":
-        return `Watch whether ${subject} introduces new compliance checks, import friction, or pass-through cost claims.`;
+        return `Watch whether ${subject} introduces new compliance checks, import friction, or pass-through claims from ${supplier}.`;
       case "schedule":
-        return `Watch whether ${subject} creates knock-on schedule compression and expediting requests across active packages.`;
+        return `Watch whether ${subject} creates knock-on schedule compression and expediting requests across active packages with ${supplier}.`;
       default:
         return `Watch whether ${subject} develops into a confirmed sourcing constraint rather than an isolated headline.`;
     }
@@ -509,7 +542,12 @@ function clampScore(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-function buildHeuristicVpSnapshot(selectedInputs: ArticleInput[], actions: string[], categoryLabel: string): BriefOutput["vpSnapshot"] {
+function buildHeuristicVpSnapshot(
+  selectedInputs: ArticleInput[],
+  actions: string[],
+  categoryLabel: string,
+  framework: AgentFramework
+): BriefOutput["vpSnapshot"] {
   const themes = selectedInputs.map((article) => dominantTheme(`${article.title} ${article.content ?? ""}`));
   const costCount = themes.filter((theme) => theme === "cost").length;
   const supplyCount = themes.filter((theme) => theme === "supply").length;
@@ -528,7 +566,7 @@ function buildHeuristicVpSnapshot(selectedInputs: ArticleInput[], actions: strin
     type: themeType(dominantTheme(`${article.title} ${article.content ?? ""}`)),
     horizon: themeHorizon(dominantTheme(`${article.title} ${article.content ?? ""}`)),
     confidence: themeConfidence(article),
-    impact: buildCategoryImplication(article, categoryLabel),
+    impact: buildCategoryImplication(article, categoryLabel, framework, idx),
     evidenceArticleIndex: idx + 1
   }));
 
@@ -569,20 +607,21 @@ function buildHeuristicVpSnapshot(selectedInputs: ArticleInput[], actions: strin
 function buildHeuristicCmSnapshot(
   selectedInputs: ArticleInput[],
   actions: string[],
-  categoryLabel: string
+  categoryLabel: string,
+  framework: AgentFramework
 ): BriefOutput["cmSnapshot"] {
   const todayPriorities = actions.slice(0, 4).map((action, idx) => ({
     title: action,
-    why: buildCategoryImplication(selectedInputs[idx] ?? selectedInputs[0], categoryLabel),
+    why: buildCategoryImplication(selectedInputs[idx] ?? selectedInputs[0], categoryLabel, framework, idx),
     dueInDays: [3, 7, 10, 14][idx] ?? 7,
     confidence: themeConfidence(selectedInputs[idx] ?? selectedInputs[0]),
     evidenceArticleIndex: Math.min(idx + 1, selectedInputs.length)
   }));
 
   const supplierRadar = selectedInputs.slice(0, 4).map((article, idx) => ({
-    supplier: article.sourceName ? `${article.sourceName} monitored suppliers` : `Suppliers tied to ${shortSubject(article.title)}`,
-    signal: pickKeySentences(article.content, 1)[0] ?? article.title,
-    implication: buildCategoryImplication(article, categoryLabel),
+    supplier: pickFrameworkSupplier(article, framework, idx),
+    signal: buildSupplierSignal(article, framework, idx),
+    implication: buildCategoryImplication(article, categoryLabel, framework, idx),
     nextStep: actions[idx] ?? `Schedule a supplier checkpoint around ${shortSubject(article.title)}.`,
     confidence: themeConfidence(article),
     evidenceArticleIndex: idx + 1
@@ -593,25 +632,25 @@ function buildHeuristicCmSnapshot(
     switch (theme) {
       case "cost":
         return {
-          lever: "Use caps/collars on index-linked pricing",
-          whenToUse: `Use when suppliers cite ${shortSubject(article.title)} to justify immediate repricing.`,
-          expectedOutcome: "Limit upside cost exposure while preserving awardability for time-sensitive work.",
+          lever: `Use ${pickFrameworkValue(framework.dailyCMLens.contractingImplications, "caps/collars on index-linked pricing", idx)}`,
+          whenToUse: `Use when ${pickFrameworkSupplier(article, framework, idx)} cites ${shortSubject(article.title)} to justify immediate repricing or wider surcharge language.`,
+          expectedOutcome: "Limit upside cost exposure while preserving awardability for time-sensitive work and keeping the supplier commercially engaged.",
           confidence: themeConfidence(article),
           evidenceArticleIndex: idx + 1
         };
       case "supply":
         return {
-          lever: "Trade extension options for committed capacity",
-          whenToUse: `Use when ${shortSubject(article.title)} points to tightening slots or scarce availability.`,
-          expectedOutcome: "Protect delivery certainty without paying full scarcity premiums upfront.",
+          lever: "Trade extension options, standby retainer, or minimum-volume commits for committed capacity",
+          whenToUse: `Use when ${shortSubject(article.title)} points to tightening slots or scarce availability from ${pickFrameworkSupplier(article, framework, idx)}.`,
+          expectedOutcome: "Protect delivery certainty without paying full scarcity premiums upfront while keeping fallback capacity live.",
           confidence: themeConfidence(article),
           evidenceArticleIndex: idx + 1
         };
       case "commercial":
         return {
-          lever: "Use minimum-volume and substitution clauses selectively",
-          whenToUse: `Use when ${shortSubject(article.title)} shifts leverage toward suppliers during renewal or award cycles.`,
-          expectedOutcome: "Preserve flexibility while still creating enough demand visibility to win concessions.",
+          lever: `Use ${pickFrameworkValue(framework.dailyCMLens.contractingImplications, "minimum-volume and substitution clauses", idx)}`,
+          whenToUse: `Use when ${shortSubject(article.title)} shifts leverage toward ${pickFrameworkSupplier(article, framework, idx)} during renewal or award cycles.`,
+          expectedOutcome: "Preserve flexibility while still creating enough demand visibility to win concessions and protect service outcomes.",
           confidence: themeConfidence(article),
           evidenceArticleIndex: idx + 1
         };
@@ -639,12 +678,12 @@ function buildHeuristicCmSnapshot(
     supplierRadar,
     negotiationLevers,
     intelGaps: [
-      "Need direct supplier confirmation on whether today's signals are already flowing into fresh quote assumptions.",
-      "Need clearer visibility on which counterparties have real spare capacity versus headline-only announcements."
+      `Need direct confirmation from ${framework.keySuppliers.slice(0, 2).join(" / ") || "priority suppliers"} on whether today's signals are already flowing into fresh quote assumptions.`,
+      `Need clearer visibility on ${pickFrameworkValue(framework.dailyCMLens.capacityDrivers, "real spare capacity", 1).toLowerCase()} versus headline-only announcements.`
     ],
     talkingPoints: [
-      `${categoryLabel} conditions are no longer just informational; the latest signals justify immediate supplier and contract refresh work.`,
-      "The sourcing team should use today's signal mix to challenge price logic, confirm capacity, and preserve fallback options before leverage deteriorates."
+      `${categoryLabel} conditions are now tactical: the latest signals justify immediate outreach to ${framework.keySuppliers[0] ?? "priority suppliers"} and a clause-by-clause contract refresh.`,
+      `Use today's signal mix to challenge ${pickFrameworkValue(framework.dailyCMLens.costDrivers, "price logic").toLowerCase()}, confirm ${pickFrameworkValue(framework.dailyCMLens.capacityDrivers, "capacity").toLowerCase()}, and preserve fallback options before leverage deteriorates.`
     ]
   };
 }
@@ -664,25 +703,42 @@ function buildHeuristicDecisionSummary(
   };
 }
 
+function buildFallbackFramework(agentLabel: string): AgentFramework {
+  return {
+    focusAreas: [agentLabel],
+    keySuppliers: [],
+    marketDrivers: [],
+    procurementConsiderations: [],
+    dailyCMLens: {
+      costDrivers: ["price logic"],
+      capacityDrivers: ["capacity signals"],
+      supplierBehavior: ["supplier posture is shifting"],
+      contractingImplications: ["contract flexibility matters"],
+      complianceTriggers: ["compliance triggers"]
+    }
+  };
+}
+
 function buildHeuristicBriefOutput(
   params: GenerateBriefV3Input & { selectedInputs: ArticleInput[] }
 ): BriefOutput {
+  const framework = frameworkForAgent(params.agent);
   const requiredCount = Math.min(requiredArticleCount(params.agent), Math.max(1, params.selectedInputs.length));
   const selectedInputs = params.selectedInputs.slice(0, requiredCount);
   const selectedArticles = selectedInputs.map((article, idx) => ({
     articleIndex: idx + 1,
-    briefContent: buildHeuristicStoryBrief(article, params.agent.label),
-    categoryImportance: buildCategoryImplication(article, params.agent.label),
+    briefContent: buildHeuristicStoryBrief(article, params.agent.label, framework, idx),
+    categoryImportance: buildCategoryImplication(article, params.agent.label, framework, idx),
     keyMetrics: extractMetrics(article.content),
     imageAlt: article.title
   }));
-  const highlights = buildHeuristicHighlights(selectedInputs, params.agent.label);
-  const procurementActions = buildHeuristicActions(selectedInputs);
-  const watchlist = buildHeuristicWatchlist(selectedInputs);
+  const highlights = buildHeuristicHighlights(selectedInputs, params.agent.label, framework);
+  const procurementActions = buildHeuristicActions(selectedInputs, framework);
+  const watchlist = buildHeuristicWatchlist(selectedInputs, framework);
   const decisionSummary = buildHeuristicDecisionSummary(selectedInputs, highlights, procurementActions, watchlist);
   const marketIndicators = buildHeuristicMarketIndicators(params.indices, params.agent.label);
-  const cmSnapshot = buildHeuristicCmSnapshot(selectedInputs, procurementActions, params.agent.label);
-  const vpSnapshot = buildHeuristicVpSnapshot(selectedInputs, procurementActions, params.agent.label);
+  const cmSnapshot = buildHeuristicCmSnapshot(selectedInputs, procurementActions, params.agent.label, framework);
+  const vpSnapshot = buildHeuristicVpSnapshot(selectedInputs, procurementActions, params.agent.label, framework);
 
   return {
     title: normalizeHeadline(undefined, params.agent.label, selectedInputs[0]?.title),
@@ -711,10 +767,11 @@ function mapEnrichedSelectedArticles(
 ): SelectedArticle[] {
   const primaryInput = selectedInputs[0];
   if (!primaryInput) return [];
+  const fallbackFramework = buildFallbackFramework(categoryLabel);
   const output = enriched.selectedArticles.length > 0 ? enriched.selectedArticles : [{
     articleIndex: 1,
-    briefContent: buildHeuristicStoryBrief(primaryInput, categoryLabel),
-    categoryImportance: buildCategoryImplication(primaryInput, categoryLabel)
+    briefContent: buildHeuristicStoryBrief(primaryInput, categoryLabel, fallbackFramework),
+    categoryImportance: buildCategoryImplication(primaryInput, categoryLabel, fallbackFramework)
   }];
   return output
     .map((article) => {
@@ -724,7 +781,7 @@ function mapEnrichedSelectedArticles(
         title: source.title,
         url: source.url,
         briefContent: normalizeText(article.briefContent) || summarize(source.content),
-        categoryImportance: normalizeText(article.categoryImportance) || buildCategoryImplication(source, categoryLabel),
+        categoryImportance: normalizeText(article.categoryImportance) || buildCategoryImplication(source, categoryLabel, fallbackFramework),
         keyMetrics: (article.keyMetrics ?? []).filter(Boolean).slice(0, 6),
         imageUrl: source.ogImageUrl,
         imageAlt: article.imageAlt || source.title,
