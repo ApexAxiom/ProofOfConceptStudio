@@ -115,6 +115,153 @@ function normalizeComparableText(text: string): string {
     .trim();
 }
 
+function splitSentences(text?: string): string[] {
+  const normalized = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+  return (normalized.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [])
+    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function cleanStoryText(text?: string, title?: string): string {
+  let cleaned = (text ?? "")
+    .replace(/\bCredit:\s*[^.]+\.?/gi, " ")
+    .replace(/\b(?:Photo|Image) credit:\s*[^.]+\.?/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  cleaned = cleaned.replace(/^home\b[^.?!]*\s+/i, "").trim();
+  cleaned = cleaned.replace(/^[|:\-–—\s]+/, "").trim();
+
+  if (title) {
+    const normalizedTitle = normalizeComparableText(title);
+    const normalizedCleaned = normalizeComparableText(cleaned);
+    if (normalizedTitle && normalizedCleaned.startsWith(normalizedTitle)) {
+      const remainder = cleaned.slice(title.length).replace(/^[|:\-–—\s]+/, "").trim();
+      if (remainder.length >= 40) cleaned = remainder;
+    }
+  }
+
+  return cleaned;
+}
+
+function isLowValueKeyFact(text?: string): boolean {
+  const cleaned = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return true;
+  if (!/[a-z]/i.test(cleaned)) return true;
+  if (/^(19|20)\d{2}$/.test(cleaned)) return true;
+  if (/^\d[\d.,%/$-]*$/.test(cleaned)) return true;
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length === 1 && /\d/.test(words[0])) return true;
+  return cleaned.length < 8;
+}
+
+function isGenericCategoryImportance(text?: string): boolean {
+  const cleaned = (text ?? "").trim();
+  if (!cleaned) return true;
+  return /signal relevance for sourcing, contract, or supplier-risk decisions in this category/i.test(cleaned);
+}
+
+function isWeakStoryNarrative(text: string, title: string): boolean {
+  if (!text || text.length < 90) return true;
+  if (/^home\b/i.test(text) || /\bshutterstock\b/i.test(text)) return true;
+  const normalizedTitle = normalizeComparableText(title);
+  const normalizedText = normalizeComparableText(text);
+  if (!normalizedText) return true;
+  if (normalizedText === normalizedTitle) return true;
+  if (normalizedText.startsWith(normalizedTitle) && splitSentences(text).length < 2) return true;
+  return false;
+}
+
+function clipFact(text: string, maxLength = 96): string {
+  const cleaned = text.replace(/\s+/g, " ").replace(/[.]+$/, "").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength - 3).trim()}...`;
+}
+
+function scoreSentence(sentence: string): number {
+  let score = 0;
+  if (/\d|%|\$|€|£|¥|million|billion|mmbtu|bbl|well|rig|contract|award|target|planned|days?|pilot|first|capacity/i.test(sentence)) score += 4;
+  if (/\b(start|begins?|launch|award|sign|extend|target|plan|pilot|raise|cut|delay|expand|restart|mobili[sz]e)\b/i.test(sentence)) score += 3;
+  if (sentence.length >= 40 && sentence.length <= 180) score += 1;
+  if (/^by\b/i.test(sentence)) score -= 2;
+  return score;
+}
+
+function deriveKeyFactsFromArticle(article: ArticleInput, maxItems = 4): string[] {
+  const sentences = splitSentences(cleanStoryText(article.content, article.title));
+  const ranked = [...sentences]
+    .filter((sentence) => !/^by\b/i.test(sentence))
+    .sort((a, b) => scoreSentence(b) - scoreSentence(a));
+  const facts: string[] = [];
+  const seen = new Set<string>();
+
+  for (const sentence of ranked) {
+    const fact = clipFact(sentence);
+    const key = normalizeComparableText(fact);
+    if (!key || seen.has(key) || isLowValueKeyFact(fact)) continue;
+    seen.add(key);
+    facts.push(fact);
+    if (facts.length >= maxItems) break;
+  }
+
+  if (facts.length === 0) {
+    const fallbackTitle = clipFact(article.title, 88);
+    if (!isLowValueKeyFact(fallbackTitle)) facts.push(fallbackTitle);
+  }
+
+  return facts;
+}
+
+function buildFallbackStoryNarrative(article: ArticleInput): string {
+  const cleanedContent = cleanStoryText(article.content, article.title);
+  const sentences = splitSentences(cleanedContent)
+    .filter((sentence) => !/^by\b/i.test(sentence))
+    .sort((a, b) => scoreSentence(b) - scoreSentence(a))
+    .slice(0, 2);
+
+  if (sentences.length > 0) {
+    return sentences.join(" ").slice(0, 520);
+  }
+
+  return `${article.title}. This looks relevant, but the source extract was too thin to support a deeper write-up.`;
+}
+
+function buildFallbackCategoryImportance(article: ArticleInput, categoryLabel: string): string {
+  const text = `${article.title} ${article.content ?? ""}`;
+  if (/\bprice|cost|dayrate|index|premium|inflation|steel|oil\b/i.test(text)) {
+    return `For ${categoryLabel}, the read-through is mainly cost discipline: refresh bid assumptions and challenge any fast repricing with current evidence.`;
+  }
+  if (/\bcapacity|availability|lead time|slot|backlog|rig|vessel|crew|supply\b/i.test(text)) {
+    return `For ${categoryLabel}, this is mainly a capacity signal: check where supplier availability, sequencing, or fallback coverage could tighten.`;
+  }
+  if (/\bcontract|award|tender|bid|renewal|agreement|commercial\b/i.test(text)) {
+    return `For ${categoryLabel}, the useful takeaway is commercial leverage: contract structure and timing may matter as much as headline pricing.`;
+  }
+  if (/\bregulation|policy|permit|tariff|sanction|compliance\b/i.test(text)) {
+    return `For ${categoryLabel}, this is a policy and compliance read-through: keep room for pass-through, qualification, and supplier eligibility changes.`;
+  }
+  if (/\bdelay|timeline|schedule|mobili[sz]e|delivery|window\b/i.test(text)) {
+    return `For ${categoryLabel}, this is mainly a schedule signal: watch for knock-on effects on delivery windows, expediting pressure, and sequencing risk.`;
+  }
+  return `For ${categoryLabel}, this is useful mainly as context for supplier conversations and near-term watch items, not as an automatic escalation by itself.`;
+}
+
+function normalizeKeyFacts(rawFacts: string[] | undefined, article: ArticleInput): string[] {
+  const normalized = Array.from(
+    new Set(
+      (rawFacts ?? [])
+        .map((fact) => clipFact(cleanStoryText(fact, article.title)))
+        .filter((fact) => !isLowValueKeyFact(fact))
+    )
+  ).slice(0, 4);
+
+  if (normalized.length >= 2) return normalized;
+
+  const derived = deriveKeyFactsFromArticle(article, 4);
+  return Array.from(new Set([...normalized, ...derived])).slice(0, 4);
+}
+
 function dedupeCitedBullets(bullets: BriefCitedBullet[]): BriefCitedBullet[] {
   const seen = new Set<string>();
   const out: BriefCitedBullet[] = [];
@@ -350,12 +497,18 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
       throw new Error(`Invalid articleIndex ${article.articleIndex} from LLM`);
     }
     const sourceId = buildSourceId(inputArticle.url);
+    const repairedBriefContent = cleanStoryText(article.briefContent, inputArticle.title);
+    const repairedCategoryImportance = cleanStoryText(article.categoryImportance, inputArticle.title);
     return {
       title: inputArticle.title,
       url: inputArticle.url,
-      briefContent: article.briefContent,
-      categoryImportance: article.categoryImportance,
-      keyMetrics: article.keyMetrics,
+      briefContent: isWeakStoryNarrative(repairedBriefContent, inputArticle.title)
+        ? buildFallbackStoryNarrative(inputArticle)
+        : repairedBriefContent,
+      categoryImportance: isGenericCategoryImportance(repairedCategoryImportance)
+        ? buildFallbackCategoryImportance(inputArticle, input.agent.label)
+        : repairedCategoryImportance,
+      keyMetrics: normalizeKeyFacts(article.keyMetrics, inputArticle),
       imageUrl: inputArticle.ogImageUrl,
       imageAlt: article.imageAlt || inputArticle.title,
       sourceName: inputArticle.sourceName,
@@ -432,21 +585,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     title: indicator.label,
     retrievedAt: now
   }));
-
-  const selectedArticleIndexes = new Set(selectedArticles.map((article) => article.sourceIndex));
-  const supplementalSources: BriefSource[] = input.articles
-    .map((article, index) => ({ article, index: index + 1 }))
-    .filter(({ index }) => !selectedArticleIndexes.has(index))
-    .slice(0, 20)
-    .map(({ article }) => ({
-      sourceId: buildSourceId(article.url),
-      url: article.url,
-      title: article.title,
-      publishedAt: article.publishedAt,
-      retrievedAt: now
-    }));
-
-  const allSources = dedupeSources([...selectedSources, ...indicatorSources, ...supplementalSources]).slice(0, 20);
+  const allSources = dedupeSources([...selectedSources, ...indicatorSources]).slice(0, 20);
   const sourceNumberById = new Map(allSources.map((source, index) => [source.sourceId, index + 1]));
 
   const summary = toSummaryText(report, sourceNumberById);

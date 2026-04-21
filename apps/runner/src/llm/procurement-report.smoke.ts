@@ -84,21 +84,24 @@ const raw = JSON.stringify({
       briefContent:
         "Article one details service demand growth, tighter vessel slot availability, and scheduling constraints across offshore campaigns.",
       categoryImportance:
-        "Category teams must secure supplier capacity earlier and hold fallback terms for schedule volatility."
+        "Category teams must secure supplier capacity earlier and hold fallback terms for schedule volatility.",
+      keyMetrics: ["Service demand growth across offshore campaigns", "Tighter vessel slot availability", "Scheduling constraints are increasing"]
     },
     {
       articleIndex: 2,
       briefContent:
         "Article two outlines contract term changes, including pricing escalators and narrower quote validity periods in active markets.",
       categoryImportance:
-        "Commercial structures require tighter guardrails to keep cost exposure bounded during award cycles."
+        "Commercial structures require tighter guardrails to keep cost exposure bounded during award cycles.",
+      keyMetrics: ["Pricing escalators appearing in draft terms", "Quote validity windows are narrowing"]
     },
     {
       articleIndex: 3,
       briefContent:
         "Article three describes logistics and operational readiness constraints that can delay mobilization if not sequenced in advance.",
       categoryImportance:
-        "Cross-functional planning is needed to avoid avoidable downtime and protect service continuity."
+        "Cross-functional planning is needed to avoid avoidable downtime and protect service continuity.",
+      keyMetrics: ["Mobilization can slip if readiness steps are not sequenced", "Operational constraints raise continuity risk"]
     }
   ],
   heroSelection: { articleIndex: 3 },
@@ -131,18 +134,36 @@ const impactCount =
   parsed.impact.supplyBaseCapacity.length +
   parsed.impact.contractingCommercialTerms.length +
   parsed.impact.riskRegulatoryOperationalConstraints.length;
-assert(impactCount >= 10 && impactCount <= 16, "Impact count should be normalized to 10-16 bullets");
+assert(impactCount >= 6 && impactCount <= 12, "Impact count should be normalized to 6-12 bullets");
 
 const actionsCount =
   parsed.possibleActions.next72Hours.length +
   parsed.possibleActions.next2to4Weeks.length +
   parsed.possibleActions.nextQuarter.length;
-assert(actionsCount >= 8 && actionsCount <= 12, "Action count should be normalized to 8-12 bullets");
+assert(actionsCount >= 3 && actionsCount <= 7, "Action count should be normalized to 3-7 bullets");
 
 const titleWords = parsed.title.trim().split(/\s+/).filter(Boolean);
 assert(titleWords.length >= 8 && titleWords.length <= 14, "Title should be normalized to 8-14 words");
 assert(!/\bdaily brief\b/i.test(parsed.title), "Title should not include Daily Brief");
 
 assert(selectedSet.has(parsed.heroSelection.articleIndex), "Hero selection must reference selected article index");
+
+assert.throws(() =>
+  parseProcurementOutput(
+    JSON.stringify({
+      ...JSON.parse(raw),
+      selectedArticles: [
+        {
+          articleIndex: 1,
+          briefContent:
+            "This is a longer summary that still fails because the category takeaway is generic and the facts are junk.",
+          categoryImportance: "Signal relevance for sourcing, contract, or supplier-risk decisions in this category",
+          keyMetrics: ["14", "2026"]
+        }
+      ]
+    }),
+    { requiredCount: 3, maxArticleIndex: 20 }
+  )
+);
 
 console.log("procurement-report.smoke passed");

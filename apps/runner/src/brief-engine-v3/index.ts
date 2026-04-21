@@ -51,7 +51,7 @@ export type GenerateBriefV3Input = {
 export async function generateBriefV3(input: GenerateBriefV3Input): Promise<BriefPost> {
   const normalized = normalizeArticles(input.articles);
   const seeded = ensureSeedArticles(normalized, input.previousBrief, input.indices, input.agent.label);
-  const selected = selectTopStoriesDeterministic(seeded, 3);
+  const selected = selectTopStoriesDeterministic(seeded, preferredStoryCount(seeded));
   const selectedInputs = mapSelectedInputs(seeded, selected);
   const enriched = (await callLLMEnriched({ ...input, selectedInputs })) ?? buildHeuristicBriefOutput({ ...input, selectedInputs });
   const assembled = assembleBriefPost({ ...input, selected, selectedInputs, enriched });
@@ -117,6 +117,40 @@ function scoreArticle(article: ArticleInput, idx: number): number {
   return recency + length + numeric - idx;
 }
 
+function preferredStoryCount(articles: ArticleInput[]): number {
+  const available = Math.max(1, articles.length);
+  const usable = articles.filter((article) => (article.content ?? "").trim().length >= 300 && article.contentStatus !== "thin").length;
+  if (usable >= 5 && available >= 5) return 5;
+  if (usable >= 4 && available >= 4) return 4;
+  if (usable >= 3 && available >= 3) return 3;
+  return Math.min(3, available);
+}
+
+function isLowValueKeyFact(value: string): boolean {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) return true;
+  if (!/[a-z]/i.test(cleaned)) return true;
+  if (/^(19|20)\d{2}$/.test(cleaned)) return true;
+  if (/^\d[\d.,%$/-]*$/.test(cleaned)) return true;
+  return cleaned.length < 8;
+}
+
+function clipFact(text: string, maxLength = 96): string {
+  const cleaned = text.replace(/\s+/g, " ").replace(/[.]+$/, "").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength - 3).trim()}...`;
+}
+
+function extractReadableFacts(content?: string, fallbackTitle?: string, limit = 4): string[] {
+  const candidates = pickKeySentences(content, 6)
+    .map((sentence) => clipFact(sentence))
+    .filter((sentence) => !isLowValueKeyFact(sentence));
+  const facts = Array.from(new Set(candidates)).slice(0, limit);
+  if (facts.length > 0) return facts;
+  const titleFact = fallbackTitle ? clipFact(fallbackTitle, 88) : "";
+  return titleFact && !isLowValueKeyFact(titleFact) ? [titleFact] : [];
+}
+
 function selectTopStoriesDeterministic(articles: ArticleInput[], limit: number): SelectedArticle[] {
   return [...articles]
     .map((article, idx) => ({ article, score: scoreArticle(article, idx), idx }))
@@ -127,7 +161,7 @@ function selectTopStoriesDeterministic(articles: ArticleInput[], limit: number):
       url: entry.article.url,
       briefContent: summarize(entry.article.content),
       categoryImportance: `Signal relevance for sourcing, contract, or supplier-risk decisions in this category (${entry.article.sourceName ?? "source"}).`,
-      keyMetrics: extractMetrics(entry.article.content),
+      keyMetrics: extractReadableFacts(entry.article.content, entry.article.title, 3),
       imageUrl: entry.article.ogImageUrl,
       imageAlt: entry.article.title,
       sourceName: entry.article.sourceName,
@@ -730,7 +764,7 @@ function buildHeuristicBriefOutput(
     articleIndex: idx + 1,
     briefContent: buildHeuristicStoryBrief(article, params.agent.label, framework, idx),
     categoryImportance: buildCategoryImplication(article, params.agent.label, framework, idx),
-    keyMetrics: extractMetrics(article.content),
+    keyMetrics: extractReadableFacts(article.content, article.title, 4),
     imageAlt: article.title
   }));
   const highlights = buildHeuristicHighlights(selectedInputs, params.agent.label, framework);
@@ -782,7 +816,13 @@ function mapEnrichedSelectedArticles(
         url: source.url,
         briefContent: normalizeText(article.briefContent) || summarize(source.content),
         categoryImportance: normalizeText(article.categoryImportance) || buildCategoryImplication(source, categoryLabel, fallbackFramework),
-        keyMetrics: (article.keyMetrics ?? []).filter(Boolean).slice(0, 6),
+        keyMetrics: (() => {
+          const candidateFacts = (article.keyMetrics ?? [])
+            .map((fact) => normalizeText(fact))
+            .filter((fact) => !isLowValueKeyFact(fact));
+          if (candidateFacts.length > 0) return Array.from(new Set(candidateFacts)).slice(0, 4);
+          return extractReadableFacts(source.content, source.title, 4);
+        })(),
         imageUrl: source.ogImageUrl,
         imageAlt: article.imageAlt || source.title,
         sourceName: source.sourceName,

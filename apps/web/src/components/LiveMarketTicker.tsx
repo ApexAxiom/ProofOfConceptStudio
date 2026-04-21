@@ -74,14 +74,19 @@ function TickerItem({ quote }: { quote: MarketQuote }) {
 
 export function LiveMarketTicker({
   showHeader = true,
-  symbols
+  symbols,
+  initialData,
+  initialTimestamp
 }: {
   showHeader?: boolean;
   symbols?: string[];
+  initialData?: MarketQuote[];
+  initialTimestamp?: string;
 }) {
-  const [quotes, setQuotes] = useState<MarketQuote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
+  const hasInitialState = initialData !== undefined;
+  const [quotes, setQuotes] = useState<MarketQuote[]>(initialData ?? []);
+  const [loading, setLoading] = useState(!hasInitialState);
+  const [lastUpdated, setLastUpdated] = useState<string>(initialTimestamp ?? "");
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
@@ -106,13 +111,15 @@ export function LiveMarketTicker({
       }
     };
 
-    fetchData();
+    if (!hasInitialState) {
+      void fetchData();
+    }
     const interval = setInterval(fetchData, 60 * 60 * 1000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [hasInitialState]);
 
   const displayQuotes = useMemo(() => {
     if (!symbols || symbols.length === 0) return quotes;

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { BriefDetailContent } from "../BriefDetailContent";
 import { fetchPostWithFallback } from "../../../lib/api";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function BriefDetailPage({ params }: { params: Promise<{ postId: string }> }) {
   const { postId: rawPostId } = await params;

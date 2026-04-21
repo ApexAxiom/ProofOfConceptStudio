@@ -10,7 +10,7 @@ import { fetchLatestByPortfolio } from "../../../lib/api";
 import { inferSignals } from "../../../lib/signals";
 import { cmEvidenceLink } from "../../../components/cm/cmEvidenceLink";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface ActionEntry {
   portfolio: string;

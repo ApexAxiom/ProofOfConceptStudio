@@ -75,6 +75,20 @@ function unique(items: Array<string | undefined>): string[] {
   return output;
 }
 
+function isUsefulKeyFact(value?: string): boolean {
+  if (!value) return false;
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) return false;
+  if (!/[a-z]/i.test(cleaned)) return false;
+  if (/^(19|20)\d{2}$/.test(cleaned)) return false;
+  if (/^\d[\d.,%/$-]*$/.test(cleaned)) return false;
+  return cleaned.length >= 8;
+}
+
+function selectKeyFacts(values?: Array<string | undefined>, maxItems = 4): string[] {
+  return unique(values ?? []).filter((item) => isUsefulKeyFact(item)).slice(0, maxItems);
+}
+
 function deriveSummary(brief: BriefPost): string {
   return sanitizePresentationText(brief.summary?.trim()) ||
     sanitizePresentationText(brief.decisionSummary?.topMove?.trim()) ||
@@ -300,14 +314,10 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
   const keyTakeaways = brief.report?.summaryBullets?.length
     ? brief.report.summaryBullets.slice(0, 5)
     : fallbackImpact.slice(0, 5).map((item) => ({ text: item, sourceIds: [] as string[] }));
-  const executiveKeyFacts = Array.from(
-    new Set(
-      view.topStories
-        .flatMap((story) => story.keyMetrics ?? [])
-        .map((metric) => sanitizePresentationText(metric))
-        .filter((metric): metric is string => Boolean(metric))
-    )
-  ).slice(0, 10);
+  const executiveKeyFacts = selectKeyFacts(
+    view.topStories.flatMap((story) => (story.keyMetrics ?? []).map((metric) => sanitizePresentationText(metric))),
+    6
+  );
   const storyArticles = (brief.selectedArticles ?? []).slice(0, 5);
   const sourceExplorerCards = buildSourceExplorerCards(brief, sources, sourceNumberById);
 
@@ -410,13 +420,11 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
             {executiveKeyFacts.length > 0 ? (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                <ul className="mt-3 flex flex-wrap gap-2">
+                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                   {executiveKeyFacts.map((metric) => (
-                    <li
-                      key={metric}
-                      className="rounded-full border border-sky-400/30 bg-sky-500/15 px-3 py-1 text-xs font-medium text-sky-100"
-                    >
-                      {metric}
+                    <li key={metric} className="flex gap-2 rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-sky-300" />
+                      <span className="text-sky-50">{metric}</span>
                     </li>
                   ))}
                 </ul>
@@ -474,6 +482,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
               const sourceId = sourceIdForArticle(article);
               const sourceNumber = sourceId ? sourceNumberById.get(sourceId) : undefined;
               const sourceCard = sourceId ? sourceExplorerCards.find((card) => card.source.sourceId === sourceId) : undefined;
+              const storyKeyFacts = selectKeyFacts(article.keyMetrics, 4);
 
               return (
                 <article key={`${article.url}-${idx}`} className="rounded-xl border border-border bg-background p-5">
@@ -521,13 +530,14 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                     </div>
 
                     <div className="space-y-4">
-                      {article.keyMetrics && article.keyMetrics.length > 0 ? (
+                      {storyKeyFacts.length > 0 ? (
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                          <ul className="mt-2 flex flex-wrap gap-2">
-                            {article.keyMetrics.map((metric) => (
-                              <li key={metric} className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">
-                                {metric}
+                          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                            {storyKeyFacts.map((metric) => (
+                              <li key={metric} className="flex gap-2">
+                                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                                <span className="text-foreground">{metric}</span>
                               </li>
                             ))}
                           </ul>
@@ -712,94 +722,98 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
 
         {sourceExplorerCards.length > 0 ? (
           <div className="mt-5 space-y-3">
-            {sourceExplorerCards.map((card) => (
-              <details
-                key={card.source.sourceId}
-                id={`source-${card.number}`}
-                className="rounded-xl border border-border bg-background px-4 py-3"
-              >
-                <summary className="cursor-pointer list-none">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">
-                        [{card.number}] {sourceLabel(card.source)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {sourcePublisher(card.source)} · {sourceDate(card.source)}
-                      </p>
-                    </div>
-                    <span className="text-xs font-medium text-primary">Expand</span>
-                  </div>
-                </summary>
-
-                <div className="mt-4 space-y-4 border-t border-border pt-4">
-                  {card.article?.briefContent ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">AI reading</p>
-                      <p className="mt-2 text-sm leading-relaxed text-foreground">{sanitizePresentationText(card.article.briefContent)}</p>
-                    </div>
-                  ) : null}
-
-                  {card.article?.categoryImportance ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Why it matters</p>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                        {sanitizePresentationText(card.article.categoryImportance)}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {card.article?.keyMetrics && card.article.keyMetrics.length > 0 ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                      <ul className="mt-2 flex flex-wrap gap-2">
-                        {card.article.keyMetrics.map((metric) => (
-                          <li key={metric} className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">
-                            {metric}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {card.excerpts.length > 0 ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Source excerpts</p>
-                      <div className="mt-2 space-y-2">
-                        {card.excerpts.map((excerpt) => (
-                          <blockquote key={excerpt} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-                            {excerpt}
-                          </blockquote>
-                        ))}
+            {sourceExplorerCards.map((card) => {
+              const sourceKeyFacts = selectKeyFacts(card.article?.keyMetrics, 4);
+              return (
+                <details
+                  key={card.source.sourceId}
+                  id={`source-${card.number}`}
+                  className="rounded-xl border border-border bg-background px-4 py-3"
+                >
+                  <summary className="cursor-pointer list-none">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">
+                          [{card.number}] {sourceLabel(card.source)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {sourcePublisher(card.source)} · {sourceDate(card.source)}
+                        </p>
                       </div>
+                      <span className="text-xs font-medium text-primary">Expand</span>
                     </div>
-                  ) : null}
+                  </summary>
 
-                  {card.claimHighlights.length > 0 ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Used in this brief</p>
-                      <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                        {card.claimHighlights.map((claim) => (
-                          <li key={claim} className="flex gap-2">
-                            <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                            <span>{claim}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                  <div className="mt-4 space-y-4 border-t border-border pt-4">
+                    {card.article?.briefContent ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">AI reading</p>
+                        <p className="mt-2 text-sm leading-relaxed text-foreground">{sanitizePresentationText(card.article.briefContent)}</p>
+                      </div>
+                    ) : null}
 
-                  <a
-                    href={card.source.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                  >
-                  Open original source
-                  </a>
-                </div>
-              </details>
-            ))}
+                    {card.article?.categoryImportance ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Why it matters</p>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                          {sanitizePresentationText(card.article.categoryImportance)}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {sourceKeyFacts.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
+                        <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                          {sourceKeyFacts.map((metric) => (
+                            <li key={metric} className="flex gap-2">
+                              <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                              <span className="text-foreground">{metric}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {card.excerpts.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Source excerpts</p>
+                        <div className="mt-2 space-y-2">
+                          {card.excerpts.map((excerpt) => (
+                            <blockquote key={excerpt} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+                              {excerpt}
+                            </blockquote>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {card.claimHighlights.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Used in this brief</p>
+                        <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                          {card.claimHighlights.map((claim) => (
+                            <li key={claim} className="flex gap-2">
+                              <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                              <span>{claim}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <a
+                      href={card.source.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                    >
+                    Open original source
+                    </a>
+                  </div>
+                </details>
+              );
+            })}
           </div>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">No source links were attached to this brief.</p>

@@ -5,9 +5,10 @@ import { BriefsTable } from "../../components/BriefsTable";
 import { LiveMarketTicker } from "../../components/LiveMarketTicker";
 import { RegionSlug, REGIONS } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../lib/api";
+import { getExecutiveMarketQuotes } from "../../lib/market-data";
 import { inferSignals } from "../../lib/signals";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function RegionPage({
   params,
@@ -24,7 +25,10 @@ export default async function RegionPage({
   const query = (queryValue ?? "").toLowerCase().trim();
   const selectedSignal = resolvedSearchParams?.signal ?? "all";
   const sort = resolvedSearchParams?.sort ?? "newest";
-  const briefs = await fetchLatestByPortfolio(region);
+  const [briefs, market] = await Promise.all([
+    fetchLatestByPortfolio(region),
+    getExecutiveMarketQuotes()
+  ]);
   const portfoliosWithBriefs = new Set(briefs.map(b => b.portfolio)).size;
 
   const filteredBriefs = briefs.filter((brief) => {
@@ -89,7 +93,7 @@ export default async function RegionPage({
 
       {/* Market Indices */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <LiveMarketTicker showHeader={true} />
+        <LiveMarketTicker showHeader={true} initialData={market.quotes} initialTimestamp={market.generatedAt} />
       </div>
       
       {/* Category Filter */}

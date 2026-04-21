@@ -47,6 +47,13 @@ async function main() {
   assert.ok((result.topStories?.length ?? 0) >= 1);
   assert.ok((result.heroImage?.url ?? "").startsWith("https://") || (result.heroImage?.url ?? "").startsWith("data:image/"));
   assert.ok((result.deltaSinceLastRun?.length ?? 0) >= 1);
+  for (const article of result.selectedArticles ?? []) {
+    for (const fact of article.keyMetrics ?? []) {
+      assert.match(fact, /[a-z]/i);
+      assert.doesNotMatch(fact, /^(19|20)\d{2}$/);
+      assert.doesNotMatch(fact, /^\d[\d.,%/$-]*$/);
+    }
+  }
 
   const allowedUrls = new Set([...(result.selectedArticles ?? []).map((item) => item.url), ...(result.sources ?? []).map((source) => typeof source === "string" ? source : source.url)]);
   const bodyUrls = Array.from(result.bodyMarkdown.matchAll(/\((https?:\/\/[^)]+)\)/g)).map((match) => match[1]);

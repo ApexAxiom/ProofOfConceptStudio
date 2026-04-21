@@ -37,7 +37,7 @@ const brief: BriefPost = {
       url: "https://example.com/a1",
       briefContent: "Content",
       sourceName: "Source",
-      keyMetrics: ["10%"],
+      keyMetrics: ["Rates moved 10% in the latest market check"],
       sourceId: "s1",
       categoryImportance: "This affects supplier pricing and negotiation posture for the category."
     }

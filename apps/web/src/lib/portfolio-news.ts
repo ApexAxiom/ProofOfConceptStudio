@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { getGoogleNewsFeeds, getPortfolioSources } from "@proof/shared";
 import {
   canonicalizeUrl,
@@ -22,6 +23,10 @@ const MAX_FEEDS_PER_REGION = 6;
 const MAX_ITEMS_PER_FEED = 6;
 const MAX_AGE_DAYS = 14;
 const GOOGLE_NEWS_ENABLED = (process.env.GOOGLE_NEWS_ENABLED ?? "false").toLowerCase() === "true";
+
+function isIncrementalCacheUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("incrementalCache missing");
+}
 
 function parseTag(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
@@ -126,7 +131,7 @@ function feedUrls(portfolio: string, region: "apac" | "intl"): Array<{ url: stri
   return [...base, ...google].slice(0, MAX_FEEDS_PER_REGION);
 }
 
-export async function getPortfolioNews(portfolio: string, limit = 12): Promise<PortfolioNewsArticle[]> {
+async function buildPortfolioNews(portfolio: string, limit: number): Promise<PortfolioNewsArticle[]> {
   const apacFeeds = feedUrls(portfolio, "apac");
   const intlFeeds = feedUrls(portfolio, "intl");
 
@@ -138,4 +143,21 @@ export async function getPortfolioNews(portfolio: string, limit = 12): Promise<P
   return dedupeNewsItems([...apacArticles, ...intlArticles])
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, limit);
+}
+
+const getPortfolioNewsCached = unstable_cache(
+  buildPortfolioNews,
+  ["web-portfolio-news"],
+  { revalidate: 900 }
+);
+
+export async function getPortfolioNews(portfolio: string, limit = 12): Promise<PortfolioNewsArticle[]> {
+  try {
+    return await getPortfolioNewsCached(portfolio, limit);
+  } catch (error) {
+    if (isIncrementalCacheUnavailable(error)) {
+      return buildPortfolioNews(portfolio, limit);
+    }
+    throw error;
+  }
 }

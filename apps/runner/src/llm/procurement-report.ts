@@ -67,6 +67,18 @@ const OUTPUT_SUMMARY_BULLETS = 5;
 const BECAUSE_TRIGGER = /\bbecause\b/i;
 const MIN_RATIONALE_WORDS = 8;
 const CITATION_LIST_LIMIT = 4;
+const GENERIC_CATEGORY_IMPORTANCE_PATTERNS = [
+  /signal relevance for sourcing, contract, or supplier-risk decisions in this category/i,
+  /^this matters for this category\.?$/i,
+  /^category takeaway\.?$/i
+];
+const GENERIC_BRIEF_CONTENT_PATTERNS = [
+  /^home\b/i,
+  /\bshutterstock\b/i,
+  /\bclick here\b/i,
+  /\bread more\b/i,
+  /\bsubscribe\b/i
+];
 
 function normalizeComparableText(value: string): string {
   return value
@@ -74,6 +86,26 @@ function normalizeComparableText(value: string): string {
     .replace(/[^\p{L}\p{N}\s%./-]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isLowValueFact(value: string): boolean {
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  if (!trimmed) return true;
+  if (!/[a-z]/i.test(trimmed)) return true;
+  if (/^(19|20)\d{2}$/.test(trimmed)) return true;
+  if (/^\d[\d.,%/$-]*$/.test(trimmed)) return true;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length === 1 && /\d/.test(words[0])) return true;
+  if (trimmed.length < 8) return true;
+  return false;
+}
+
+function isGenericCategoryImportance(value: string): boolean {
+  return GENERIC_CATEGORY_IMPORTANCE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function isExtractiveStoryCopy(value: string): boolean {
+  return GENERIC_BRIEF_CONTENT_PATTERNS.some((pattern) => pattern.test(value));
 }
 
 const citedBulletSchema = z.object({
@@ -101,16 +133,16 @@ const outputSchema = z.object({
   title: z.string().min(8).max(160),
   summaryBullets: z.array(citedBulletSchema).length(OUTPUT_SUMMARY_BULLETS),
   impact: z.object({
-    marketCostDrivers: z.array(citedBulletSchema).min(2).max(5),
-    supplyBaseCapacity: z.array(citedBulletSchema).min(2).max(5),
-    contractingCommercialTerms: z.array(citedBulletSchema).min(2).max(5),
-    riskRegulatoryOperationalConstraints: z.array(citedBulletSchema).min(2).max(5)
+    marketCostDrivers: z.array(citedBulletSchema).min(1).max(4),
+    supplyBaseCapacity: z.array(citedBulletSchema).min(1).max(4),
+    contractingCommercialTerms: z.array(citedBulletSchema).min(1).max(4),
+    riskRegulatoryOperationalConstraints: z.array(citedBulletSchema).min(1).max(4)
   }),
   deltaSinceLastRun: z.array(z.string().min(10).max(220)).max(3).optional(),
   possibleActions: z.object({
-    next72Hours: z.array(actionSchema).min(2).max(4),
-    next2to4Weeks: z.array(actionSchema).min(2).max(5),
-    nextQuarter: z.array(actionSchema).min(2).max(5)
+    next72Hours: z.array(actionSchema).min(1).max(3),
+    next2to4Weeks: z.array(actionSchema).min(1).max(3),
+    nextQuarter: z.array(actionSchema).min(1).max(3)
   }),
   selectedArticles: z
     .array(
@@ -118,8 +150,36 @@ const outputSchema = z.object({
         articleIndex: z.number().int().positive(),
         briefContent: z.string().min(80).max(1300),
         categoryImportance: z.string().min(24).max(350),
-        keyMetrics: z.array(z.string().min(3).max(120)).max(6).optional(),
+        keyMetrics: z.array(z.string().min(8).max(140)).min(1).max(4).optional(),
         imageAlt: z.string().min(3).max(180).optional()
+      }).superRefine((value, context) => {
+        if (isGenericCategoryImportance(value.categoryImportance)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "selectedArticles.categoryImportance must be category-specific, not placeholder text"
+          });
+        }
+        if (isExtractiveStoryCopy(value.briefContent)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "selectedArticles.briefContent looks like raw article copy or page chrome"
+          });
+        }
+        if (normalizeComparableText(value.briefContent) === normalizeComparableText(value.categoryImportance)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "selectedArticles.briefContent and categoryImportance must not repeat the same sentence"
+          });
+        }
+        for (const metric of value.keyMetrics ?? []) {
+          if (isLowValueFact(metric)) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "selectedArticles.keyMetrics must be readable facts, not bare numbers or dates"
+            });
+            break;
+          }
+        }
       })
     )
     .min(1)
@@ -130,10 +190,10 @@ const outputSchema = z.object({
 
 const TITLE_MIN_WORDS = 8;
 const TITLE_MAX_WORDS = 14;
-const IMPACT_MIN_BULLETS = 10;
-const IMPACT_MAX_BULLETS = 16;
-const ACTIONS_MIN_TOTAL = 8;
-const ACTIONS_MAX_TOTAL = 12;
+const IMPACT_MIN_BULLETS = 6;
+const IMPACT_MAX_BULLETS = 12;
+const ACTIONS_MIN_TOTAL = 3;
+const ACTIONS_MAX_TOTAL = 7;
 
 const TITLE_FILLER_WORDS = [
   "procurement",
@@ -269,16 +329,16 @@ OUTPUT RULES (strict):
    - Summary: exactly 5 cited bullets
      - Bullets 1-3 are key takeaways
      - Bullets 4-5 are extra context
-   - Impact: 10-16 cited bullets across 4 subgroups:
+   - Impact: 6-12 cited bullets across 4 subgroups:
      * marketCostDrivers
      * supplyBaseCapacity
      * contractingCommercialTerms
      * riskRegulatoryOperationalConstraints
-   - Possible actions: 8-12 actions total across:
+   - Possible actions: 3-7 actions total across:
      * next72Hours (Short-term horizon: 0-30 days; avoid artificial "urgent 72 hours" framing)
      * next2to4Weeks (Mid-term horizon: 30-90 days)
      * nextQuarter (Long-term horizon: 90+ days)
-   - Actions must be realistic for category management; only use urgent language when the evidence is truly critical.
+   - Actions must be realistic for category management; on light-signal days, "watch / verify / prepare" actions are better than fake urgency.
    - Sources are rendered outside JSON from selected articles and indices.
 6) Every summary/impact/action item MUST include citations pointing to articleIndex values (one citation is acceptable; do not force multiple).
 7) Use signal = "early-signal" or "unconfirmed" when evidence is weak; do not invent certainty.
@@ -289,6 +349,17 @@ OUTPUT RULES (strict):
 12) marketIndicators must reference indexId from the provided market index list.
 13) If a previous brief is provided, deltaSinceLastRun should be concrete changes only and should not duplicate impact language.
 14) Selected article summaries must explain what happened, why it matters for the category, and what to watch next in direct plain English.
+15) Never paste article leads, page navigation text, bylines, or boilerplate from the source.
+16) selectedArticles.briefContent must be 2-4 sentences in normal English:
+    - sentence 1: what happened
+    - sentence 2: the most important concrete detail, timing, scope, or constraint
+    - optional sentence 3 or 4: what this means or what to watch next
+17) selectedArticles.categoryImportance must be specific to this portfolio/category. Do not use generic filler such as "signal relevance for sourcing..."
+18) selectedArticles.keyMetrics must be 1-4 short readable fact lines with context, not bare numbers.
+    Good: "14-day drilling program", "Targets 1,430m measured depth", "First of three planned 2026 prospects"
+    Bad: "14", "1,430", "2026", "recent update"
+19) Summary bullets must not simply restate headlines. Write what a busy adult should actually take away.
+20) If an article is weak, thematic, or peripheral, say so. Do not force it to sound more operational than it is.
 
 JSON SHAPE:
 \`\`\`json
@@ -308,7 +379,13 @@ JSON SHAPE:
     "nextQuarter": [{ "action": "Do Z", "rationale": "why", "owner": "Ops", "expectedOutcome": "KPI", "citations": [3] }]
   },
   "selectedArticles": [
-    { "articleIndex": 1, "briefContent": "concise synthesis", "categoryImportance": "why it matters", "keyMetrics": ["metric"], "imageAlt": "alt" }
+    {
+      "articleIndex": 1,
+      "briefContent": "The company started a 14-day drilling program on a new gas well in Austria. The work targets 1,430m measured depth and is the first of three planned 2026 prospects, which makes this more than a one-off operational update. Watch whether the next two wells proceed on the same cadence.",
+      "categoryImportance": "For this category, the useful read-through is near-term demand around active drilling scopes and a reminder that operators with multi-well sequences tend to tighten execution expectations quickly.",
+      "keyMetrics": ["14-day drilling program", "Targets 1,430m measured depth", "First of three planned 2026 prospects"],
+      "imageAlt": "alt"
+    }
   ],
   "heroSelection": { "articleIndex": 1 },
   "marketIndicators": [{ "indexId": "some-id", "note": "procurement implication" }]
@@ -385,7 +462,7 @@ function validateCitationRanges(
     output.impact.contractingCommercialTerms.length +
     output.impact.riskRegulatoryOperationalConstraints.length;
   if (impactCount < IMPACT_MIN_BULLETS || impactCount > IMPACT_MAX_BULLETS) {
-    issues.push("Impact must contain 10-16 bullets total");
+    issues.push("Impact must contain 6-12 bullets total");
   }
 
   const actionCount =
@@ -393,7 +470,7 @@ function validateCitationRanges(
     output.possibleActions.next2to4Weeks.length +
     output.possibleActions.nextQuarter.length;
   if (actionCount < ACTIONS_MIN_TOTAL || actionCount > ACTIONS_MAX_TOTAL) {
-    issues.push("Possible actions must contain 8-12 actions total");
+    issues.push("Possible actions must contain 3-7 actions total");
   }
 
   const words = output.title.trim().split(/\s+/).filter(Boolean);
@@ -533,7 +610,7 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
     guard += 1;
     const group =
       groups
-        .filter((g) => g.length < 5)
+        .filter((g) => g.length < 4)
         .sort((a, b) => a.length - b.length)[0] ?? groups[0];
     const seed = group[group.length - 1] ?? groups[0][0];
     group.push({
@@ -547,18 +624,18 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
     guard += 1;
     const group =
       groups
-        .filter((g) => g.length > 2)
+        .filter((g) => g.length > 1)
         .sort((a, b) => b.length - a.length)[0] ?? groups[0];
-    if (group.length <= 2) break;
+    if (group.length <= 1) break;
     group.pop();
   }
 }
 
 function normalizeActionCount(possibleActions: ProcurementOutput["possibleActions"], selectedSet: Set<number>): void {
   const groups = [
-    { items: possibleActions.next72Hours, min: 2, max: 4 },
-    { items: possibleActions.next2to4Weeks, min: 2, max: 5 },
-    { items: possibleActions.nextQuarter, min: 2, max: 5 }
+    { items: possibleActions.next72Hours, min: 1, max: 3 },
+    { items: possibleActions.next2to4Weeks, min: 1, max: 3 },
+    { items: possibleActions.nextQuarter, min: 1, max: 3 }
   ];
 
   for (const group of groups) {

@@ -27,6 +27,8 @@ interface PortfolioMarketTickerProps {
   variant?: "ticker" | "grid";
   limit?: number;
   showHeader?: boolean;
+  initialData?: PriceData[];
+  initialTimestamp?: string;
 }
 
 function formatPrice(price: number): string {
@@ -99,11 +101,14 @@ export function PortfolioMarketTicker({
   portfolio,
   variant = "ticker",
   limit = 4,
-  showHeader = true
+  showHeader = true,
+  initialData,
+  initialTimestamp
 }: PortfolioMarketTickerProps) {
-  const [data, setData] = useState<PriceData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
+  const hasInitialState = initialData !== undefined;
+  const [data, setData] = useState<PriceData[]>(initialData ?? []);
+  const [loading, setLoading] = useState(!hasInitialState);
+  const [lastUpdated, setLastUpdated] = useState<string>(initialTimestamp ?? "");
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
@@ -128,13 +133,15 @@ export function PortfolioMarketTicker({
       }
     };
 
-    fetchData();
+    if (!hasInitialState) {
+      void fetchData();
+    }
     const interval = setInterval(fetchData, 60 * 60 * 1000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [portfolio]);
+  }, [hasInitialState, portfolio]);
 
   const displayData = useMemo(() => (variant === "grid" ? data.slice(0, limit) : data), [data, limit, variant]);
 

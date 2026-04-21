@@ -10,12 +10,13 @@ import {
   toBriefViewModelV2
 } from "@proof/shared";
 import { fetchPosts } from "../../../lib/api";
+import { getPortfolioMarketQuotes } from "../../../lib/market-data";
 import { getPortfolioNews } from "../../../lib/portfolio-news";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
 import { DashboardCard, ListRow } from "../../../components/portfolio-dashboard";
 import styles from "./portfolio-dashboard.module.css";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface PortfolioOverviewPageProps {
   params: Promise<{ portfolio: string }>;
@@ -273,10 +274,11 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
     );
   }
 
-  const [auBriefs, intlBriefs, portfolioNews] = await Promise.all([
+  const [auBriefs, intlBriefs, portfolioNews, portfolioMarket] = await Promise.all([
     fetchPosts({ region: "au", portfolio, limit: 120 }).catch(() => [] as BriefPost[]),
     fetchPosts({ region: "us-mx-la-lng", portfolio, limit: 120 }).catch(() => [] as BriefPost[]),
-    getPortfolioNews(portfolio, 12).catch(() => [])
+    getPortfolioNews(portfolio, 12).catch(() => []),
+    getPortfolioMarketQuotes(portfolio).catch(() => ({ quotes: [], generatedAt: "", source: "fallback" as const }))
   ]);
 
   const sortedAuBriefs = sortByPublishedDesc(auBriefs);
@@ -607,7 +609,14 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
             headerClassName={styles.cardHeader}
             bodyClassName={styles.cardBody}
           >
-            <PortfolioMarketTicker portfolio={portfolio} variant="grid" limit={4} showHeader={false} />
+            <PortfolioMarketTicker
+              portfolio={portfolio}
+              variant="grid"
+              limit={4}
+              showHeader={false}
+              initialData={portfolioMarket.quotes}
+              initialTimestamp={portfolioMarket.generatedAt}
+            />
           </DashboardCard>
         </aside>
 
