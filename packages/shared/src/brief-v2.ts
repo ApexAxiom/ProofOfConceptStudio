@@ -73,6 +73,10 @@ function asStringArray(value: unknown, maxItems = 3): string[] {
   return out;
 }
 
+function isGenericDeltaBullet(value: string): boolean {
+  return /^coverage focus updated since \d{4}-\d{2}-\d{2} with refreshed source set\.?$/i.test(value.trim());
+}
+
 function asInt(value: unknown): number | undefined {
   const numeric = Number(value);
   if (!Number.isInteger(numeric) || numeric < 1) return undefined;
@@ -327,7 +331,7 @@ export function toBriefViewModelV2(
     publishedAt,
     dateLabel: toDateLabel(publishedAt, region),
     newsStatus,
-    deltaBullets: asStringArray(record.deltaSinceLastRun, 3),
+    deltaBullets: asStringArray(record.deltaSinceLastRun, 6).filter((item) => !isGenericDeltaBullet(item)).slice(0, 3),
     topStories,
     heroImage,
     contextNote

@@ -373,7 +373,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">In 60 seconds</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Start here for the short version before you read deeper.</p>
           </div>
           <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Top move</p>
@@ -413,7 +412,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                   ))}
                 </ul>
               ) : (
-                <p className="mt-3 text-sm text-muted-foreground">No prior run was available for comparison.</p>
+                <p className="mt-3 text-sm text-muted-foreground">No clear change was called out for this brief.</p>
               )}
             </div>
 
@@ -471,9 +470,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-foreground">Top stories</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Each story is summarized in plain English, with the category takeaway and source trail attached.
-              </p>
             </div>
           </div>
 

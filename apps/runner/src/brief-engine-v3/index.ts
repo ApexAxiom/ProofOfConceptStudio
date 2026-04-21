@@ -1107,9 +1107,6 @@ function validateHardAndRepair(brief: BriefPost, previousBrief?: BriefPost | nul
     repaired.heroImage = { url: makeCategoryPlaceholderDataUrl(repaired.portfolio), alt: repaired.title, sourceArticleIndex: 1 };
     repaired.heroImageUrl = repaired.heroImage.url;
   }
-  if (previousBrief && (!repaired.deltaSinceLastRun || repaired.deltaSinceLastRun.length === 0)) {
-    repaired.deltaSinceLastRun = [`Coverage focus updated since ${previousBrief.publishedAt.slice(0, 10)} with refreshed source set.`];
-  }
 
   const v2 = validateBriefV2Record(repaired, { hasPreviousBrief: Boolean(previousBrief) });
   if (!v2.ok) {
