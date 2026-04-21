@@ -54,13 +54,15 @@ const brief: BriefPost = {
 
 const html = renderToStaticMarkup(<BriefDetailContent brief={brief} />);
 
-assert(html.includes("Executive Snapshot"));
-assert(html.includes("Executive Summary"));
-assert(html.includes("Impact"));
-assert(html.includes("Action Plan"));
+assert(html.includes("In 60 seconds"));
+assert(html.includes("Why it matters"));
+assert(html.includes("Top stories"));
+assert(html.includes("What to do / What to watch"));
 assert(html.includes("Sources"));
-assert(!html.includes("Market Pulse"));
-assert(!html.includes("Supplier Radar"));
-assert(!html.includes("Negotiation Levers"));
+assert(html.includes("Executive Risk &amp; Action View"));
+assert(html.includes("Category Manager Decision Detail"));
+assert(!html.includes("Market pulse"));
+assert(html.includes("Read source"));
+assert(html.includes("Open original source"));
 
 console.log("brief-snapshots.smoke passed");

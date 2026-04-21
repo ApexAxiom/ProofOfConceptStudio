@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import { OpenAI } from "openai";
-import { requiredArticleCount } from "./prompts.js";
 import type { ArticleInput } from "./prompts.js";
 import {
   BriefCitedBullet,
@@ -250,6 +249,25 @@ function mapActionToSourceIds(
   };
 }
 
+function isUsableStoryCandidate(article: ArticleInput): boolean {
+  const contentLength = (article.content ?? "").trim().length;
+  return article.contentStatus !== "thin" && contentLength >= 300;
+}
+
+function preferredSelectedArticleCount(input: ProcurementPromptInput): number {
+  const available = Math.max(1, input.articles.length);
+  const usableCount = input.articles.filter(isUsableStoryCandidate).length;
+  const lightSignalDay = input.newsStatus === "thin-category" || input.newsStatus === "fallback-context" || usableCount < 3;
+
+  if (lightSignalDay) {
+    return Math.min(3, available);
+  }
+
+  if (usableCount >= 5 && available >= 5) return 5;
+  if (usableCount >= 4 && available >= 4) return 4;
+  return Math.min(Math.max(3, usableCount), available);
+}
+
 async function requestJsonCompletion(
   client: OpenAI,
   prompt: string
@@ -281,7 +299,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     throw new Error("OPENAI_API_KEY is not configured");
   }
 
-  const requiredCount = Math.min(requiredArticleCount(input.agent), Math.max(1, input.articles.length));
+  const requiredCount = preferredSelectedArticleCount(input);
   let parsed: ProcurementOutput | undefined;
   let repairIssues = input.repairIssues;
   let previousJson = input.previousJson;

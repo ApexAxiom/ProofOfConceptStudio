@@ -14,9 +14,23 @@ const brief: BriefPost = {
   publishedAt: new Date().toISOString(),
   summary: "One line summary",
   bodyMarkdown: "**Body** content only once",
-  sources: ["https://example.com/source"],
+  sources: [
+    {
+      sourceId: "s1",
+      url: "https://example.com/a1",
+      title: "Article 1",
+      publishedAt: new Date().toISOString()
+    },
+    {
+      sourceId: "s2",
+      url: "https://example.com/index",
+      title: "Index",
+      publishedAt: new Date().toISOString()
+    }
+  ],
   heroImageUrl: "https://example.com/hero.jpg",
   heroImageAlt: "Hero",
+  contextNote: "Category coverage is strong today, with one market index used for context.",
   selectedArticles: [
     {
       title: "Article 1",
@@ -24,6 +38,8 @@ const brief: BriefPost = {
       briefContent: "Content",
       sourceName: "Source",
       keyMetrics: ["10%"],
+      sourceId: "s1",
+      categoryImportance: "This affects supplier pricing and negotiation posture for the category."
     }
   ],
   highlights: ["Highlight"],
@@ -108,6 +124,21 @@ const brief: BriefPost = {
       }
     ]
   },
+  claims: [
+    {
+      id: "claim-1",
+      text: "Takeaway one",
+      section: "summary",
+      status: "supported",
+      evidence: [
+        {
+          sourceId: "s1",
+          url: "https://example.com/a1",
+          excerpt: "Article 1 reported a concrete category pricing move."
+        }
+      ]
+    }
+  ],
   vpSnapshot: {
     health: {
       overall: 80,
@@ -153,22 +184,23 @@ const brief: BriefPost = {
 
 const html = renderToStaticMarkup(<BriefDetailContent brief={brief} />);
 
-assert(html.includes("Executive Snapshot"));
-assert(html.includes("What to Watch This Week"));
-assert(html.includes("Executive Summary"));
-assert(html.includes("Impact"));
+assert(html.includes("Coverage note"));
+assert(html.includes("In 60 seconds"));
+assert(html.includes("Why it matters"));
+assert(html.includes("Top stories"));
+assert(html.includes("What to do / What to watch"));
+assert(html.includes("Sources"));
+assert(html.includes("Market pulse"));
 assert(html.includes("Executive Risk &amp; Action View"));
 assert(html.includes("Category Manager Decision Detail"));
-assert(html.includes("Action Plan"));
-assert(html.includes("Sources"));
-const executiveSummaryStart = html.indexOf("Executive Summary");
-const impactStart = html.indexOf("Impact");
-const executiveSummarySection = html.slice(executiveSummaryStart, impactStart);
-assert(!executiveSummarySection.includes("Takeaway one"));
-assert(!executiveSummarySection.includes("Takeaway two"));
-assert(!executiveSummarySection.includes("Takeaway three"));
-assert(html.includes("Market Pulse"));
-assert(html.includes("Supplier Radar"));
-assert(html.includes("Negotiation Levers"));
+assert(html.includes("Supplier radar"));
+assert(html.includes("Negotiation levers"));
+assert(html.includes("Source notes [1]"));
+assert(html.includes("AI reading"));
+assert(html.includes("Used in this brief"));
+assert(html.includes("Open original source"));
+assert(html.includes("Read source"));
+assert(html.includes("What happened"));
+assert(html.includes("Why this matters for this category"));
 
 console.log("brief-detail.smoke passed");

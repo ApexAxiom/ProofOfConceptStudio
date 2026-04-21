@@ -6,6 +6,7 @@ import {
   BriefPost,
   BriefReport,
   BriefReportAction,
+  BriefReportActionGroup,
   BriefSource,
   CmSnapshot,
   DecisionSummary,
@@ -250,7 +251,7 @@ function assembleBriefPost(
     previousBrief: params.previousBrief
   });
   const summary = buildExecutiveSummary(params.enriched, report);
-  const decisionSummary = buildDecisionSummary(params.enriched, report, sourceIdByIndex);
+  const decisionSummary = buildDecisionSummary(params.enriched, report);
   const highlights = buildHighlights(params.enriched, report);
   const procurementActions = buildProcurementActions(params.enriched, report);
   const watchlist = buildWatchlist(params.enriched, report);
@@ -773,11 +774,10 @@ function mapEnrichedSelectedArticles(
     briefContent: buildHeuristicStoryBrief(primaryInput, categoryLabel, fallbackFramework),
     categoryImportance: buildCategoryImplication(primaryInput, categoryLabel, fallbackFramework)
   }];
-  return output
-    .map((article) => {
+  const mapped: Array<SelectedArticle | null> = output.map((article) => {
       const source = selectedInputs[article.articleIndex - 1];
       if (!source) return null;
-      return {
+      const selectedArticle: SelectedArticle = {
         title: source.title,
         url: source.url,
         briefContent: normalizeText(article.briefContent) || summarize(source.content),
@@ -789,9 +789,10 @@ function mapEnrichedSelectedArticles(
         publishedAt: source.publishedAt,
         sourceIndex: article.articleIndex,
         sourceId: buildSourceId(source.url)
-      } satisfies SelectedArticle;
-    })
-    .filter((article): article is SelectedArticle => Boolean(article));
+      };
+      return selectedArticle;
+    });
+  return mapped.filter((article): article is SelectedArticle => article !== null);
 }
 
 function buildMarketIndicators(
@@ -976,11 +977,12 @@ function buildActionGroups(
     }
   ]);
 
-  return [
+  const groups: BriefReportActionGroup[] = [
     { horizon: "Next 72 hours", actions: shortTerm.slice(0, 4) },
     { horizon: "Next 2-4 weeks", actions: midTerm.slice(0, 4) },
     { horizon: "Next quarter", actions: longTerm.slice(0, 4) }
-  ].filter((group) => group.actions.length > 0);
+  ];
+  return groups.filter((group) => group.actions.length > 0);
 }
 
 function buildSummaryBullets(

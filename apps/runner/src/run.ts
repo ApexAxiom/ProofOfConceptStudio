@@ -1,6 +1,7 @@
 import {
   BriefPost,
   BriefV2NewsStatus,
+  BriefV2TopStory,
   REGIONS,
   RegionSlug,
   RunWindow,
@@ -10,6 +11,7 @@ import {
   buildBriefRunKey,
   getBriefDayKey,
   getPortfolioMarketIndices,
+  makeCategoryPlaceholderDataUrl,
   runWindowForRegion,
   validateBriefV2Record
 } from "@proof/shared";
@@ -20,17 +22,23 @@ import { PlaceholderReason } from "./brief-coverage/placeholders.js";
 import { resolveFallbackBrief } from "./brief-coverage/fallback.js";
 import { fetchGeneralContextArticles, ingestAgent, ArticleDetail, IngestResult } from "./ingest/fetch.js";
 import { generateBriefV3 } from "./brief-engine-v3/index.js";
+import { generateBrief } from "./llm/openai.js";
 import type { ArticleInput } from "./llm/openai.js";
 import { publishBrief, logBriefRunResult, logBriefRunStart, logRunResult } from "./publish/dynamo.js";
 import crypto from "node:crypto";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
 import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
-import { buildContextNote } from "./brief-v2.js";
+import { buildContextNote, buildTopStories, deriveDeltaSinceLastRun, normalizeNewsStatus } from "./brief-v2.js";
 import { emitRunnerMetrics } from "./observability/metrics.js";
+import { attachEvidenceToBrief } from "./publish/evidence.js";
+import { validateNumericClaims } from "./publish/factuality.js";
+import { validateBrief } from "./publish/validate.js";
 
 type RunStatus = "published" | "no-updates" | "failed" | "dry-run";
 type RunResult = { agentId: string; region: RegionSlug; ok: boolean; status: RunStatus; error?: string };
+type LoadedAgent = ReturnType<typeof loadAgents>[number];
+type BriefWriterMode = "rich-openai" | "deterministic";
 
 /**
  * Runs tasks with concurrency limit
@@ -404,6 +412,145 @@ function mergeArticleInputs(primary: ArticleInput[], supplemental: ArticleInput[
     merged.push(article);
   }
   return merged;
+}
+
+function getBriefWriterMode(): BriefWriterMode {
+  const configured = process.env.BRIEF_WRITER_MODE?.trim().toLowerCase();
+  if (configured === "rich-openai" || configured === "deterministic") {
+    return configured;
+  }
+  return process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL ? "rich-openai" : "deterministic";
+}
+
+function normalizeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return String(error);
+}
+
+async function generateDeterministicFallbackBrief(params: {
+  agent: LoadedAgent;
+  region: RegionSlug;
+  runWindow: RunWindow;
+  articles: ArticleInput[];
+  previousBrief?: BriefPost | null;
+  nowIso: string;
+  runId: string;
+  briefDay: string;
+}) {
+  return generateBriefV3({
+    agent: params.agent,
+    region: params.region,
+    runWindow: params.runWindow,
+    articles: params.articles,
+    indices: getPortfolioMarketIndices(params.agent.portfolio),
+    previousBrief: params.previousBrief,
+    nowIso: params.nowIso,
+    runIdentity: { runId: params.runId, briefDay: params.briefDay },
+    config: {
+      model: process.env.OPENAI_MODEL?.trim(),
+      allowLlm: false
+    }
+  });
+}
+
+async function generateRichValidatedBrief(params: {
+  agent: LoadedAgent;
+  region: RegionSlug;
+  runWindow: RunWindow;
+  articles: ArticleInput[];
+  indices: ReturnType<typeof getPortfolioMarketIndices>;
+  previousBrief?: BriefPost | null;
+  nowIso: string;
+  newsStatus: BriefV2NewsStatus;
+}): Promise<BriefPost> {
+  const richBrief = await generateBrief({
+    agent: params.agent,
+    region: params.region,
+    runWindow: params.runWindow,
+    articles: params.articles,
+    indices: params.indices,
+    previousBrief: params.previousBrief ?? undefined,
+    newsStatus: params.newsStatus
+  });
+
+  const evidenceResult = attachEvidenceToBrief({
+    brief: {
+      ...richBrief,
+      publishedAt: params.nowIso
+    },
+    articles: params.articles,
+    nowIso: params.nowIso
+  });
+  const numericIssues = validateNumericClaims(evidenceResult.brief, params.articles);
+  const allIssues = [...numericIssues, ...evidenceResult.issues];
+  if (allIssues.length > 0) {
+    throw new Error(JSON.stringify(allIssues));
+  }
+
+  const allowedUrls = new Set(params.articles.map((article) => article.url));
+  const indexUrls = new Set(params.indices.map((index) => index.url));
+  return validateBrief(evidenceResult.brief, allowedUrls, indexUrls);
+}
+
+function enrichPublishedBrief(params: {
+  brief: BriefPost;
+  agent: LoadedAgent;
+  newsStatus: BriefV2NewsStatus;
+  previousBrief?: BriefPost | null;
+  nowIso: string;
+  postId: string;
+  runKey: string;
+  briefDay: string;
+}): BriefPost {
+  const topStories: BriefV2TopStory[] =
+    params.brief.topStories && params.brief.topStories.length > 0
+      ? params.brief.topStories
+      : buildTopStories(params.brief.selectedArticles ?? []);
+  const normalizedStatus = normalizeNewsStatus(params.brief.newsStatus ?? params.newsStatus, topStories);
+  const deltaSinceLastRun = deriveDeltaSinceLastRun({
+    currentDelta: params.brief.deltaSinceLastRun,
+    topStories,
+    previousBrief: params.previousBrief
+  });
+  const firstImage = params.brief.selectedArticles?.find((article) => article.imageUrl);
+  const heroImageUrl =
+    params.brief.heroImage?.url ??
+    params.brief.heroImageUrl ??
+    firstImage?.imageUrl ??
+    makeCategoryPlaceholderDataUrl(params.agent.label);
+  const heroImageAlt =
+    params.brief.heroImage?.alt ??
+    params.brief.heroImageAlt ??
+    firstImage?.imageAlt ??
+    firstImage?.title ??
+    params.brief.title;
+
+  return {
+    ...params.brief,
+    postId: params.postId,
+    runKey: params.runKey,
+    agentId: params.agent.id,
+    briefDay: params.briefDay,
+    publishedAt: params.nowIso,
+    generationStatus: "published",
+    status: "published",
+    version: "v2",
+    topStories,
+    heroImage: {
+      url: heroImageUrl,
+      alt: heroImageAlt,
+      sourceArticleIndex: params.brief.heroImage?.sourceArticleIndex ?? firstImage?.sourceIndex ?? topStories[0]?.sourceArticleIndex ?? 1
+    },
+    heroImageUrl,
+    heroImageAlt,
+    heroImageSourceUrl:
+      params.brief.heroImageSourceUrl ??
+      firstImage?.url ??
+      params.brief.selectedArticles?.[0]?.url,
+    newsStatus: normalizedStatus,
+    deltaSinceLastRun,
+    contextNote: buildContextNote(params.agent.label, topStories, normalizedStatus)
+  };
 }
 
 /**
@@ -868,24 +1015,71 @@ export async function runAgent(
       }
     }
 
-    const model = process.env.OPENAI_MODEL?.trim();
-    if (!model) {
-      console.warn(`[${agentId}/${region}] OPENAI_MODEL is not configured for runner; brief engine will use deterministic non-LLM path.`);
+    const writerMode = getBriefWriterMode();
+    let published: BriefPost;
+    let richWriterFallbackIssue: string | undefined;
+
+    if (writerMode === "rich-openai") {
+      try {
+        published = await generateRichValidatedBrief({
+          agent,
+          region,
+          runWindow,
+          articles: articleInputs,
+          indices,
+          previousBrief,
+          nowIso: now.toISOString(),
+          newsStatus
+        });
+      } catch (error) {
+        richWriterFallbackIssue = `Rich writer fallback: ${normalizeErrorMessage(error)}`;
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "rich_writer_fallback",
+            reasonCode: "rich_writer_failed",
+            runId: runIdentifier,
+            agentId: agent.id,
+            portfolio: agent.portfolio,
+            region,
+            runWindow,
+            runDate: now.toISOString(),
+            error: normalizeErrorMessage(error)
+          })
+        );
+        published = await generateDeterministicFallbackBrief({
+          agent,
+          region,
+          runWindow,
+          articles: articleInputs,
+          previousBrief,
+          nowIso: now.toISOString(),
+          runId: runIdentifier,
+          briefDay
+        });
+      }
+    } else {
+      published = await generateDeterministicFallbackBrief({
+        agent,
+        region,
+        runWindow,
+        articles: articleInputs,
+        previousBrief,
+        nowIso: now.toISOString(),
+        runId: runIdentifier,
+        briefDay
+      });
     }
 
-    let published: BriefPost = await generateBriefV3({
+    published = enrichPublishedBrief({
+      brief: published,
       agent,
-      region,
-      runWindow,
-      articles: articleInputs,
-      indices,
+      newsStatus,
       previousBrief,
       nowIso: now.toISOString(),
-      runIdentity: { runId: runIdentifier, briefDay },
-      config: {
-        model,
-        allowLlm: Boolean(process.env.OPENAI_API_KEY && model)
-      }
+      postId,
+      runKey,
+      briefDay
     });
 
     try {
@@ -897,25 +1091,18 @@ export async function runAgent(
       console.warn(`[${agentId}/${region}] Market snapshot unavailable:`, error);
     }
 
-    published = {
-      ...published,
-      postId,
-      runKey,
-      agentId: agent.id,
-      briefDay,
-      generationStatus: "published",
-      status: "published",
-      version: "v2",
-      contextNote: buildContextNote(agent.label, published.topStories ?? [], published.newsStatus ?? newsStatus)
-    };
-
     const v2Validation = validateBriefV2Record(published, { hasPreviousBrief: Boolean(previousBrief) });
-    if (!v2Validation.ok) {
+    const qualityIssues = [
+      ...(published.qualityReport?.issues ?? []),
+      ...(richWriterFallbackIssue ? [richWriterFallbackIssue] : []),
+      ...v2Validation.issues
+    ];
+    if (qualityIssues.length > 0) {
       published = {
         ...published,
         qualityReport: {
           decision: "publish",
-          issues: [...(published.qualityReport?.issues ?? []), ...v2Validation.issues]
+          issues: qualityIssues
         }
       };
     }

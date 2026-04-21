@@ -32,14 +32,14 @@ const raw = JSON.stringify({
     next72Hours: [
       {
         action: "Reconfirm open supplier slots for near-term offshore requirements.",
-        rationale: "Short lead windows can close before internal approvals complete.",
+        rationale: "Move now because short lead windows can close before internal approvals complete.",
         owner: "Category",
         expectedOutcome: "Protect immediate bid optionality for current demand.",
         citations: [14]
       },
       {
         action: "Refresh cost assumptions tied to mobilization and standby terms.",
-        rationale: "Recent quote structures are shifting beyond prior baseline assumptions.",
+        rationale: "Refresh the numbers because recent quote structures are shifting beyond prior baseline assumptions.",
         owner: "Contracts",
         expectedOutcome: "Reduce variance in first-pass sourcing scenarios.",
         citations: [15]
@@ -48,14 +48,14 @@ const raw = JSON.stringify({
     next2to4Weeks: [
       {
         action: "Update supplier wave plan for constrained service segments.",
-        rationale: "Parallel campaigns may consume capacity before next sourcing cycle.",
+        rationale: "Update the plan because parallel campaigns may consume capacity before next sourcing cycle.",
         owner: "Ops",
         expectedOutcome: "Improve allocation confidence for medium-horizon work.",
         citations: [14]
       },
       {
         action: "Review extension and substitution clauses for resilience.",
-        rationale: "Commercial flexibility is needed if primary providers slip.",
+        rationale: "Review the clauses because commercial flexibility is needed if primary providers slip.",
         owner: "Legal",
         expectedOutcome: "Lower disruption risk under changing field schedules.",
         citations: [15]
@@ -64,14 +64,14 @@ const raw = JSON.stringify({
     nextQuarter: [
       {
         action: "Prepare dual-track sourcing playbook for high-volatility packages.",
-        rationale: "Single-path awards face greater execution risk in tight markets.",
+        rationale: "Prepare this playbook because single-path awards face greater execution risk in tight markets.",
         owner: "Category",
         expectedOutcome: "Maintain negotiating leverage through structured alternatives.",
         citations: [14]
       },
       {
         action: "Set cadence for benchmark-triggered contract reopeners with suppliers.",
-        rationale: "Contract economics are now more sensitive to external swings.",
+        rationale: "Set the cadence because contract economics are now more sensitive to external swings.",
         owner: "Contracts",
         expectedOutcome: "Keep term adjustments predictable and governable.",
         citations: [15]

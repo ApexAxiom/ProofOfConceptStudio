@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AgentConfig, MarketIndex, RegionSlug, RunWindow, REGIONS } from "@proof/shared";
+import { AgentConfig, BriefV2NewsStatus, MarketIndex, RegionSlug, RunWindow, REGIONS } from "@proof/shared";
 import type { ArticleInput } from "./prompts.js";
 
 export interface ProcurementPromptInput {
@@ -8,6 +8,7 @@ export interface ProcurementPromptInput {
   runWindow: RunWindow;
   articles: ArticleInput[];
   indices: MarketIndex[];
+  newsStatus?: BriefV2NewsStatus;
   repairIssues?: string[];
   previousJson?: string;
   previousBrief?: {
@@ -244,15 +245,27 @@ function indexBlock(indices: MarketIndex[]): string {
 
 export function buildProcurementPrompt(input: ProcurementPromptInput, requiredCount: number): string {
   const regionLabel = input.region === "au" ? "APAC (Australia)" : "International (US/Mexico/Senegal)";
+  const coverageMode =
+    input.newsStatus === "fallback-context"
+      ? "Light signal day. Category-specific coverage is thin, so some broader market context is included."
+      : input.newsStatus === "thin-category"
+        ? "Light signal day. Category-specific coverage is thin; avoid overstating certainty."
+        : "Normal signal day. Use the strongest category-specific developments first.";
 
   return `You are generating a premium procurement intelligence brief for ${input.agent.label}.
 
-Your audience is executive and category-management leadership. Write with high signal, no fluff, and no hallucinated numbers.
+Your audience is adult business readers across a wide range of education levels.
+Write in plain English with high signal, no fluff, and no hallucinated numbers.
+Do not sound academic, legalistic, or overly executive.
+If you use industry jargon or an acronym, make the meaning obvious in context.
+Readers should quickly understand why this matters and what is worth paying attention to.
 
 OUTPUT RULES (strict):
 1) Return JSON only.
 2) Title must be 8-14 words, strong verb, not generic, never includes "Daily Brief".
-3) Produce exactly four report sections in structure:
+3) Write like a smart analyst speaking clearly, not like a press release.
+4) If today's signal is light, say so directly and calmly. Do not manufacture urgency.
+5) Produce exactly four report sections in structure:
    - Summary: exactly 5 cited bullets
      - Bullets 1-3 are key takeaways
      - Bullets 4-5 are extra context
@@ -267,14 +280,15 @@ OUTPUT RULES (strict):
      * nextQuarter (Long-term horizon: 90+ days)
    - Actions must be realistic for category management; only use urgent language when the evidence is truly critical.
    - Sources are rendered outside JSON from selected articles and indices.
-4) Every summary/impact/action item MUST include citations pointing to articleIndex values (one citation is acceptable; do not force multiple).
-5) Use signal = "early-signal" or "unconfirmed" when evidence is weak; do not invent certainty.
-6) Owner must be one of: Category, Contracts, Legal, Ops.
-7) Every action rationale must include a trigger clause using "because ...".
-8) Selected articles must be 1-${requiredCount}, unique, and sourced only from provided article indices.
-9) heroSelection.articleIndex must match one selected article.
-10) marketIndicators must reference indexId from the provided market index list.
-11) If a previous brief is provided, deltaSinceLastRun should be concrete changes only and should not duplicate impact language.
+6) Every summary/impact/action item MUST include citations pointing to articleIndex values (one citation is acceptable; do not force multiple).
+7) Use signal = "early-signal" or "unconfirmed" when evidence is weak; do not invent certainty.
+8) Owner must be one of: Category, Contracts, Legal, Ops.
+9) Every action rationale must include a trigger clause using "because ...".
+10) Selected articles must be 1-${requiredCount}, unique, and sourced only from provided article indices.
+11) heroSelection.articleIndex must match one selected article.
+12) marketIndicators must reference indexId from the provided market index list.
+13) If a previous brief is provided, deltaSinceLastRun should be concrete changes only and should not duplicate impact language.
+14) Selected article summaries must explain what happened, why it matters for the category, and what to watch next in direct plain English.
 
 JSON SHAPE:
 \`\`\`json
@@ -305,6 +319,7 @@ Context:
 - Portfolio: ${input.agent.label}
 - Region: ${regionLabel}
 - Run window: ${input.runWindow.toUpperCase()}
+- Coverage mode: ${coverageMode}
 
 Previous brief context:
 ${previousBriefSection(input)}

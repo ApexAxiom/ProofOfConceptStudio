@@ -13,7 +13,7 @@ Internal procurement intelligence hub with regional agents generating citation-l
 
 ## Current-state pipeline (high-level)
 ```
-Scheduler/API → Runner /cron → Ingest feeds → Normalize/Dedupe → Rank/Select → LLM brief → Validate → DynamoDB → API → Web
+Scheduler/API → Runner /cron → Ingest feeds → Normalize/Dedupe → Rank/Select → Rich/OpenAI brief writer or deterministic fallback → Validate → DynamoDB → API → Web
 ```
 
 ## Setup
@@ -60,6 +60,7 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 - `CORS_ORIGINS` comma-separated allowed origins for API CORS
 - `BING_IMAGE_KEY`/`BING_IMAGE_ENDPOINT` for optional Bing image fallback when scraping article images
 - `BRIEF_IMAGE_S3_BUCKET`/`BRIEF_IMAGE_S3_REGION`/`BRIEF_IMAGE_PUBLIC_BASE_URL` for cached brief hero images
+- `BRIEF_WRITER_MODE` to force `rich-openai` or `deterministic` during rollout; rich mode still falls back to deterministic publishing if generation or validation fails
 
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
@@ -130,6 +131,7 @@ Runner
 - `PORT=8080`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (recommended: `gpt-4o-mini` for App Runner)
+- `BRIEF_WRITER_MODE` (`rich-openai` recommended; `deterministic` is the rollback switch)
 - `CRON_SECRET`
 - `RUNNER_METRIC_NAMESPACE` (optional; default `POCStudio/Runner`)
 - `BRIEF_IMAGE_S3_BUCKET` (required for cached hero images)
