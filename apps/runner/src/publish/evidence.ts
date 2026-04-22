@@ -213,6 +213,16 @@ function cleanSelectedArticles(articles?: SelectedArticle[]): SelectedArticle[] 
     sourceId: article.url ? buildSourceId(article.url) : article.sourceId,
     briefContent: stripTags(article.briefContent),
     categoryImportance: article.categoryImportance ? stripTags(article.categoryImportance) : undefined,
+    procurementLens: article.procurementLens
+      ? {
+          ...article.procurementLens,
+          buyerTakeaway: stripTags(article.procurementLens.buyerTakeaway),
+          costMoney: stripTags(article.procurementLens.costMoney),
+          supplierCommercial: stripTags(article.procurementLens.supplierCommercial),
+          safetyOperational: stripTags(article.procurementLens.safetyOperational),
+          watchouts: stripTags(article.procurementLens.watchouts)
+        }
+      : undefined,
     keyMetrics: article.keyMetrics ? cleanTextArray(article.keyMetrics) : undefined
   }));
 }
@@ -438,6 +448,13 @@ function buildClaims(params: {
     if (article.categoryImportance) {
       addClaim("category_importance", article.categoryImportance, article.sourceIndex);
     }
+    if (article.procurementLens) {
+      addClaim("procurement_lens", article.procurementLens.buyerTakeaway, article.sourceIndex);
+      addClaim("procurement_lens", article.procurementLens.costMoney, article.sourceIndex);
+      addClaim("procurement_lens", article.procurementLens.supplierCommercial, article.sourceIndex);
+      addClaim("procurement_lens", article.procurementLens.safetyOperational, article.sourceIndex);
+      addClaim("procurement_lens", article.procurementLens.watchouts, article.sourceIndex);
+    }
     (article.keyMetrics ?? []).forEach((metric) => addClaim("top_story", metric, article.sourceIndex));
   });
 
@@ -487,6 +504,7 @@ function buildClaims(params: {
   claims.forEach((claim) => {
     const isStrictSection =
       claim.section === "procurement_action" ||
+      claim.section === "procurement_lens" ||
       claim.section === "watchlist" ||
       (claim.section === "top_story" && isNumericClaim(claim.text));
     if (claim.status === "needs_verification" && isStrictSection) {

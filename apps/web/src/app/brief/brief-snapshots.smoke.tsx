@@ -64,5 +64,10 @@ assert(html.includes("Category Manager Decision Detail"));
 assert(!html.includes("Market pulse"));
 assert(html.includes("Read source"));
 assert(html.includes("Open original source"));
+assert(html.includes("Buyer takeaway"));
+assert(html.includes("Cost / money"));
+assert(html.includes("Supplier / commercial"));
+assert(html.includes("Safety / operations"));
+assert(html.includes("What to watch"));
 
 console.log("brief-snapshots.smoke passed");

@@ -142,6 +142,7 @@ interface RenderProcurementReportParams {
   region: RegionSlug;
   report: BriefReport;
   sources: BriefSource[];
+  selectedArticles?: SelectedArticle[];
 }
 
 function citationTag(sourceIds: string[], numberBySourceId: Map<string, number>): string {
@@ -161,7 +162,8 @@ export function renderProcurementReportMarkdown({
   publishedAtISO,
   region,
   report,
-  sources
+  sources,
+  selectedArticles = []
 }: RenderProcurementReportParams): string {
   const publishedAt = formatDateForRegion(publishedAtISO, region);
   const numberedSources = sources.map((source, index) => ({ ...source, number: index + 1 }));
@@ -184,6 +186,36 @@ export function renderProcurementReportMarkdown({
       lines.push(`- ${bullet.text} ${citationTag(bullet.sourceIds, numberBySourceId)}`.trim());
     }
     lines.push("");
+  }
+
+  if (selectedArticles.length > 0) {
+    lines.push("## Top stories");
+    for (const [index, article] of selectedArticles.entries()) {
+      const sourceId = article.sourceId;
+      const refs = sourceId ? citationTag([sourceId], numberBySourceId) : "";
+      lines.push(`### Story ${index + 1}: ${article.title}`);
+      lines.push(`- **What happened:** ${article.briefContent}`);
+      if (article.procurementLens?.buyerTakeaway || article.categoryImportance) {
+        lines.push(`- **Buyer takeaway:** ${article.procurementLens?.buyerTakeaway ?? article.categoryImportance}`);
+      }
+      if (article.procurementLens?.costMoney) {
+        lines.push(`- **Cost / money:** ${article.procurementLens.costMoney}`);
+      }
+      if (article.procurementLens?.supplierCommercial) {
+        lines.push(`- **Supplier / commercial:** ${article.procurementLens.supplierCommercial}`);
+      }
+      if (article.procurementLens?.safetyOperational) {
+        lines.push(`- **Safety / operations:** ${article.procurementLens.safetyOperational}`);
+      }
+      if (article.procurementLens?.watchouts) {
+        lines.push(`- **What to watch:** ${article.procurementLens.watchouts}`);
+      }
+      if (article.keyMetrics?.length) {
+        lines.push(`- **Key facts:** ${article.keyMetrics.join(" • ")}`);
+      }
+      lines.push(`- **Source:** [${article.title}](${article.url}) ${refs}`.trim());
+      lines.push("");
+    }
   }
 
   lines.push("## Possible actions");

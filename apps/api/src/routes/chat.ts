@@ -371,6 +371,15 @@ function buildBriefSummaryContext(brief: BriefPost): { blocks: string[]; sources
       if (article.publishedAt) lines.push(`Published: ${article.publishedAt}`);
       if (article.briefContent) lines.push(`Summary: ${article.briefContent}`);
       if (article.categoryImportance) lines.push(`Category importance: ${article.categoryImportance}`);
+      if (article.procurementLens?.buyerTakeaway) lines.push(`Buyer takeaway: ${article.procurementLens.buyerTakeaway}`);
+      if (article.procurementLens?.costMoney) lines.push(`Cost / money: ${article.procurementLens.costMoney}`);
+      if (article.procurementLens?.supplierCommercial) {
+        lines.push(`Supplier / commercial: ${article.procurementLens.supplierCommercial}`);
+      }
+      if (article.procurementLens?.safetyOperational) {
+        lines.push(`Safety / operations: ${article.procurementLens.safetyOperational}`);
+      }
+      if (article.procurementLens?.watchouts) lines.push(`What to watch: ${article.procurementLens.watchouts}`);
       if (article.keyMetrics?.length) lines.push(`Key metrics: ${article.keyMetrics.join("; ")}`);
       return lines.join("\n");
     });

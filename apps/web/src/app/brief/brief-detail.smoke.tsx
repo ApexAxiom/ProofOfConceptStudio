@@ -39,7 +39,16 @@ const brief: BriefPost = {
       sourceName: "Source",
       keyMetrics: ["Rates moved 10% in the latest market check"],
       sourceId: "s1",
-      categoryImportance: "This affects supplier pricing and negotiation posture for the category."
+      categoryImportance: "This affects supplier pricing and negotiation posture for the category.",
+      procurementLens: {
+        buyerTakeaway: "Treat this as a live buyer signal rather than a generic market headline.",
+        costMoney: "The cost read-through is directional and sits in price pressure plus faster quote resets.",
+        supplierCommercial: "Supplier leverage is increasing around timing and validity windows.",
+        safetyOperational: "Compressed execution windows can reduce slack if readiness is not validated.",
+        watchouts: "Watch for narrower commitment windows and more aggressive term changes.",
+        signalStrength: "strong",
+        inferenceMode: "source-grounded"
+      }
     }
   ],
   highlights: ["Highlight"],
@@ -201,6 +210,10 @@ assert(html.includes("Used in this brief"));
 assert(html.includes("Open original source"));
 assert(html.includes("Read source"));
 assert(html.includes("What happened"));
-assert(html.includes("Why this matters for this category"));
+assert(html.includes("Buyer takeaway"));
+assert(html.includes("Cost / money"));
+assert(html.includes("Supplier / commercial"));
+assert(html.includes("Safety / operations"));
+assert(html.includes("What to watch"));
 
 console.log("brief-detail.smoke passed");

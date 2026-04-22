@@ -71,6 +71,7 @@ export function buildDynamoItem(
       };
       if (article.briefContent) mapped.briefContent = article.briefContent;
       if (article.categoryImportance) mapped.categoryImportance = article.categoryImportance;
+      if (article.procurementLens) mapped.procurementLens = article.procurementLens;
       if (article.keyMetrics) mapped.keyMetrics = article.keyMetrics;
       if (article.imageUrl) mapped.imageUrl = article.imageUrl;
       if (article.imageAlt) mapped.imageAlt = article.imageAlt;

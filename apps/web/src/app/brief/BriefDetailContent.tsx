@@ -8,6 +8,7 @@ import {
   BriefReportImpactGroup,
   BriefSource,
   SelectedArticle,
+  SelectedArticleProcurementLens,
   buildSourceId,
   normalizeBriefSources,
   portfolioLabel,
@@ -87,6 +88,144 @@ function isUsefulKeyFact(value?: string): boolean {
 
 function selectKeyFacts(values?: Array<string | undefined>, maxItems = 4): string[] {
   return unique(values ?? []).filter((item) => isUsefulKeyFact(item)).slice(0, maxItems);
+}
+
+type StoryLensView = {
+  buyerTakeaway?: string;
+  costMoney?: string;
+  supplierCommercial?: string;
+  safetyOperational?: string;
+  watchouts?: string;
+  signalStrength?: SelectedArticleProcurementLens["signalStrength"];
+  inferenceMode?: SelectedArticleProcurementLens["inferenceMode"];
+};
+
+function storyTheme(article: SelectedArticle): "remote" | "cost" | "supply" | "commercial" | "safety" | "general" {
+  const text = `${article.title} ${article.briefContent ?? ""} ${article.categoryImportance ?? ""} ${(article.keyMetrics ?? []).join(" ")}`;
+  if (/\b(remote|remotely|tele-?operat|rov|automation|autonomous|digital twin|robotics)\b/i.test(text)) return "remote";
+  if (/\b(cost|price|dayrate|travel|budget|bed space|accommodation|mobili[sz]ation|logistics|inflation)\b/i.test(text)) {
+    return "cost";
+  }
+  if (/\b(capacity|availability|lead time|backlog|slot|shortage|crew|fleet|schedule|delay|supply)\b/i.test(text)) {
+    return "supply";
+  }
+  if (/\b(contract|commercial|tender|bid|award|scope|clause|renewal|framework|pass-through)\b/i.test(text)) {
+    return "commercial";
+  }
+  if (/\b(safety|permit|onsite|offshore|personnel|exposure|risk|operations?|cyber|connectivity)\b/i.test(text)) {
+    return "safety";
+  }
+  return "general";
+}
+
+function fallbackLensText(article: SelectedArticle, field: keyof Omit<StoryLensView, "signalStrength" | "inferenceMode">): string {
+  const theme = storyTheme(article);
+  switch (field) {
+    case "buyerTakeaway":
+      if (theme === "remote") {
+        return "This is a staffing-shape signal: buyers should look at what work can move offsite and what new service dependencies come with that shift.";
+      }
+      if (theme === "cost") {
+        return "Treat this as a cost-boundary signal rather than just an industry headline; quote assumptions may need another pass.";
+      }
+      if (theme === "supply") {
+        return "Read this mainly as an availability and execution signal; sequencing and fallback coverage may matter more than list price.";
+      }
+      if (theme === "commercial") {
+        return "The buyer bottom line is commercial leverage: term structure and scope discipline may matter as much as base rate.";
+      }
+      if (theme === "safety") {
+        return "The practical read-through is operational discipline: field readiness and risk ownership may now deserve more buyer attention.";
+      }
+      return sanitizePresentationText(article.categoryImportance) ?? "Useful directional context for supplier conversations, but not a stand-alone escalation by itself.";
+    case "costMoney":
+      if (theme === "remote") {
+        return "The cost angle is directional: fewer people offshore can reduce travel and accommodation exposure, but only if the remote setup stays reliable.";
+      }
+      if (theme === "cost") {
+        return "Use this to pressure-test should-cost views and challenge fast repricing before those assumptions harden into live bids.";
+      }
+      if (theme === "supply") {
+        return "The money impact may show up through expediting, standby, substitution, or delay cost rather than a visible list-price move.";
+      }
+      if (theme === "commercial") {
+        return "The main cost issue may sit in term structure, reopeners, or pass-through language more than the headline rate itself.";
+      }
+      if (theme === "safety") {
+        return "Extra controls or readiness requirements can add hidden spend if they are not priced and planned early.";
+      }
+      return "There is no clean cost-reset number stored here, but the story can still shift buyer exposure through timing, supplier posture, or execution complexity.";
+    case "supplierCommercial":
+      if (theme === "remote") {
+        return "Expect scope to move toward uptime support, communications, cyber responsibilities, and clearer downtime liability instead of only offshore labor.";
+      }
+      if (theme === "cost") {
+        return "Suppliers may use the signal to argue for reopeners, indexation, or shorter validity windows; buyers should separate evidence from negotiation posture.";
+      }
+      if (theme === "supply") {
+        return "Capacity pressure usually improves supplier leverage, so commitment windows, backup coverage, and response obligations matter more.";
+      }
+      if (theme === "commercial") {
+        return "This is mainly a contracts story: scope edges, extension mechanics, and who carries volatility should be checked before award.";
+      }
+      if (theme === "safety") {
+        return "Commercially, this can shift qualification thresholds, insurance asks, or which party prices operational risk back into the scope.";
+      }
+      return "Keep commercial conversations specific on scope, exclusions, and service commitments rather than relying on a headline takeaway alone.";
+    case "safetyOperational":
+      if (theme === "remote") {
+        return "Keeping fewer people offshore can improve exposure, but the operating model becomes more dependent on connectivity resilience and remote support readiness.";
+      }
+      if (theme === "cost") {
+        return "The operational risk is indirect: budget pressure can later show up as reduced slack, substitutions, or tighter execution windows.";
+      }
+      if (theme === "supply") {
+        return "When availability tightens, schedule pressure can spill into quality or safety risk if teams start accepting late substitutions or compressed mobilization.";
+      }
+      if (theme === "commercial") {
+        return "If the contract no longer matches field reality, the first pain usually shows up during execution rather than at signature.";
+      }
+      if (theme === "safety") {
+        return "This has a direct operations angle: readiness, permits, and site-risk controls may become gating items instead of background admin.";
+      }
+      return "Treat the operational effect as directional and validate whether this changes field readiness or supplier response expectations.";
+    case "watchouts":
+      if (theme === "remote") {
+        return "Watch connectivity reliability, latency tolerance, and who carries downtime cost if the operation has to revert onsite.";
+      }
+      if (theme === "cost") {
+        return "Watch for quote validity compression, reopeners, and any attempt to reframe weak evidence as a hard pricing reset.";
+      }
+      if (theme === "supply") {
+        return "Watch lead times, slot allocation, and whether suppliers start narrowing commitment windows before the next sourcing gate.";
+      }
+      if (theme === "commercial") {
+        return "Watch scope creep, liability pushback, and term changes that move volatility back onto the buyer.";
+      }
+      if (theme === "safety") {
+        return "Watch permit timing, readiness gaps, and whether site controls start becoming a schedule bottleneck.";
+      }
+      return "Watch whether the signal turns into real supplier behavior or stays thematic.";
+  }
+}
+
+function procurementLensForArticle(article: SelectedArticle): StoryLensView {
+  return {
+    buyerTakeaway:
+      sanitizePresentationText(article.procurementLens?.buyerTakeaway) ??
+      sanitizePresentationText(article.categoryImportance) ??
+      fallbackLensText(article, "buyerTakeaway"),
+    costMoney:
+      sanitizePresentationText(article.procurementLens?.costMoney) ?? fallbackLensText(article, "costMoney"),
+    supplierCommercial:
+      sanitizePresentationText(article.procurementLens?.supplierCommercial) ?? fallbackLensText(article, "supplierCommercial"),
+    safetyOperational:
+      sanitizePresentationText(article.procurementLens?.safetyOperational) ?? fallbackLensText(article, "safetyOperational"),
+    watchouts:
+      sanitizePresentationText(article.procurementLens?.watchouts) ?? fallbackLensText(article, "watchouts"),
+    signalStrength: article.procurementLens?.signalStrength,
+    inferenceMode: article.procurementLens?.inferenceMode
+  };
 }
 
 function deriveSummary(brief: BriefPost): string {
@@ -479,6 +618,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
               const sourceNumber = sourceId ? sourceNumberById.get(sourceId) : undefined;
               const sourceCard = sourceId ? sourceExplorerCards.find((card) => card.source.sourceId === sourceId) : undefined;
               const storyKeyFacts = selectKeyFacts(article.keyMetrics, 4);
+              const storyLens = procurementLensForArticle(article);
 
               return (
                 <article key={`${article.url}-${idx}`} className="rounded-xl border border-border bg-background p-5">
@@ -495,6 +635,18 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                         ) : null}
                       </div>
                       <h3 className="text-base font-semibold text-foreground">{article.title}</h3>
+                      {(storyLens.signalStrength || storyLens.inferenceMode) ? (
+                        <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                          {storyLens.signalStrength ? (
+                            <span className="rounded-full border border-border px-2 py-1">Signal {storyLens.signalStrength}</span>
+                          ) : null}
+                          {storyLens.inferenceMode ? (
+                            <span className="rounded-full border border-border px-2 py-1">
+                              {storyLens.inferenceMode === "directional" ? "Directional" : "Source-grounded"}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {sourceNumber ? (
@@ -517,10 +669,38 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                         </p>
                       </div>
 
-                      {article.categoryImportance ? (
+                      {storyLens.buyerTakeaway ? (
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Why this matters for this category</p>
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{sanitizePresentationText(article.categoryImportance)}</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Buyer takeaway</p>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.buyerTakeaway}</p>
+                        </div>
+                      ) : null}
+
+                      {storyLens.costMoney ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Cost / money</p>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.costMoney}</p>
+                        </div>
+                      ) : null}
+
+                      {storyLens.supplierCommercial ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Supplier / commercial</p>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.supplierCommercial}</p>
+                        </div>
+                      ) : null}
+
+                      {storyLens.safetyOperational ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Safety / operations</p>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.safetyOperational}</p>
+                        </div>
+                      ) : null}
+
+                      {storyLens.watchouts ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What to watch</p>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.watchouts}</p>
                         </div>
                       ) : null}
                     </div>
@@ -720,6 +900,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
           <div className="mt-5 space-y-3">
             {sourceExplorerCards.map((card) => {
               const sourceKeyFacts = selectKeyFacts(card.article?.keyMetrics, 4);
+              const storyLens = card.article ? procurementLensForArticle(card.article) : undefined;
               return (
                 <details
                   key={card.source.sourceId}
@@ -748,12 +929,40 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                       </div>
                     ) : null}
 
-                    {card.article?.categoryImportance ? (
+                    {storyLens?.buyerTakeaway ? (
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Why it matters</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Buyer takeaway</p>
                         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                          {sanitizePresentationText(card.article.categoryImportance)}
+                          {storyLens.buyerTakeaway}
                         </p>
+                      </div>
+                    ) : null}
+
+                    {storyLens?.costMoney ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Cost / money</p>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.costMoney}</p>
+                      </div>
+                    ) : null}
+
+                    {storyLens?.supplierCommercial ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Supplier / commercial</p>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.supplierCommercial}</p>
+                      </div>
+                    ) : null}
+
+                    {storyLens?.safetyOperational ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Safety / operations</p>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.safetyOperational}</p>
+                      </div>
+                    ) : null}
+
+                    {storyLens?.watchouts ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What to watch</p>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.watchouts}</p>
                       </div>
                     ) : null}
 

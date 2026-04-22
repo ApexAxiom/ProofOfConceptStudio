@@ -18,6 +18,7 @@ import {
   buildProcurementPrompt,
   parseProcurementOutput
 } from "./procurement-report.js";
+import { repairProcurementLens } from "./procurement-lens.js";
 
 let cachedKey: string | null = null;
 let cachedClient: OpenAI | null = null;
@@ -31,12 +32,8 @@ function getOpenAIClient(): OpenAI | null {
   return cachedClient;
 }
 
-function getModel() {
-  const configured = process.env.OPENAI_MODEL?.trim();
-  if (!configured) {
-    throw new Error("OPENAI_MODEL is required for runner LLM calls");
-  }
-  return configured;
+function getModel(modelOverride?: string) {
+  return modelOverride?.trim() || process.env.BRIEF_WRITER_MODEL?.trim() || "gpt-5-mini";
 }
 
 function isReasoningModel(model?: string) {
@@ -353,8 +350,11 @@ function toLegacyActions(report: BriefReport, sourceNumberById: Map<string, numb
 }
 
 function toLegacyWatchlist(report: BriefReport, sourceNumberById: Map<string, number>): string[] {
-  const riskGroup = report.impactGroups.find((group) => group.label.toLowerCase().includes("risk"));
-  return (riskGroup?.bullets ?? [])
+  const watchGroup = report.impactGroups.find((group) => {
+    const label = group.label.toLowerCase();
+    return label.includes("watch") || label.includes("risk");
+  });
+  return (watchGroup?.bullets ?? [])
     .map((bullet) => `${bullet.text} ${citationTag(bullet.sourceIds, sourceNumberById)}`.trim())
     .slice(0, 5);
 }
@@ -417,9 +417,10 @@ function preferredSelectedArticleCount(input: ProcurementPromptInput): number {
 
 async function requestJsonCompletion(
   client: OpenAI,
-  prompt: string
+  prompt: string,
+  modelOverride?: string
 ): Promise<{ content: string; usage?: OpenAI.Chat.Completions.ChatCompletion["usage"] }> {
-  const model = getModel();
+  const model = getModel(modelOverride);
   const reasoningModel = isReasoningModel(model);
   const response = await client.chat.completions.create({
     model,
@@ -462,7 +463,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
       },
       requiredCount
     );
-    const { content: raw, usage } = await requestJsonCompletion(client, prompt);
+    const { content: raw, usage } = await requestJsonCompletion(client, prompt, input.model);
     if (usage) lastUsage = usage;
     try {
       parsed = parseProcurementOutput(raw, {
@@ -508,6 +509,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
       categoryImportance: isGenericCategoryImportance(repairedCategoryImportance)
         ? buildFallbackCategoryImportance(inputArticle, input.agent.label)
         : repairedCategoryImportance,
+      procurementLens: repairProcurementLens(article.procurementLens, inputArticle, input.agent.label),
       keyMetrics: normalizeKeyFacts(article.keyMetrics, inputArticle),
       imageUrl: inputArticle.ogImageUrl,
       imageAlt: article.imageAlt || inputArticle.title,
@@ -533,23 +535,23 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     summaryBullets: dedupeCitedBullets(parsed.summaryBullets.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))),
     impactGroups: [
       {
-        label: "Market/Cost drivers",
-        bullets: dedupeCitedBullets(parsed.impact.marketCostDrivers.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
+        label: "Cost / money",
+        bullets: dedupeCitedBullets(parsed.impact.costMoney.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
       },
       {
-        label: "Supply base & capacity",
-        bullets: dedupeCitedBullets(parsed.impact.supplyBaseCapacity.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
+        label: "Supplier / commercial",
+        bullets: dedupeCitedBullets(parsed.impact.supplierCommercial.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
       },
       {
-        label: "Contracting & commercial terms",
+        label: "Safety / operations",
         bullets: dedupeCitedBullets(
-          parsed.impact.contractingCommercialTerms.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
+          parsed.impact.safetyOperations.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
         )
       },
       {
-        label: "Risk & regulatory / operational constraints",
+        label: "What to watch",
         bullets: dedupeCitedBullets(
-          parsed.impact.riskRegulatoryOperationalConstraints.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
+          parsed.impact.watchouts.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
         )
       }
     ],
@@ -607,7 +609,8 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     publishedAtISO: now,
     region: input.region,
     report,
-    sources: allSources
+    sources: allSources,
+    selectedArticles
   });
   const llmUsage = lastUsage
     ? {

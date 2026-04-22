@@ -50,7 +50,8 @@ async function main() {
   fastify.log.info(
     {
       openaiKeyPresent: Boolean(process.env.OPENAI_API_KEY),
-      model: process.env.OPENAI_MODEL ?? "gpt-4o",
+      briefWriterModel: process.env.BRIEF_WRITER_MODEL ?? "gpt-5-mini",
+      defaultOpenAIModel: process.env.OPENAI_MODEL ?? null,
       awsSecretNameConfigured: Boolean(process.env.AWS_SECRET_NAME)
     },
     "runner AI configuration"

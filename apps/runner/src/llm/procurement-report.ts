@@ -1,6 +1,19 @@
 import { z } from "zod";
-import { AgentConfig, BriefV2NewsStatus, MarketIndex, RegionSlug, RunWindow, REGIONS } from "@proof/shared";
+import {
+  AgentConfig,
+  BriefV2NewsStatus,
+  MarketIndex,
+  RegionSlug,
+  RunWindow,
+  REGIONS,
+  SelectedArticleProcurementLens
+} from "@proof/shared";
 import type { ArticleInput } from "./prompts.js";
+import {
+  hasUnsupportedQuantifiedProcurementClaim,
+  isWeakProcurementLensText,
+  normalizeLensComparableText
+} from "./procurement-lens.js";
 
 export interface ProcurementPromptInput {
   agent: AgentConfig;
@@ -9,6 +22,7 @@ export interface ProcurementPromptInput {
   articles: ArticleInput[];
   indices: MarketIndex[];
   newsStatus?: BriefV2NewsStatus;
+  model?: string;
   repairIssues?: string[];
   previousJson?: string;
   previousBrief?: {
@@ -40,10 +54,10 @@ export interface ProcurementOutput {
   summaryBullets: ProcurementOutputBullet[];
   deltaSinceLastRun?: string[];
   impact: {
-    marketCostDrivers: ProcurementOutputBullet[];
-    supplyBaseCapacity: ProcurementOutputBullet[];
-    contractingCommercialTerms: ProcurementOutputBullet[];
-    riskRegulatoryOperationalConstraints: ProcurementOutputBullet[];
+    costMoney: ProcurementOutputBullet[];
+    supplierCommercial: ProcurementOutputBullet[];
+    safetyOperations: ProcurementOutputBullet[];
+    watchouts: ProcurementOutputBullet[];
   };
   possibleActions: {
     next72Hours: ProcurementOutputAction[];
@@ -56,6 +70,7 @@ export interface ProcurementOutput {
     categoryImportance: string;
     keyMetrics?: string[];
     imageAlt?: string;
+    procurementLens: SelectedArticleProcurementLens;
   }>;
   heroSelection: { articleIndex: number };
   marketIndicators: Array<{ indexId: string; note: string }>;
@@ -63,6 +78,8 @@ export interface ProcurementOutput {
 
 const SIGNAL_ENUM = z.enum(["confirmed", "early-signal", "unconfirmed"]);
 const OWNER_ENUM = z.enum(["Category", "Contracts", "Legal", "Ops"]);
+const PROCUREMENT_SIGNAL_STRENGTH_ENUM = z.enum(["strong", "moderate", "limited"]);
+const PROCUREMENT_INFERENCE_MODE_ENUM = z.enum(["source-grounded", "directional"]);
 const OUTPUT_SUMMARY_BULLETS = 5;
 const BECAUSE_TRIGGER = /\bbecause\b/i;
 const MIN_RATIONALE_WORDS = 8;
@@ -79,14 +96,6 @@ const GENERIC_BRIEF_CONTENT_PATTERNS = [
   /\bread more\b/i,
   /\bsubscribe\b/i
 ];
-
-function normalizeComparableText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s%./-]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function isLowValueFact(value: string): boolean {
   const trimmed = value.replace(/\s+/g, " ").trim();
@@ -129,14 +138,56 @@ const actionSchema = z.object({
   }
 });
 
+const procurementLensTextSchema = z.string().min(24).max(320);
+const procurementLensSchema = z.object({
+  buyerTakeaway: procurementLensTextSchema,
+  costMoney: procurementLensTextSchema,
+  supplierCommercial: procurementLensTextSchema,
+  safetyOperational: procurementLensTextSchema,
+  watchouts: procurementLensTextSchema,
+  signalStrength: PROCUREMENT_SIGNAL_STRENGTH_ENUM,
+  inferenceMode: PROCUREMENT_INFERENCE_MODE_ENUM
+}).superRefine((value, context) => {
+  const entries = Object.entries(value).filter(([key]) => key !== "signalStrength" && key !== "inferenceMode") as Array<
+    [Exclude<keyof SelectedArticleProcurementLens, "signalStrength" | "inferenceMode">, string]
+  >;
+  const seen = new Map<string, string>();
+  for (const [field, text] of entries) {
+    if (isWeakProcurementLensText(text)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `selectedArticles.procurementLens.${field} must be specific, not placeholder text`,
+        path: [field]
+      });
+    }
+    if (hasUnsupportedQuantifiedProcurementClaim(text)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `selectedArticles.procurementLens.${field} includes an unsupported quantified procurement claim`,
+        path: [field]
+      });
+    }
+    const comparable = normalizeLensComparableText(text);
+    if (seen.has(comparable)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `selectedArticles.procurementLens.${field} must add a distinct lens, not repeat ${seen.get(comparable)}`,
+        path: [field]
+      });
+    } else {
+      seen.set(comparable, field);
+    }
+  }
+});
+
 const outputSchema = z.object({
   title: z.string().min(8).max(160),
   summaryBullets: z.array(citedBulletSchema).length(OUTPUT_SUMMARY_BULLETS),
   impact: z.object({
-    marketCostDrivers: z.array(citedBulletSchema).min(1).max(4),
-    supplyBaseCapacity: z.array(citedBulletSchema).min(1).max(4),
-    contractingCommercialTerms: z.array(citedBulletSchema).min(1).max(4),
-    riskRegulatoryOperationalConstraints: z.array(citedBulletSchema).min(1).max(4)
+    costMoney: z.array(citedBulletSchema).min(1).max(4),
+    supplierCommercial: z.array(citedBulletSchema).min(1).max(4),
+    safetyOperations: z.array(citedBulletSchema).min(1).max(4),
+    watchouts: z.array(citedBulletSchema).min(1).max(4)
   }),
   deltaSinceLastRun: z.array(z.string().min(10).max(220)).max(3).optional(),
   possibleActions: z.object({
@@ -151,7 +202,8 @@ const outputSchema = z.object({
         briefContent: z.string().min(80).max(1300),
         categoryImportance: z.string().min(24).max(350),
         keyMetrics: z.array(z.string().min(8).max(140)).min(1).max(4).optional(),
-        imageAlt: z.string().min(3).max(180).optional()
+        imageAlt: z.string().min(3).max(180).optional(),
+        procurementLens: procurementLensSchema
       }).superRefine((value, context) => {
         if (isGenericCategoryImportance(value.categoryImportance)) {
           context.addIssue({
@@ -165,10 +217,16 @@ const outputSchema = z.object({
             message: "selectedArticles.briefContent looks like raw article copy or page chrome"
           });
         }
-        if (normalizeComparableText(value.briefContent) === normalizeComparableText(value.categoryImportance)) {
+        if (normalizeLensComparableText(value.briefContent) === normalizeLensComparableText(value.categoryImportance)) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
             message: "selectedArticles.briefContent and categoryImportance must not repeat the same sentence"
+          });
+        }
+        if (normalizeLensComparableText(value.categoryImportance) === normalizeLensComparableText(value.procurementLens.buyerTakeaway)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "selectedArticles.categoryImportance must sharpen the buyer bottom line, not repeat procurementLens.buyerTakeaway"
           });
         }
         for (const metric of value.keyMetrics ?? []) {
@@ -183,7 +241,7 @@ const outputSchema = z.object({
       })
     )
     .min(1)
-    .max(6),
+    .max(5),
   heroSelection: z.object({ articleIndex: z.number().int().positive() }),
   marketIndicators: z.array(z.object({ indexId: z.string().min(2), note: z.string().min(8).max(240) })).min(2).max(8)
 });
@@ -330,10 +388,10 @@ OUTPUT RULES (strict):
      - Bullets 1-3 are key takeaways
      - Bullets 4-5 are extra context
    - Impact: 6-12 cited bullets across 4 subgroups:
-     * marketCostDrivers
-     * supplyBaseCapacity
-     * contractingCommercialTerms
-     * riskRegulatoryOperationalConstraints
+     * costMoney
+     * supplierCommercial
+     * safetyOperations
+     * watchouts
    - Possible actions: 3-7 actions total across:
      * next72Hours (Short-term horizon: 0-30 days; avoid artificial "urgent 72 hours" framing)
      * next2to4Weeks (Mid-term horizon: 30-90 days)
@@ -348,18 +406,39 @@ OUTPUT RULES (strict):
 11) heroSelection.articleIndex must match one selected article.
 12) marketIndicators must reference indexId from the provided market index list.
 13) If a previous brief is provided, deltaSinceLastRun should be concrete changes only and should not duplicate impact language.
-14) Selected article summaries must explain what happened, why it matters for the category, and what to watch next in direct plain English.
-15) Never paste article leads, page navigation text, bylines, or boilerplate from the source.
-16) selectedArticles.briefContent must be 2-4 sentences in normal English:
+14) Think like a category manager or supply-chain specialist, not a general news summarizer.
+15) Use procurement mechanisms whenever they are supported by the article:
+    - headcount or travel reduction
+    - offshore or onsite staffing exposure
+    - uptime or execution dependency
+    - connectivity or cyber dependency
+    - supplier leverage or pricing posture
+    - contract scope, term, or pass-through implications
+    - safety improvement or degradation
+    - risk transfer between buyer and supplier
+16) Selected article summaries must explain what happened, what makes it operationally real, and what to watch next in direct plain English.
+17) Every selected article MUST include procurementLens with:
+    - buyerTakeaway
+    - costMoney
+    - supplierCommercial
+    - safetyOperational
+    - watchouts
+    - signalStrength = strong|moderate|limited
+    - inferenceMode = source-grounded|directional
+18) selectedArticles.briefContent must be 2-4 sentences in normal English:
     - sentence 1: what happened
     - sentence 2: the most important concrete detail, timing, scope, or constraint
     - optional sentence 3 or 4: what this means or what to watch next
-17) selectedArticles.categoryImportance must be specific to this portfolio/category. Do not use generic filler such as "signal relevance for sourcing..."
-18) selectedArticles.keyMetrics must be 1-4 short readable fact lines with context, not bare numbers.
+19) selectedArticles.categoryImportance is the one-line buyer bottom line for backward compatibility. It must be category-specific and sharper than the title.
+20) selectedArticles.keyMetrics must be 1-4 short readable fact lines with context, not bare numbers.
     Good: "14-day drilling program", "Targets 1,430m measured depth", "First of three planned 2026 prospects"
     Bad: "14", "1,430", "2026", "recent update"
-19) Summary bullets must not simply restate headlines. Write what a busy adult should actually take away.
-20) If an article is weak, thematic, or peripheral, say so. Do not force it to sound more operational than it is.
+21) Summary bullets must not simply restate headlines. Write procurement outcomes, not article titles.
+22) No headline restatement as insight. No generic wording like "this matters for the category."
+23) No invented savings, ROI, payback, or risk numbers. Directional inference is allowed only when the mechanism is clear from the source.
+24) No fake urgency on light-signal days.
+25) If an article is weak, thematic, or peripheral, say so directly. Limited relevance is acceptable.
+26) Never paste article leads, page navigation text, bylines, or boilerplate from the source.
 
 JSON SHAPE:
 \`\`\`json
@@ -368,10 +447,10 @@ JSON SHAPE:
   "summaryBullets": [{ "text": "bullet", "citations": [1], "signal": "confirmed" }],
   "deltaSinceLastRun": ["Concrete delta vs prior run"],
   "impact": {
-    "marketCostDrivers": [{ "text": "bullet", "citations": [1] }],
-    "supplyBaseCapacity": [{ "text": "bullet", "citations": [2] }],
-    "contractingCommercialTerms": [{ "text": "bullet", "citations": [1,2] }],
-    "riskRegulatoryOperationalConstraints": [{ "text": "bullet", "citations": [3], "signal": "early-signal" }]
+    "costMoney": [{ "text": "bullet", "citations": [1] }],
+    "supplierCommercial": [{ "text": "bullet", "citations": [2] }],
+    "safetyOperations": [{ "text": "bullet", "citations": [1,2] }],
+    "watchouts": [{ "text": "bullet", "citations": [3], "signal": "early-signal" }]
   },
   "possibleActions": {
     "next72Hours": [{ "action": "Do X", "rationale": "why", "owner": "Category", "expectedOutcome": "KPI", "citations": [1] }],
@@ -382,9 +461,18 @@ JSON SHAPE:
     {
       "articleIndex": 1,
       "briefContent": "The company started a 14-day drilling program on a new gas well in Austria. The work targets 1,430m measured depth and is the first of three planned 2026 prospects, which makes this more than a one-off operational update. Watch whether the next two wells proceed on the same cadence.",
-      "categoryImportance": "For this category, the useful read-through is near-term demand around active drilling scopes and a reminder that operators with multi-well sequences tend to tighten execution expectations quickly.",
+      "categoryImportance": "Buyer bottom line: active multi-well programs usually tighten supplier responsiveness and reduce slack around mobilization and support scopes.",
       "keyMetrics": ["14-day drilling program", "Targets 1,430m measured depth", "First of three planned 2026 prospects"],
-      "imageAlt": "alt"
+      "imageAlt": "alt",
+      "procurementLens": {
+        "buyerTakeaway": "Treat this as a real demand signal, not a one-off headline, because multi-well sequences often harden execution expectations quickly.",
+        "costMoney": "The cost read-through is directional: tighter rig cadence can increase mobilization pressure and reduce buyer room to wait for better pricing.",
+        "supplierCommercial": "Suppliers tied to drilling support may gain leverage on timing, availability, and short-validity quotes before the next wells start.",
+        "safetyOperational": "Operationally, faster cadence can compress readiness windows if crews, equipment, or permits are not aligned ahead of time.",
+        "watchouts": "Watch whether the follow-on wells keep the same pace and whether suppliers start narrowing commitment windows.",
+        "signalStrength": "strong",
+        "inferenceMode": "source-grounded"
+      }
     }
   ],
   "heroSelection": { "articleIndex": 1 },
@@ -441,10 +529,10 @@ function validateCitationRanges(
 
   const allCitations: number[] = [
     ...output.summaryBullets.flatMap((item) => item.citations),
-    ...output.impact.marketCostDrivers.flatMap((item) => item.citations),
-    ...output.impact.supplyBaseCapacity.flatMap((item) => item.citations),
-    ...output.impact.contractingCommercialTerms.flatMap((item) => item.citations),
-    ...output.impact.riskRegulatoryOperationalConstraints.flatMap((item) => item.citations),
+    ...output.impact.costMoney.flatMap((item) => item.citations),
+    ...output.impact.supplierCommercial.flatMap((item) => item.citations),
+    ...output.impact.safetyOperations.flatMap((item) => item.citations),
+    ...output.impact.watchouts.flatMap((item) => item.citations),
     ...output.possibleActions.next72Hours.flatMap((item) => item.citations),
     ...output.possibleActions.next2to4Weeks.flatMap((item) => item.citations),
     ...output.possibleActions.nextQuarter.flatMap((item) => item.citations)
@@ -457,10 +545,10 @@ function validateCitationRanges(
   }
 
   const impactCount =
-    output.impact.marketCostDrivers.length +
-    output.impact.supplyBaseCapacity.length +
-    output.impact.contractingCommercialTerms.length +
-    output.impact.riskRegulatoryOperationalConstraints.length;
+    output.impact.costMoney.length +
+    output.impact.supplierCommercial.length +
+    output.impact.safetyOperations.length +
+    output.impact.watchouts.length;
   if (impactCount < IMPACT_MIN_BULLETS || impactCount > IMPACT_MAX_BULLETS) {
     issues.push("Impact must contain 6-12 bullets total");
   }
@@ -542,7 +630,21 @@ function normalizeSelectedArticles(
       briefContent:
         "No material category-specific items detected in selected inputs; broader oil and gas context is used for procurement relevance.",
       categoryImportance:
-        "Maintain supplier optionality, contract flexibility, and active risk monitoring until category-specific signal depth improves."
+        "Maintain supplier optionality, contract flexibility, and active risk monitoring until category-specific signal depth improves.",
+      procurementLens: {
+        buyerTakeaway:
+          "Treat this as a light-signal day. The useful buyer move is to stay alert without forcing a big sourcing conclusion from weak evidence.",
+        costMoney:
+          "There is no defensible savings or cost-reset number here, but weak coverage still argues for keeping budgets and quotes under review.",
+        supplierCommercial:
+          "Keep supplier conversations open and contract assumptions flexible until category-specific signal depth improves.",
+        safetyOperational:
+          "No direct operating shift is confirmed here, so use this mainly as a prompt to verify readiness rather than escalate risk.",
+        watchouts:
+          "Watch for stronger category-specific evidence in the next cycle before making a large commercial or operational call.",
+        signalStrength: "limited",
+        inferenceMode: "directional"
+      }
     });
   }
 
@@ -563,7 +665,7 @@ function dedupeSectionsByText(output: ProcurementOutput): void {
   ): typeof bullets => {
     const out: typeof bullets = [];
     for (const bullet of bullets) {
-      const normalized = normalizeComparableText(bullet.text);
+      const normalized = normalizeLensComparableText(bullet.text);
       if (!normalized || seen.has(normalized)) continue;
       seen.add(normalized);
       out.push(bullet);
@@ -572,13 +674,13 @@ function dedupeSectionsByText(output: ProcurementOutput): void {
   };
 
   output.summaryBullets = filterBullets(output.summaryBullets);
-  output.impact.marketCostDrivers = filterBullets(output.impact.marketCostDrivers);
-  output.impact.supplyBaseCapacity = filterBullets(output.impact.supplyBaseCapacity);
-  output.impact.contractingCommercialTerms = filterBullets(output.impact.contractingCommercialTerms);
-  output.impact.riskRegulatoryOperationalConstraints = filterBullets(output.impact.riskRegulatoryOperationalConstraints);
+  output.impact.costMoney = filterBullets(output.impact.costMoney);
+  output.impact.supplierCommercial = filterBullets(output.impact.supplierCommercial);
+  output.impact.safetyOperations = filterBullets(output.impact.safetyOperations);
+  output.impact.watchouts = filterBullets(output.impact.watchouts);
   output.deltaSinceLastRun = (output.deltaSinceLastRun ?? [])
     .filter((item) => {
-      const normalized = normalizeComparableText(item);
+      const normalized = normalizeLensComparableText(item);
       if (!normalized || seen.has(normalized)) return false;
       seen.add(normalized);
       return true;
@@ -588,10 +690,10 @@ function dedupeSectionsByText(output: ProcurementOutput): void {
 
 function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: Set<number>): void {
   const groups = [
-    impact.marketCostDrivers,
-    impact.supplyBaseCapacity,
-    impact.contractingCommercialTerms,
-    impact.riskRegulatoryOperationalConstraints
+    impact.costMoney,
+    impact.supplierCommercial,
+    impact.safetyOperations,
+    impact.watchouts
   ];
 
   for (const group of groups) {
@@ -697,19 +799,19 @@ function normalizeOutputForValidation(
       citations: normalizeCitations(bullet.citations, selectedSet)
     })),
     impact: {
-      marketCostDrivers: output.impact.marketCostDrivers.map((bullet) => ({
+      costMoney: output.impact.costMoney.map((bullet) => ({
         ...bullet,
         citations: normalizeCitations(bullet.citations, selectedSet)
       })),
-      supplyBaseCapacity: output.impact.supplyBaseCapacity.map((bullet) => ({
+      supplierCommercial: output.impact.supplierCommercial.map((bullet) => ({
         ...bullet,
         citations: normalizeCitations(bullet.citations, selectedSet)
       })),
-      contractingCommercialTerms: output.impact.contractingCommercialTerms.map((bullet) => ({
+      safetyOperations: output.impact.safetyOperations.map((bullet) => ({
         ...bullet,
         citations: normalizeCitations(bullet.citations, selectedSet)
       })),
-      riskRegulatoryOperationalConstraints: output.impact.riskRegulatoryOperationalConstraints.map((bullet) => ({
+      watchouts: output.impact.watchouts.map((bullet) => ({
         ...bullet,
         citations: normalizeCitations(bullet.citations, selectedSet)
       }))

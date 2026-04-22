@@ -48,12 +48,24 @@ async function main() {
   assert.ok((result.heroImage?.url ?? "").startsWith("https://") || (result.heroImage?.url ?? "").startsWith("data:image/"));
   assert.ok((result.deltaSinceLastRun?.length ?? 0) >= 1);
   for (const article of result.selectedArticles ?? []) {
+    assert.ok(article.procurementLens);
+    assert.ok(article.procurementLens?.buyerTakeaway);
+    assert.ok(article.procurementLens?.costMoney);
+    assert.ok(article.procurementLens?.supplierCommercial);
+    assert.ok(article.procurementLens?.safetyOperational);
+    assert.ok(article.procurementLens?.watchouts);
     for (const fact of article.keyMetrics ?? []) {
       assert.match(fact, /[a-z]/i);
       assert.doesNotMatch(fact, /^(19|20)\d{2}$/);
       assert.doesNotMatch(fact, /^\d[\d.,%/$-]*$/);
     }
   }
+
+  const impactLabels = new Set((result.report?.impactGroups ?? []).map((group) => group.label));
+  assert.ok(impactLabels.has("Cost / money"));
+  assert.ok(impactLabels.has("Supplier / commercial"));
+  assert.ok(impactLabels.has("Safety / operations"));
+  assert.ok(impactLabels.has("What to watch"));
 
   const allowedUrls = new Set([...(result.selectedArticles ?? []).map((item) => item.url), ...(result.sources ?? []).map((source) => typeof source === "string" ? source : source.url)]);
   const bodyUrls = Array.from(result.bodyMarkdown.matchAll(/\((https?:\/\/[^)]+)\)/g)).map((match) => match[1]);

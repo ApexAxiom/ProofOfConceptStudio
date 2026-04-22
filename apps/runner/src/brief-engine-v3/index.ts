@@ -32,7 +32,8 @@ import {
   parsePromptOutput,
   requiredArticleCount
 } from "../llm/prompts.js";
-import { renderBriefMarkdown } from "../llm/render.js";
+import { buildFallbackProcurementLens } from "../llm/procurement-lens.js";
+import { renderProcurementReportMarkdown } from "../llm/render.js";
 import { parseEvidenceTag, stripEvidenceTag } from "../publish/factuality.js";
 
 export type GenerateBriefV3Input = {
@@ -161,6 +162,7 @@ function selectTopStoriesDeterministic(articles: ArticleInput[], limit: number):
       url: entry.article.url,
       briefContent: summarize(entry.article.content),
       categoryImportance: `Signal relevance for sourcing, contract, or supplier-risk decisions in this category (${entry.article.sourceName ?? "source"}).`,
+      procurementLens: buildFallbackProcurementLens(entry.article, "this category"),
       keyMetrics: extractReadableFacts(entry.article.content, entry.article.title, 3),
       imageUrl: entry.article.ogImageUrl,
       imageAlt: entry.article.title,
@@ -289,20 +291,16 @@ function assembleBriefPost(
   const highlights = buildHighlights(params.enriched, report);
   const procurementActions = buildProcurementActions(params.enriched, report);
   const watchlist = buildWatchlist(params.enriched, report);
-  const bodyMarkdown = renderBriefMarkdown({
+  const bodyMarkdown = renderProcurementReportMarkdown({
     title,
-    summary,
     regionLabel: params.region === "au" ? "Australia (Perth)" : "Americas (Houston)",
     portfolioLabel: params.agent.label,
     runWindow: params.runWindow,
     publishedAtISO: params.nowIso,
-    selectedArticles,
-    marketIndicators,
-    highlights,
-    procurementActions,
-    watchlist,
-    deltaSinceLastRun,
-    region: params.region
+    region: params.region,
+    report,
+    sources,
+    selectedArticles
   });
 
   return {
@@ -816,6 +814,7 @@ function mapEnrichedSelectedArticles(
         url: source.url,
         briefContent: normalizeText(article.briefContent) || summarize(source.content),
         categoryImportance: normalizeText(article.categoryImportance) || buildCategoryImplication(source, categoryLabel, fallbackFramework),
+        procurementLens: buildFallbackProcurementLens(source, categoryLabel),
         keyMetrics: (() => {
           const candidateFacts = (article.keyMetrics ?? [])
             .map((fact) => normalizeText(fact))
@@ -923,59 +922,70 @@ function buildImpactGroups(
   selectedArticles: SelectedArticle[],
   sourceIdByIndex: Map<number, string>
 ): BriefReport["impactGroups"] {
-  const marketCostDrivers = dedupeBullets([
+  const costMoney = dedupeBullets([
     ...(enriched.highlights ?? [])
       .filter((item) => dominantTheme(item) === "cost")
       .map((item, idx) => mapTextToBullet(item, sourceIdByIndex, idx + 1)),
     ...selectedArticles
-      .filter((article) => dominantTheme(`${article.title} ${article.briefContent}`) === "cost")
+      .filter((article) => article.procurementLens?.costMoney || dominantTheme(`${article.title} ${article.briefContent}`) === "cost")
       .map((article) => ({
-        text: article.categoryImportance ?? article.briefContent,
+        text: article.procurementLens?.costMoney ?? article.categoryImportance ?? article.briefContent,
         sourceIds: article.sourceId ? [article.sourceId] : [],
         signal: "confirmed" as const
       }))
   ]);
 
-  const supplyBaseCapacity = dedupeBullets([
+  const supplierCommercial = dedupeBullets([
     ...((enriched.cmSnapshot?.supplierRadar ?? []).map((item) => ({
       text: normalizeText(item.implication || item.signal),
       sourceIds: sourceIdByIndex.get(item.evidenceArticleIndex) ? [sourceIdByIndex.get(item.evidenceArticleIndex)!] : [],
       signal: item.confidence === "high" ? "confirmed" as const : "early-signal" as const
     }))),
-    ...selectedArticles
-      .filter((article) => dominantTheme(`${article.title} ${article.briefContent}`) === "supply")
-      .map((article) => ({
-        text: article.categoryImportance ?? article.briefContent,
-        sourceIds: article.sourceId ? [article.sourceId] : [],
-        signal: "confirmed" as const
-      }))
-  ]);
-
-  const contractingCommercialTerms = dedupeBullets([
     ...((enriched.cmSnapshot?.negotiationLevers ?? []).map((item) => ({
       text: `${normalizeText(item.lever)}. ${normalizeText(item.expectedOutcome)}`.trim(),
       sourceIds: sourceIdByIndex.get(item.evidenceArticleIndex) ? [sourceIdByIndex.get(item.evidenceArticleIndex)!] : [],
       signal: item.confidence === "high" ? "confirmed" as const : "early-signal" as const
     }))),
-    ...(enriched.highlights ?? [])
-      .filter((item) => dominantTheme(item) === "commercial")
-      .map((item, idx) => mapTextToBullet(item, sourceIdByIndex, idx + 1))
+    ...selectedArticles
+      .filter((article) => article.procurementLens?.supplierCommercial || dominantTheme(`${article.title} ${article.briefContent}`) === "supply")
+      .map((article) => ({
+        text: article.procurementLens?.supplierCommercial ?? article.categoryImportance ?? article.briefContent,
+        sourceIds: article.sourceId ? [article.sourceId] : [],
+        signal: "confirmed" as const
+      }))
   ]);
 
-  const riskRegulatoryOperationalConstraints = dedupeBullets([
+  const safetyOperations = dedupeBullets([
+    ...selectedArticles
+      .filter((article) => article.procurementLens?.safetyOperational)
+      .map((article) => ({
+        text: article.procurementLens?.safetyOperational ?? article.briefContent,
+        sourceIds: article.sourceId ? [article.sourceId] : [],
+        signal: "confirmed" as const
+      }))
+  ]);
+
+  const watchouts = dedupeBullets([
     ...(enriched.watchlist ?? []).map((item, idx) => mapTextToBullet(item, sourceIdByIndex, Math.min(idx + 1, selectedArticles.length), "early-signal")),
     ...((enriched.vpSnapshot?.riskRegister ?? []).map((risk) => ({
       text: `${normalizeText(risk.risk)} Trigger: ${normalizeText(risk.trigger)}`.trim(),
       sourceIds: risk.evidenceArticleIndex && sourceIdByIndex.get(risk.evidenceArticleIndex) ? [sourceIdByIndex.get(risk.evidenceArticleIndex)!] : [],
       signal: risk.probability === "high" ? "confirmed" as const : "early-signal" as const
-    })))
+    }))),
+    ...selectedArticles
+      .filter((article) => article.procurementLens?.watchouts)
+      .map((article) => ({
+        text: article.procurementLens?.watchouts ?? article.briefContent,
+        sourceIds: article.sourceId ? [article.sourceId] : [],
+        signal: article.procurementLens?.signalStrength === "strong" ? "confirmed" as const : "early-signal" as const
+      }))
   ]);
 
   return [
-    { label: "Market/Cost drivers", bullets: marketCostDrivers.slice(0, 4) },
-    { label: "Supply base & capacity", bullets: supplyBaseCapacity.slice(0, 4) },
-    { label: "Contracting & commercial terms", bullets: contractingCommercialTerms.slice(0, 4) },
-    { label: "Risk & regulatory / operational constraints", bullets: riskRegulatoryOperationalConstraints.slice(0, 4) }
+    { label: "Cost / money", bullets: costMoney.slice(0, 4) },
+    { label: "Supplier / commercial", bullets: supplierCommercial.slice(0, 4) },
+    { label: "Safety / operations", bullets: safetyOperations.slice(0, 4) },
+    { label: "What to watch", bullets: watchouts.slice(0, 4) }
   ].filter((group) => group.bullets.length > 0);
 }
 
@@ -1072,8 +1082,8 @@ function buildProcurementActions(enriched: BriefOutput, report: BriefReport): st
 function buildWatchlist(enriched: BriefOutput, report: BriefReport): string[] {
   const explicit = (enriched.watchlist ?? []).map(normalizeText).filter(Boolean);
   if (explicit.length > 0) return explicit.slice(0, 8);
-  const riskGroup = report.impactGroups.find((group) => /risk|regulatory/i.test(group.label));
-  return (riskGroup?.bullets ?? []).map((bullet) => bullet.text).slice(0, 6);
+  const watchGroup = report.impactGroups.find((group) => /watch|risk|regulatory/i.test(group.label));
+  return (watchGroup?.bullets ?? []).map((bullet) => bullet.text).slice(0, 6);
 }
 
 function buildDecisionSummary(
@@ -1161,20 +1171,16 @@ function validateSoft(brief: BriefPost, selected: SelectedArticle[]): BriefPost 
   const bodyUrls = Array.from(withReport.bodyMarkdown.matchAll(/\((https?:\/\/[^)]+)\)/g)).map((m) => m[1]);
   if (bodyUrls.some((url) => !allowedUrls.has(url))) {
     console.warn(JSON.stringify({ level: "warn", event: "brief_v3_markdown_repair", bodyUrls, allowedUrls: Array.from(allowedUrls) }));
-    withReport.bodyMarkdown = renderBriefMarkdown({
+    withReport.bodyMarkdown = renderProcurementReportMarkdown({
       title: withReport.title,
-      summary: withReport.summary ?? "",
       regionLabel: withReport.region === "au" ? "Australia (Perth)" : "Americas (Houston)",
       portfolioLabel: withReport.portfolio,
       runWindow: withReport.runWindow,
       publishedAtISO: withReport.publishedAt,
-      selectedArticles: selected,
-      marketIndicators: withReport.marketIndicators ?? [],
-      highlights: withReport.highlights ?? [],
-      procurementActions: withReport.procurementActions ?? [],
-      watchlist: withReport.watchlist ?? [],
-      deltaSinceLastRun: withReport.deltaSinceLastRun ?? [],
-      region: withReport.region
+      region: withReport.region,
+      report: withReport.report ?? cleanReport ?? { summaryBullets: [], impactGroups: [], actionGroups: [] },
+      sources: buildSources(selected, withReport.marketIndicators ?? []),
+      selectedArticles: selected
     });
     withReport.qualityReport.issues.push("Re-rendered markdown to remove untrusted URLs.");
   }

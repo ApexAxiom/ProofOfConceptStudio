@@ -20,6 +20,8 @@
     "coverage:fill": "tsx src/brief-coverage/fill-missing.ts",
     "backfill:brief-titles": "tsx src/backfill/brief-titles.ts",
     "backfill:brief-upgrade": "tsx src/backfill/brief-upgrade.ts",
+    "backfill:brief-rewrite": "tsx src/backfill/brief-rewrite.ts",
+    "brief-rewrite:smoke": "tsx src/backfill/brief-rewrite.smoke.ts",
     "validate:briefs": "tsx src/validate-briefs.ts",
     "render:smoke": "tsx src/llm/render.smoke.ts",
     "procurement-report:smoke": "tsx src/llm/procurement-report.smoke.ts",

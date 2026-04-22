@@ -106,6 +106,19 @@ export interface PortfolioDefinition {
   defaultIndices: MarketIndex[];
 }
 
+export type ProcurementSignalStrength = "strong" | "moderate" | "limited";
+export type ProcurementInferenceMode = "source-grounded" | "directional";
+
+export interface SelectedArticleProcurementLens {
+  buyerTakeaway: string;
+  costMoney: string;
+  supplierCommercial: string;
+  safetyOperational: string;
+  watchouts: string;
+  signalStrength: ProcurementSignalStrength;
+  inferenceMode: ProcurementInferenceMode;
+}
+
 /**
  * Represents an individual article selected for the brief
  */
@@ -128,6 +141,8 @@ export interface SelectedArticle {
   publishedAt?: string;
   /** Source/publication name */
   sourceName?: string;
+  /** Structured procurement interpretation for richer brief rendering */
+  procurementLens?: SelectedArticleProcurementLens;
   /** Original input article index for traceability */
   sourceIndex?: number;
   /** Linked source identifier for evidence mapping */
@@ -165,6 +180,7 @@ export type BriefClaimSection =
   | "delta"
   | "top_story"
   | "category_importance"
+  | "procurement_lens"
   | "market_indicator"
   | "vp_snapshot"
   | "cm_snapshot"

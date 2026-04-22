@@ -218,6 +218,33 @@ export function validateNumericClaims(brief: BriefPost, articleInputs: ArticleIn
     if (article.categoryImportance) {
       checkEvidenceString(`selectedArticles[${idx}].categoryImportance`, article.categoryImportance, sourceIndex);
     }
+    if (article.procurementLens) {
+      checkEvidenceString(
+        `selectedArticles[${idx}].procurementLens.buyerTakeaway`,
+        article.procurementLens.buyerTakeaway,
+        sourceIndex
+      );
+      checkEvidenceString(
+        `selectedArticles[${idx}].procurementLens.costMoney`,
+        article.procurementLens.costMoney,
+        sourceIndex
+      );
+      checkEvidenceString(
+        `selectedArticles[${idx}].procurementLens.supplierCommercial`,
+        article.procurementLens.supplierCommercial,
+        sourceIndex
+      );
+      checkEvidenceString(
+        `selectedArticles[${idx}].procurementLens.safetyOperational`,
+        article.procurementLens.safetyOperational,
+        sourceIndex
+      );
+      checkEvidenceString(
+        `selectedArticles[${idx}].procurementLens.watchouts`,
+        article.procurementLens.watchouts,
+        sourceIndex
+      );
+    }
     (article.keyMetrics ?? []).forEach((metric, metricIdx) =>
       checkEvidenceString(`selectedArticles[${idx}].keyMetrics[${metricIdx}]`, metric, sourceIndex)
     );
