@@ -9,9 +9,16 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    return NextResponse.json({
-      agents: listAgentSummaries({ includeFeeds: true })
-    });
+    return NextResponse.json(
+      {
+        agents: listAgentSummaries({ includeFeeds: true })
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900"
+        }
+      }
+    );
   } catch (err) {
     return NextResponse.json({ agents: [], error: "unavailable" }, { status: 503 });
   }

@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { getExecutiveDashboardData } from "../../../lib/executive-dashboard";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 900;
+
+function cacheSeconds() {
+  const value = Number(process.env.EXECUTIVE_DASHBOARD_CACHE_SECONDS ?? 900);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 900;
+}
 
 export async function GET() {
   try {
@@ -11,7 +15,7 @@ export async function GET() {
     return NextResponse.json(payload, {
       status: 200,
       headers: {
-        "Cache-Control": "no-store"
+        "Cache-Control": `public, s-maxage=${cacheSeconds()}, stale-while-revalidate=${cacheSeconds()}`
       }
     });
   } catch (error) {

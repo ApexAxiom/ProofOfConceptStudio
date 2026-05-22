@@ -15,12 +15,12 @@ import {
 } from "@proof/shared";
 import { OpenAI } from "openai";
 import { initializeSecrets } from "../secrets";
-import { getPost, getRegionPosts } from "./posts";
+import { getLatestPortfolioPost, getPost } from "./posts";
 
 const DEFAULT_MODEL = "gpt-5-nano-2025-08-07";
 const MAX_QUESTION_CHARS = 8000;
 const MAX_MESSAGE_COUNT = 40;
-const MAX_CONTEXT_CHARS = 100_000;
+const DEFAULT_MAX_CONTEXT_CHARS = 40_000;
 const DEFAULT_MAX_COMPLETION_TOKENS = 1000;
 const DEFAULT_REASONING_MAX_OUTPUT_TOKENS = 25_000;
 const REASONING_RETRY_MAX_OUTPUT_TOKENS = 32_000;
@@ -31,7 +31,8 @@ const FALLBACK_CONTEXT_ENABLED = process.env.CHAT_FALLBACK_CONTEXT === "true";
 const PROOF_OF_CONCEPT_STUDIO_URL = "https://proofofconceptstudio.com";
 const MAX_WEB_DOCS = 3;
 const MAX_WEB_DOC_CHARS = 2200;
-const SEARCH_TIMEOUT_MS = 5000;
+const DEFAULT_PROOF_CONTEXT_TIMEOUT_MS = 1500;
+const DEFAULT_PROOF_CONTEXT_TTL_MS = 10 * 60 * 1000;
 const FALLBACK_MODELS = ["gpt-4o-mini"];
 const RATE_LIMIT_STATE = new Map<string, { tokens: number; lastRefillMs: number }>();
 const STOPWORDS = new Set([
@@ -44,11 +45,15 @@ let cachedOpenAIKey: string | null = null;
 let cachedOpenAI: OpenAI | null = null;
 let cachedStatus: { ok: boolean; error?: string; checkedAt: number } | null = null;
 let envInitPromise: Promise<void> | null = null;
+let proofSitemapCache: { urls: string[]; checkedAtMs: number } | null = null;
+const PROOF_PAGE_CACHE = new Map<string, { block: string; source: BriefSource; checkedAtMs: number }>();
 
 type IncomingMessage = {
   role?: string;
   content?: string;
 };
+
+type WebSearchMode = "auto" | "always" | "off";
 
 export type ChatStatus = {
   enabled: boolean;
@@ -105,6 +110,23 @@ async function getOpenAIClient(): Promise<OpenAI | null> {
 
 function getModel() {
   return process.env.OPENAI_MODEL || DEFAULT_MODEL;
+}
+
+function positiveEnvNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name] ?? "");
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function getMaxContextChars() {
+  return positiveEnvNumber("CHAT_MAX_CONTEXT_CHARS", DEFAULT_MAX_CONTEXT_CHARS);
+}
+
+function getProofContextTtlMs() {
+  return positiveEnvNumber("CHAT_PROOF_CONTEXT_TTL_MS", DEFAULT_PROOF_CONTEXT_TTL_MS);
+}
+
+function getProofContextTimeoutMs() {
+  return positiveEnvNumber("CHAT_PROOF_CONTEXT_TIMEOUT_MS", DEFAULT_PROOF_CONTEXT_TIMEOUT_MS);
 }
 
 function isReasoningModel(model?: string) {
@@ -172,8 +194,19 @@ async function checkOpenAIAvailability(): Promise<{ ok: boolean; error?: string 
   }
 }
 
-function isWebSearchEnabled() {
-  return process.env.WEB_SEARCH_ENABLED !== "false";
+function getWebSearchMode(): WebSearchMode {
+  if (process.env.WEB_SEARCH_ENABLED === "false") return "off";
+  const raw = (process.env.CHAT_WEB_SEARCH_MODE ?? "auto").toLowerCase();
+  if (raw === "always" || raw === "off") return raw;
+  return "auto";
+}
+
+function shouldUseWebSearch(question: string, hasProvidedContext: boolean): boolean {
+  const mode = getWebSearchMode();
+  if (mode === "off") return false;
+  if (mode === "always") return true;
+  if (!hasProvidedContext) return true;
+  return /\b(today|current|latest|recent|news|web|internet|external|outside|price|prices|quote|stock|cite|source)\b/i.test(question);
 }
 
 function getRateLimitConfig() {
@@ -241,7 +274,7 @@ function extractTitle(html: string) {
   return match ? match[1].trim() : "ProofOfConceptStudio.com";
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = SEARCH_TIMEOUT_MS) {
+async function fetchWithTimeout(url: string, timeoutMs = getProofContextTimeoutMs()) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -251,24 +284,65 @@ async function fetchWithTimeout(url: string, timeoutMs = SEARCH_TIMEOUT_MS) {
   }
 }
 
-async function buildProofContext(question: string) {
+function isFreshCacheEntry(checkedAtMs: number) {
+  return Date.now() - checkedAtMs < getProofContextTtlMs();
+}
+
+async function loadProofSitemapUrls(): Promise<string[]> {
   const sitemapCandidates = [
     `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap.xml`,
     `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap_index.xml`,
     `${PROOF_OF_CONCEPT_STUDIO_URL}/wp-sitemap.xml`
   ];
-  let urls: string[] = [];
 
-  for (const sitemapUrl of sitemapCandidates) {
-    try {
-      const res = await fetchWithTimeout(sitemapUrl);
-      if (!res.ok) continue;
-      urls = extractUrlsFromSitemap(await res.text());
-      if (urls.length) break;
-    } catch {
-      continue;
-    }
+  if (proofSitemapCache && isFreshCacheEntry(proofSitemapCache.checkedAtMs)) {
+    return proofSitemapCache.urls;
   }
+
+  const attempts = await Promise.all(
+    sitemapCandidates.map(async (sitemapUrl) => {
+      try {
+        const res = await fetchWithTimeout(sitemapUrl);
+        if (!res.ok) return [];
+        return extractUrlsFromSitemap(await res.text());
+      } catch {
+        return [];
+      }
+    })
+  );
+  const urls = attempts.find((items) => items.length > 0) ?? [];
+
+  if (urls.length) {
+    proofSitemapCache = { urls, checkedAtMs: Date.now() };
+    return urls;
+  }
+
+  return proofSitemapCache?.urls ?? [];
+}
+
+async function loadProofPage(url: string): Promise<{ block: string; source: BriefSource } | null> {
+  const cached = PROOF_PAGE_CACHE.get(url);
+  if (cached && isFreshCacheEntry(cached.checkedAtMs)) {
+    return { block: cached.block, source: cached.source };
+  }
+
+  try {
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return cached ? { block: cached.block, source: cached.source } : null;
+    const html = await res.text();
+    const sourceId = buildSourceId(url);
+    const title = extractTitle(html);
+    const block = `Source [${sourceId}]\nTitle: ${title}\nURL: ${url}\nExcerpt: ${summarizeContent(stripHtml(html), MAX_WEB_DOC_CHARS)}`;
+    const source = { sourceId, url, title };
+    PROOF_PAGE_CACHE.set(url, { block, source, checkedAtMs: Date.now() });
+    return { block, source };
+  } catch {
+    return cached ? { block: cached.block, source: cached.source } : null;
+  }
+}
+
+async function buildProofContext(question: string) {
+  const urls = await loadProofSitemapUrls();
 
   if (!urls.length) {
     return { blocks: [], sources: [] as BriefSource[] };
@@ -285,21 +359,14 @@ async function buildProofContext(question: string) {
     .slice(0, MAX_WEB_DOCS)
     .map((item) => item.url);
 
-  const blocks: string[] = [];
-  const sources: BriefSource[] = [];
-  for (const url of topUrls) {
-    try {
-      const res = await fetchWithTimeout(url);
-      const html = await res.text();
-      const sourceId = buildSourceId(url);
-      blocks.push(`Source [${sourceId}]\nTitle: ${extractTitle(html)}\nURL: ${url}\nExcerpt: ${summarizeContent(stripHtml(html), MAX_WEB_DOC_CHARS)}`);
-      sources.push({ sourceId, url, title: extractTitle(html) });
-    } catch {
-      continue;
-    }
-  }
+  const pages = (await Promise.all(topUrls.map((url) => loadProofPage(url)))).filter(
+    (page): page is { block: string; source: BriefSource } => Boolean(page)
+  );
 
-  return { blocks, sources };
+  return {
+    blocks: pages.map((page) => page.block),
+    sources: pages.map((page) => page.source)
+  };
 }
 
 function buildConversationHistory(messages: IncomingMessage[], question: string) {
@@ -499,6 +566,8 @@ export async function getChatStatus(): Promise<ChatStatus> {
 }
 
 export async function answerChat(input: ChatRequestInput) {
+  const startMs = Date.now();
+  const phaseTimings: Record<string, number> = {};
   await ensureChatEnv();
 
   const incomingMessages = Array.isArray(input.messages) ? input.messages : [];
@@ -524,12 +593,12 @@ export async function answerChat(input: ChatRequestInput) {
     throw new ChatRouteError(400, { error: `question exceeds ${MAX_QUESTION_CHARS} characters` });
   }
 
+  const briefLookupStartMs = Date.now();
   const agent = (await findAgentSummary({
     agentId: input.agentId,
     portfolio: input.portfolio,
     region: input.region
   })) as AgentCatalogSummary | undefined;
-
   let brief: BriefPost | null = null;
   if (input.briefId) {
     brief = await getPost(input.briefId);
@@ -538,16 +607,18 @@ export async function answerChat(input: ChatRequestInput) {
     }
   }
   if (!brief) {
-    const regionPosts = await getRegionPosts(input.region);
-    brief = regionPosts.find((item) => item.portfolio === input.portfolio) ?? null;
+    brief = await getLatestPortfolioPost(input.region, input.portfolio);
   }
+  phaseTimings.briefLookupMs = Date.now() - briefLookupStartMs;
 
   const normalizedSources = brief ? normalizeBriefSources(brief.sources) : [];
   const claims = Array.isArray(brief?.claims) ? (brief?.claims as BriefClaim[]) : [];
   const categoryTokens = keywordsForPortfolio(input.portfolio);
   const selectedClaims = claims.length ? selectRelevantClaims(claims, question, categoryTokens, Number(process.env.CHAT_MAX_CLAIMS ?? 6)) : [];
   const briefSummaryContext = brief ? buildBriefSummaryContext(brief) : { blocks: [], sources: [] as BriefSource[] };
+  const websiteContextStartMs = Date.now();
   const proofContext = await buildProofContext(question);
+  phaseTimings.websiteContextMs = Date.now() - websiteContextStartMs;
 
   const sourcesById = new Map<string, BriefSource>();
   dedupeSources([...normalizedSources, ...briefSummaryContext.sources, ...proofContext.sources]).forEach((source) => {
@@ -576,6 +647,19 @@ export async function answerChat(input: ChatRequestInput) {
 
   const openai = await getOpenAIClient();
   if (!openai) {
+    phaseTimings.totalMs = Date.now() - startMs;
+    console.info(
+      JSON.stringify({
+        level: "warn",
+        event: "chat_response_generated",
+        result: "missing_key_fallback",
+        region: input.region,
+        portfolio: input.portfolio,
+        agentId: input.agentId,
+        briefId: brief?.postId ?? input.briefId,
+        timings: phaseTimings
+      })
+    );
     return buildFallbackResponse({
       brief,
       selectedClaims,
@@ -606,8 +690,12 @@ export async function answerChat(input: ChatRequestInput) {
     "Use Markdown with bullet points and short paragraphs. Do not emit HTML."
   ].join(" ");
 
-  const prompt = `${summarizeContent(promptSections.join("\n\n"), MAX_CONTEXT_CHARS)}\n\nQuestion: ${question}`;
+  const prompt = `${summarizeContent(promptSections.join("\n\n"), getMaxContextChars())}\n\nQuestion: ${question}`;
   const historyMessages = buildConversationHistory(incomingMessages, question);
+  const hasProvidedContext = Boolean(
+    brief || selectedClaims.length || briefSummaryContext.blocks.length || proofContext.blocks.length
+  );
+  const useWebSearch = shouldUseWebSearch(question, hasProvidedContext);
   const webSearchTool: Record<string, unknown> = {
     type: "web_search",
     user_location:
@@ -623,8 +711,8 @@ export async function answerChat(input: ChatRequestInput) {
       reasoning: getReasoningEffort(model) ? { effort: getReasoningEffort(model) as any } : undefined,
       instructions: systemMessage,
       input: [...historyMessages, { role: "user" as const, content: prompt }],
-      tools: useTools && isWebSearchEnabled() ? [webSearchTool as any] : undefined,
-      tool_choice: useTools && isWebSearchEnabled() ? "auto" : undefined
+      tools: useTools && useWebSearch ? [webSearchTool as any] : undefined,
+      tool_choice: useTools && useWebSearch ? "auto" : undefined
     } as any);
 
   const finalizeResponse = async (model: string, useTools: boolean) => {
@@ -649,18 +737,19 @@ export async function answerChat(input: ChatRequestInput) {
   };
 
   try {
+    const openaiStartMs = Date.now();
     let resolved: { response: any; answerText: string; model: string } | null = null;
     let lastError: unknown;
     for (const model of getModelFallbacks()) {
       try {
-        resolved = { ...(await finalizeResponse(model, isWebSearchEnabled())), model };
+        resolved = { ...(await finalizeResponse(model, useWebSearch)), model };
         break;
       } catch (err) {
         const status = (err as { status?: number })?.status;
         const code = (err as { code?: string })?.code;
         const message = ((err as Error)?.message ?? "").toLowerCase();
         const isModelError = status === 404 || status === 403 || code === "model_not_found";
-        const isToolConfigError = status === 400 && isWebSearchEnabled() && (message.includes("web_search") || message.includes("tool"));
+        const isToolConfigError = status === 400 && useWebSearch && (message.includes("web_search") || message.includes("tool"));
 
         if (isToolConfigError) {
           resolved = { ...(await finalizeResponse(model, false)), model };
@@ -673,7 +762,9 @@ export async function answerChat(input: ChatRequestInput) {
       }
     }
     if (!resolved) throw lastError;
+    phaseTimings.openaiMs = Date.now() - openaiStartMs;
 
+    const citationStartMs = Date.now();
     const briefCitations = extractSourceIds(resolved.answerText)
       .map((id) => sourcesById.get(id))
       .filter((item): item is BriefSource => Boolean(item));
@@ -693,12 +784,45 @@ export async function answerChat(input: ChatRequestInput) {
       }
     }
     const citations = dedupeSources([...briefCitations, ...webCitations]);
+    phaseTimings.citationProcessingMs = Date.now() - citationStartMs;
+    phaseTimings.totalMs = Date.now() - startMs;
+    console.info(
+      JSON.stringify({
+        level: "info",
+        event: "chat_response_generated",
+        result: "ok",
+        model: resolved.model,
+        responseStatus: resolved.response?.status,
+        region: input.region,
+        portfolio: input.portfolio,
+        agentId: input.agentId,
+        briefId: brief?.postId ?? input.briefId,
+        useWebSearch,
+        citationsCount: citations.length,
+        webCitationsCount: webCitations.length,
+        timings: phaseTimings
+      })
+    );
     return {
       answer: replaceSourceIdsWithLinks(resolved.answerText, sourcesById),
       citations,
       sources: citations.map((source) => source.url)
     };
   } catch (err) {
+    phaseTimings.totalMs = Date.now() - startMs;
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "chat_request_failed",
+        region: input.region,
+        portfolio: input.portfolio,
+        agentId: input.agentId,
+        briefId: brief?.postId ?? input.briefId,
+        useWebSearch,
+        timings: phaseTimings,
+        error: err instanceof Error ? err.message : "unknown_error"
+      })
+    );
     const status = (err as { status?: number })?.status;
     const code = (err as { code?: string })?.code;
     if (FALLBACK_CONTEXT_ENABLED && selectedClaims.length > 0) {

@@ -14,11 +14,11 @@ import {
   portfolioLabel,
   type AgentCatalogSummary
 } from "@proof/shared";
-import { getPost, getRegionPosts } from "../db/posts.js";
+import { getLatestPortfolioPost, getPost } from "../db/posts.js";
 import { OpenAI } from "openai";
 
 const DEFAULT_MODEL = "gpt-5-nano-2025-08-07";
-const MAX_CONTEXT_CHARS = 100_000; // ~25k token budget
+const DEFAULT_MAX_CONTEXT_CHARS = 40_000;
 const DEFAULT_MAX_COMPLETION_TOKENS = 1000;
 const DEFAULT_REASONING_MAX_OUTPUT_TOKENS = 25_000;
 const REASONING_RETRY_MAX_OUTPUT_TOKENS = 32_000;
@@ -28,7 +28,8 @@ const MAX_MESSAGE_COUNT = 40;
 const PROOF_OF_CONCEPT_STUDIO_URL = "https://proofofconceptstudio.com";
 const MAX_WEB_DOCS = 3;
 const MAX_WEB_DOC_CHARS = 2200;
-const SEARCH_TIMEOUT_MS = 5000; // used by buildProofOfConceptContext
+const DEFAULT_PROOF_CONTEXT_TIMEOUT_MS = 1500;
+const DEFAULT_PROOF_CONTEXT_TTL_MS = 10 * 60 * 1000;
 const FALLBACK_MODELS = ["gpt-4o-mini"];
 const STATUS_CHECK_TTL_MS = Number(process.env.CHAT_STATUS_CACHE_MS ?? 60000);
 const STATUS_VERIFY_TIMEOUT_MS = Number(process.env.CHAT_STATUS_VERIFY_TIMEOUT_MS ?? 4000);
@@ -38,6 +39,8 @@ const RATE_LIMIT_STATE = new Map<string, { tokens: number; lastRefillMs: number 
 let cachedOpenAIKey: string | null = null;
 let cachedOpenAI: OpenAI | null = null;
 let cachedStatus: { ok: boolean; error?: string; checkedAt: number } | null = null;
+let proofSitemapCache: { urls: string[]; checkedAtMs: number } | null = null;
+const PROOF_PAGE_CACHE = new Map<string, { block: string; url: string; checkedAtMs: number }>();
 
 type IncomingMessage = {
   role?: string;
@@ -48,6 +51,8 @@ type ExternalContext = {
   blocks: string[];
   urls: string[];
 };
+
+type WebSearchMode = "auto" | "always" | "off";
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -63,6 +68,23 @@ function getOpenAIClient(): OpenAI | null {
 
 function getModel() {
   return process.env.OPENAI_MODEL || DEFAULT_MODEL;
+}
+
+function positiveEnvNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name] ?? "");
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function getMaxContextChars() {
+  return positiveEnvNumber("CHAT_MAX_CONTEXT_CHARS", DEFAULT_MAX_CONTEXT_CHARS);
+}
+
+function getProofContextTtlMs() {
+  return positiveEnvNumber("CHAT_PROOF_CONTEXT_TTL_MS", DEFAULT_PROOF_CONTEXT_TTL_MS);
+}
+
+function getProofContextTimeoutMs() {
+  return positiveEnvNumber("CHAT_PROOF_CONTEXT_TIMEOUT_MS", DEFAULT_PROOF_CONTEXT_TIMEOUT_MS);
 }
 
 function isReasoningModel(model?: string) {
@@ -157,8 +179,19 @@ function getRateLimitConfig() {
   };
 }
 
-function isWebSearchEnabled() {
-  return process.env.WEB_SEARCH_ENABLED !== "false";
+function getWebSearchMode(): WebSearchMode {
+  if (process.env.WEB_SEARCH_ENABLED === "false") return "off";
+  const raw = (process.env.CHAT_WEB_SEARCH_MODE ?? "auto").toLowerCase();
+  if (raw === "always" || raw === "off") return raw;
+  return "auto";
+}
+
+function shouldUseWebSearch(question: string, hasProvidedContext: boolean): boolean {
+  const mode = getWebSearchMode();
+  if (mode === "off") return false;
+  if (mode === "always") return true;
+  if (!hasProvidedContext) return true;
+  return /\b(today|current|latest|recent|news|web|internet|external|outside|price|prices|quote|stock|cite|source)\b/i.test(question);
 }
 
 function stripHtml(raw: string) {
@@ -422,7 +455,7 @@ function keywordTokens(question: string) {
   return uniqueStrings(filtered).slice(0, 8);
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = SEARCH_TIMEOUT_MS) {
+async function fetchWithTimeout(url: string, timeoutMs = getProofContextTimeoutMs()) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -432,24 +465,66 @@ async function fetchWithTimeout(url: string, timeoutMs = SEARCH_TIMEOUT_MS) {
   }
 }
 
-async function buildProofOfConceptContext(question: string): Promise<ExternalContext> {
+function isFreshCacheEntry(checkedAtMs: number) {
+  return Date.now() - checkedAtMs < getProofContextTtlMs();
+}
+
+async function loadProofSitemapUrls(): Promise<string[]> {
   const candidates = [
     `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap.xml`,
     `${PROOF_OF_CONCEPT_STUDIO_URL}/sitemap_index.xml`,
     `${PROOF_OF_CONCEPT_STUDIO_URL}/wp-sitemap.xml`
   ];
-  let urls: string[] = [];
-  for (const sitemapUrl of candidates) {
-    try {
-      const res = await fetchWithTimeout(sitemapUrl, SEARCH_TIMEOUT_MS);
-      if (!res.ok) continue;
-      const xml = await res.text();
-      urls = extractUrlsFromSitemap(xml);
-      if (urls.length) break;
-    } catch {
-      continue;
-    }
+
+  if (proofSitemapCache && isFreshCacheEntry(proofSitemapCache.checkedAtMs)) {
+    return proofSitemapCache.urls;
   }
+
+  const attempts = await Promise.all(
+    candidates.map(async (sitemapUrl) => {
+      try {
+        const res = await fetchWithTimeout(sitemapUrl);
+        if (!res.ok) return [];
+        return extractUrlsFromSitemap(await res.text());
+      } catch {
+        return [];
+      }
+    })
+  );
+  const urls = attempts.find((items) => items.length > 0) ?? [];
+
+  if (urls.length) {
+    proofSitemapCache = { urls, checkedAtMs: Date.now() };
+    return urls;
+  }
+
+  return proofSitemapCache?.urls ?? [];
+}
+
+async function loadProofPage(url: string): Promise<{ block: string; url: string } | null> {
+  const cached = PROOF_PAGE_CACHE.get(url);
+  if (cached && isFreshCacheEntry(cached.checkedAtMs)) {
+    return { block: cached.block, url: cached.url };
+  }
+
+  try {
+    const raw = await fetchWithTimeout(url);
+    if (!raw.ok) return cached ? { block: cached.block, url: cached.url } : null;
+    const html = await raw.text();
+    const title = extractTitle(html) ?? "ProofOfConceptStudio.com";
+    const text = stripHtml(html);
+    const excerpt = summarizeContent(text, MAX_WEB_DOC_CHARS);
+    const block = `Title: ${title}\nURL: ${url}\nExcerpt: ${excerpt}`;
+    PROOF_PAGE_CACHE.set(url, { block, url, checkedAtMs: Date.now() });
+    return { block, url };
+  } catch {
+    return cached ? { block: cached.block, url: cached.url } : null;
+  }
+}
+
+async function buildProofOfConceptContext(question: string): Promise<ExternalContext> {
+  const urls = await loadProofSitemapUrls();
+
   if (!urls.length) {
     return { blocks: [], urls: [] };
   }
@@ -464,20 +539,13 @@ async function buildProofOfConceptContext(question: string): Promise<ExternalCon
     .sort((a, b) => b.score - a.score);
   const topUrls = scored.slice(0, MAX_WEB_DOCS).map((item) => item.url);
 
-  const blocks: string[] = [];
-  for (const url of topUrls) {
-    try {
-      const raw = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-      const html = await raw.text();
-      const title = extractTitle(html) ?? "ProofOfConceptStudio.com";
-      const text = stripHtml(html);
-      const excerpt = summarizeContent(text, MAX_WEB_DOC_CHARS);
-      blocks.push(`Title: ${title}\nURL: ${url}\nExcerpt: ${excerpt}`);
-    } catch {
-      continue;
-    }
-  }
-  return { blocks, urls: topUrls };
+  const pages = (await Promise.all(topUrls.map((url) => loadProofPage(url)))).filter(
+    (page): page is { block: string; url: string } => Boolean(page)
+  );
+  return {
+    blocks: pages.map((page) => page.block),
+    urls: pages.map((page) => page.url)
+  };
 }
 
 function checkRateLimit(clientIp: string) {
@@ -561,6 +629,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post("/", async (request, reply) => {
     const startMs = Date.now();
+    const phaseTimings: Record<string, number> = {};
     const { question, region, portfolio, agentId, messages, conversationId, briefId } = request.body as any;
     const clientIp =
       request.ip ||
@@ -610,6 +679,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       questionLength: effectiveQuestion.length
     });
 
+    const briefLookupStartMs = Date.now();
     const agent = await findAgent(agentId, portfolio, region) as AgentCatalogSummary | undefined;
     let targetBrief: BriefPost | null = null;
     if (briefId) {
@@ -628,10 +698,9 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
     if (!targetBrief) {
-      const regionPosts = await getRegionPosts(region);
-      const filtered = regionPosts.filter((post) => post.portfolio === portfolio);
-      targetBrief = filtered[0] ?? null;
+      targetBrief = await getLatestPortfolioPost(region, portfolio);
     }
+    phaseTimings.briefLookupMs = Date.now() - briefLookupStartMs;
 
     if (!targetBrief) {
       request.log.warn({ ...logContext }, "No brief found for region/portfolio; using external context only.");
@@ -669,15 +738,18 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const openai = getOpenAIClient();
     if (!openai) {
       const timingMs = Date.now() - startMs;
+      phaseTimings.totalMs = timingMs;
       request.log.warn(
-        { ...effectiveLogContext, timingMs, result: "missing_key" },
+        { ...effectiveLogContext, timingMs, timings: phaseTimings, result: "missing_key" },
         "Missing OPENAI_API_KEY; chat unavailable."
       );
       reply.code(503).send({ error: "AI is offline. Configure OPENAI_API_KEY to enable chat." });
       return;
     }
 
+    const websiteContextStartMs = Date.now();
     const proofContext = await buildProofOfConceptContext(effectiveQuestion);
+    phaseTimings.websiteContextMs = Date.now() - websiteContextStartMs;
 
     const proofSources = proofContext.urls.map((url) => ({ sourceId: buildSourceId(url), url }));
     const proofBlocks = proofContext.blocks.map((block, index) => {
@@ -724,7 +796,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       promptSections.push(`ProofOfConceptStudio.com context:\n${proofBlocks.join("\n\n")}`);
     }
 
-    const context = summarizeContent(promptSections.join("\n\n"), MAX_CONTEXT_CHARS);
+    const context = summarizeContent(promptSections.join("\n\n"), getMaxContextChars());
     const prompt = `${context}\n\nQuestion: ${effectiveQuestion}`;
 
     const assistantIdentity = agent
@@ -766,7 +838,11 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     } else {
       webSearchTool.user_location = { type: "approximate", country: "US", city: "Houston" };
     }
-    const tools = isWebSearchEnabled() ? [webSearchTool] : [];
+    const hasProvidedContext = Boolean(
+      targetBrief || selectedClaims.length || briefSummaryContext.blocks.length || proofBlocks.length
+    );
+    const useWebSearch = shouldUseWebSearch(effectiveQuestion, hasProvidedContext);
+    const tools = useWebSearch ? [webSearchTool] : [];
 
     const requestResponse = (options?: { modelOverride?: string; maxOutputTokens?: number; useTools?: boolean }) => {
       const model = options?.modelOverride ?? getModel();
@@ -782,8 +858,8 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
           ...historyMessages,
           { role: "user" as const, content: prompt }
         ],
-        tools: useTools ? (tools as any) : undefined,
-        tool_choice: useTools && isWebSearchEnabled() ? "auto" : undefined
+        tools: useTools && useWebSearch ? (tools as any) : undefined,
+        tool_choice: useTools && useWebSearch ? "auto" : undefined
       } as any);
     };
 
@@ -820,14 +896,14 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       let lastError: unknown;
       for (const model of models) {
         try {
-          return { ...(await finalizeResponse(model, isWebSearchEnabled())), model };
+          return { ...(await finalizeResponse(model, useWebSearch)), model };
         } catch (err) {
           const status = (err as { status?: number })?.status;
           const code = (err as { code?: string })?.code;
           const message = ((err as Error)?.message ?? "").toLowerCase();
           const isModelError = status === 404 || status === 403 || code === "model_not_found";
           const isToolConfigError =
-            status === 400 && isWebSearchEnabled() && (message.includes("web_search") || message.includes("tool"));
+            status === 400 && useWebSearch && (message.includes("web_search") || message.includes("tool"));
 
           if (isToolConfigError) {
             try {
@@ -855,9 +931,12 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     try {
+      const openaiStartMs = Date.now();
       const { response, model, answerText } = await requestResponseWithFallbacks(getModelFallbacks());
+      phaseTimings.openaiMs = Date.now() - openaiStartMs;
       const rawAnswer = answerText;
 
+      const citationStartMs = Date.now();
       // Brief evidence citations ([sourceId] tokens)
       const foundSourceIds = extractSourceIds(rawAnswer);
       const briefCitations = foundSourceIds
@@ -882,16 +961,20 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
       const allCitations = dedupeSources([...briefCitations, ...webCitations]);
+      phaseTimings.citationProcessingMs = Date.now() - citationStartMs;
 
       const timingMs = Date.now() - startMs;
+      phaseTimings.totalMs = timingMs;
       const debug = getDebugChatLogging();
       request.log.info(
         {
           ...effectiveLogContext,
           timingMs,
+          timings: phaseTimings,
           openaiRequestId: (response as any).id,
           result: "ok",
           model,
+          useWebSearch,
           responseStatus: (response as any).status,
           incompleteReason: (response as any).incomplete_details?.reason,
           questionPreview: debug ? effectiveQuestion.slice(0, 300) : undefined,
@@ -903,13 +986,14 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       return { answer, citations: allCitations, sources: allCitations.map((source) => source.url) };
     } catch (err) {
       const timingMs = Date.now() - startMs;
+      phaseTimings.totalMs = timingMs;
       const errorMessage = (err as Error)?.message ?? "Unknown error";
       const status = (err as { status?: number })?.status;
       const code = (err as { code?: string })?.code;
       const isAuthError = status === 401 || status === 403;
       const isNotFound = status === 404 || code === "model_not_found";
       request.log.error(
-        { err, status, code, ...effectiveLogContext, timingMs, result: "error" },
+        { err, status, code, ...effectiveLogContext, timingMs, timings: phaseTimings, useWebSearch, result: "error" },
         "AI call failed; rejecting chat request."
       );
       if (getDebugChatLogging()) {

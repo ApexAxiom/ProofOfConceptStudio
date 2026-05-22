@@ -5,8 +5,7 @@ import { ExecutiveArticle, getExecutiveDashboardData } from "../lib/executive-da
 import { formatDateWithTimezone } from "../lib/format-time";
 import { LiveMarketTicker } from "../components/LiveMarketTicker";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 const EXECUTIVE_MARKET_SYMBOLS = ["WTI", "BRENT", "NG", "HRC", "COPPER", "IRON", "BDRY", "AUDUSD", "DXY", "SPX"];
 

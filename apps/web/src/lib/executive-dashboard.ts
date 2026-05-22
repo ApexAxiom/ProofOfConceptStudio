@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { getPortfolioSources, isUserVisiblePlaceholderArticle } from "@proof/shared";
 import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
 import {
@@ -59,6 +60,7 @@ const FEED_TIMEOUT_MS = 12_000;
 const MAX_ITEMS_PER_FEED = 8;
 const SECTION_LIMIT = 12;
 const MAX_ARTICLE_AGE_DAYS = 14;
+const DEFAULT_EXECUTIVE_DASHBOARD_CACHE_SECONDS = 900;
 const EXECUTIVE_GOOGLE_NEWS_ENABLED = (process.env.EXECUTIVE_GOOGLE_NEWS_ENABLED ?? "true").toLowerCase() === "true";
 
 function toExecutiveFeeds(portfolio: string, region: "apac" | "intl", targetRegion: ExecutiveRegion): RssFeed[] {
@@ -165,6 +167,15 @@ const WOODSIDE_KEYWORDS = [
   "stock",
   "investor"
 ];
+
+function positiveEnvNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name] ?? "");
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function isIncrementalCacheUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("incrementalCache missing");
+}
 
 function parseTagValue(item: string, tag: string): string | null {
   const cdata = item.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
@@ -365,6 +376,24 @@ async function buildExecutiveDashboardData(): Promise<ExecutiveDashboardPayload>
   };
 }
 
+const getExecutiveDashboardDataCached = unstable_cache(
+  buildExecutiveDashboardData,
+  ["web-executive-dashboard"],
+  {
+    revalidate: positiveEnvNumber(
+      "EXECUTIVE_DASHBOARD_CACHE_SECONDS",
+      DEFAULT_EXECUTIVE_DASHBOARD_CACHE_SECONDS
+    )
+  }
+);
+
 export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
-  return buildExecutiveDashboardData();
+  try {
+    return await getExecutiveDashboardDataCached();
+  } catch (error) {
+    if (isIncrementalCacheUnavailable(error)) {
+      return buildExecutiveDashboardData();
+    }
+    throw error;
+  }
 }

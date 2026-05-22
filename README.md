@@ -119,6 +119,10 @@ API
 - `ADMIN_TOKEN`
 - `CORS_ORIGINS` (optional)
 - `DEBUG_CHAT_LOGGING` (optional; `true` to log truncated chat content)
+- `CHAT_MAX_CONTEXT_CHARS` (optional; default 40000)
+- `CHAT_PROOF_CONTEXT_TIMEOUT_MS` (optional; default 1500)
+- `CHAT_PROOF_CONTEXT_TTL_MS` (optional; default 600000)
+- `CHAT_WEB_SEARCH_MODE` (optional; `auto`, `always`, or `off`; default `auto`)
 - `CHAT_RATE_LIMIT_RPM` (optional; default 30)
 - `CHAT_RATE_LIMIT_BURST` (optional; default 10)
 - `CHAT_MAX_CLAIMS` (optional; default 6)
@@ -143,6 +147,8 @@ Runner
 Web
 - `PORT=8080`
 - `API_BASE_URL` (URL of proof-api service; required in production)
+- `EXECUTIVE_DASHBOARD_CACHE_SECONDS` (optional; default 900)
+- Chat optimization variables are also honored by the web server route when chat runs in-process.
 - Web uses server-side proxy routes to call the API; set `API_BASE_URL` to the deployed api endpoint.
 
 ### Scheduler

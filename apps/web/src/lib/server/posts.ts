@@ -168,6 +168,37 @@ export async function getRegionPosts(region: string, limit = DEFAULT_REGION_FETC
   }
 }
 
+export async function getLatestPortfolioPost(
+  region: string,
+  portfolio: string,
+  includeHidden = false
+): Promise<BriefPost | null> {
+  const validRegions = new Set<string>(REGION_LIST.map((r) => r.slug));
+  if (!region || !validRegions.has(region) || !portfolio) return null;
+
+  try {
+    const posts = await fetchPortfolioFromDynamo({
+      region,
+      portfolio,
+      limit: 1,
+      includeHidden
+    });
+    return posts[0] ?? null;
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "latest_portfolio_post_read_failed",
+        region,
+        portfolio,
+        reasonCode: "dynamo_read_failed",
+        error: (err as Error).message
+      })
+    );
+    return null;
+  }
+}
+
 export async function filterPosts(params: {
   region: string;
   portfolio?: string;
@@ -183,7 +214,7 @@ export async function filterPosts(params: {
       posts = await fetchPortfolioFromDynamo({
         region: params.region,
         portfolio: params.portfolio,
-        limit: Math.max(targetLimit, DEFAULT_PORTFOLIO_FETCH_LIMIT),
+        limit: targetLimit,
         includeHidden: params.includeHidden
       });
     } catch (err) {
