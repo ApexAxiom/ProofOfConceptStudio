@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { GET } from "../app/api/executive-dashboard/route.js";
 
+const MAX_DASHBOARD_AGE_MS = 24 * 60 * 60 * 1000;
+
 async function main() {
   const response = await GET();
   assert.equal(response.status, 200, "executive dashboard endpoint should return 200");
@@ -14,6 +16,9 @@ async function main() {
   };
 
   assert.ok(payload.generatedAt, "generatedAt is required");
+  const generatedAtMs = Date.parse(payload.generatedAt);
+  assert.ok(Number.isFinite(generatedAtMs), "generatedAt must be a valid ISO timestamp");
+  assert.ok(Date.now() - generatedAtMs <= MAX_DASHBOARD_AGE_MS, "generatedAt must be less than 24 hours old");
   assert.ok(Array.isArray(payload.market?.quotes), "market.quotes must be an array");
   assert.ok((payload.market?.quotes ?? []).length > 0, "market.quotes should not be empty");
   assert.ok(payload.market?.lastUpdated, "market.lastUpdated is required");

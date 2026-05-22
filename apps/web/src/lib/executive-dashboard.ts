@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { getPortfolioSources, isUserVisiblePlaceholderArticle } from "@proof/shared";
 import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
 import {
@@ -144,10 +143,6 @@ const GOOGLE_INTERNATIONAL_FEEDS: RssFeed[] = [
 ];
 
 const SECTION_FALLBACK_MIN_ARTICLES = 4;
-
-function isIncrementalCacheUnavailable(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("incrementalCache missing");
-}
 
 // Broader keyword sets to capture more relevant articles.
 // Articles only need to match ONE keyword to be included.
@@ -370,19 +365,6 @@ async function buildExecutiveDashboardData(): Promise<ExecutiveDashboardPayload>
   };
 }
 
-const getExecutiveDashboardDataCached = unstable_cache(
-  buildExecutiveDashboardData,
-  ["web-executive-dashboard"],
-  { revalidate: 900 }
-);
-
 export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
-  try {
-    return await getExecutiveDashboardDataCached();
-  } catch (error) {
-    if (isIncrementalCacheUnavailable(error)) {
-      return buildExecutiveDashboardData();
-    }
-    throw error;
-  }
+  return buildExecutiveDashboardData();
 }

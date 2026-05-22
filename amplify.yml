@@ -22,4 +22,3 @@ applications:
         paths:
           - .pnpm-store/**/*
           - node_modules/**/*
-          - apps/web/.next/cache/**/*
