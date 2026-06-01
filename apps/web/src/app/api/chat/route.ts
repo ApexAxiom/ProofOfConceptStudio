@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getChatAccessState } from "../../../lib/server/chat-access";
 import { answerChat, ChatRouteError, getChatStatus } from "../../../lib/server/chat";
 
 export const runtime = "nodejs";
@@ -11,6 +12,11 @@ function canDebug(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const auth = await getChatAccessState();
+  if (!auth.authenticated) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+  }
+
   try {
     const status = await getChatStatus();
     return NextResponse.json(status, {
@@ -39,6 +45,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await getChatAccessState();
+  if (!auth.authenticated) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const response = await answerChat({
