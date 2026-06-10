@@ -11,6 +11,7 @@ import {
 import { fetchRss } from "./rss.js";
 import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js";
 import { dedupeArticles } from "./dedupe.js";
+import { assessArticleMateriality, MaterialityAssessment } from "./materiality.js";
 import { normalizeForDedupe } from "./url-normalize.js";
 import { getRecentlyUsedUrls } from "../db/used-urls.js";
 import { FeedAttempt, recordFeedAttempts } from "./feed-health.js";
@@ -28,6 +29,8 @@ export interface ArticleDetail extends ArticleCandidate {
   content?: string;
   ogImageUrl?: string;
   contentStatus?: "ok" | "thin";
+  /** Materiality assessment (event type + matched entities) from ranking. */
+  materiality?: MaterialityAssessment;
 }
 
 const MIN_CONTENT_LEN = 300; // Reduced from 400 to allow more articles with good content
@@ -689,12 +692,23 @@ export async function ingestAgent(
     .map((item) => {
       const hay = `${item.title} ${item.url} ${item.summary ?? ""}`.toLowerCase();
       const signals = computeKeywordSignals(hay, primaryKeywords, secondaryKeywords, excludeKeywords, generalKeywords);
-      return { ...item, ...signals };
+      const materiality = assessArticleMateriality({
+        title: item.title,
+        summary: item.summary,
+        publishedAt: item.published,
+        portfolio: agent.portfolio,
+        region
+      });
+      return { ...item, ...signals, materiality, triageScore: signals.score + materiality.materialityScore };
     })
     .filter((item) => !item.hasExclude)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.triageScore - a.triageScore);
 
-  const primaryQualified = scoredAll.filter((item) => item.primaryMatches > 0);
+  // Articles naming a registry supplier qualify even without a primary keyword
+  // hit (e.g. "Tenaris flags mill outage" may not contain "OCTG").
+  const primaryQualified = scoredAll.filter(
+    (item) => item.primaryMatches > 0 || item.materiality.supplierMatches > 0
+  );
   const scored =
     primaryQualified.length >= minNeeded
       ? primaryQualified
@@ -764,12 +778,21 @@ export async function ingestAgent(
         excludeKeywords,
         generalKeywords
       );
+      // Re-assess with full content so entity mentions buried in the body count.
+      const materiality = assessArticleMateriality({
+        title: article.title,
+        summary: article.summary,
+        content: article.content,
+        publishedAt: article.published,
+        portfolio: agent.portfolio,
+        region
+      });
       const baseScore = top[idx]?.score ?? 0;
       const penalty = contentLen === 0 ? EMPTY_CONTENT_PENALTY : contentLen < MIN_CONTENT_LEN ? THIN_CONTENT_PENALTY : 0;
       const excludePenalty = contentSignals.hasExclude ? 3 : 0;
       return {
-        article: { ...article, contentStatus: contentLen >= MIN_CONTENT_LEN ? "ok" : "thin" },
-        combinedScore: baseScore + contentSignals.score - penalty - excludePenalty
+        article: { ...article, contentStatus: contentLen >= MIN_CONTENT_LEN ? "ok" : "thin", materiality },
+        combinedScore: baseScore + contentSignals.score + materiality.materialityScore - penalty - excludePenalty
       };
     })
     .sort((a, b) => b.combinedScore - a.combinedScore)

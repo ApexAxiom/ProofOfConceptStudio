@@ -247,6 +247,8 @@ export interface BriefReport {
   actionGroups: BriefReportActionGroup[];
 }
 
+export type BriefSignalLevel = "act" | "watch" | "awareness";
+
 export interface BriefPost {
   postId: string;
   title: string;
@@ -297,6 +299,13 @@ export interface BriefPost {
 
   /** Explicit note for fallback-context days */
   contextNote?: string;
+
+  /**
+   * Triage level for the day: "act" (material event needing a decision),
+   * "watch" (developing signals worth monitoring), or "awareness"
+   * (low-signal day; content is for general awareness only).
+   */
+  signalLevel?: BriefSignalLevel;
 
   /** Pre-mapped top stories for v2 rendering */
   topStories?: BriefV2TopStory[];

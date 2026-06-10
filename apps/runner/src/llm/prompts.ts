@@ -101,6 +101,12 @@ export interface ArticleInput {
   sourceName?: string;
   publishedAt?: string;
   contentStatus?: "ok" | "thin";
+  /** Event taxonomy classification from ingestion (e.g. "contract-award"). */
+  eventType?: string;
+  /** Human-readable event label (e.g. "Contract award"). */
+  eventLabel?: string;
+  /** Canonical registry entities (suppliers/operators) mentioned in the article. */
+  entities?: string[];
 }
 
 export interface PromptInput {
@@ -509,10 +515,14 @@ export function buildPrompt({
         a.contentStatus === "thin"
           ? "\n**CONTENT_MISSING:** This article has limited or missing text. Do NOT use numbers from it."
           : "";
+      const eventInfo = a.eventLabel ? `\n**Event type:** ${a.eventLabel}` : "";
+      const entityInfo = a.entities?.length
+        ? `\n**Known suppliers/operators mentioned:** ${a.entities.join(", ")}`
+        : "";
       return `
 ### Article ${idx + 1}${sourceInfo}${dateInfo}
 **Title:** ${a.title}
-**URL:** ${a.url}${imageInfo}
+**URL:** ${a.url}${imageInfo}${eventInfo}${entityInfo}
 **EVIDENCE EXCERPTS (verbatim):**
 ${extractEvidenceExcerpts(a.content ?? "")}${contentNote}
 `;

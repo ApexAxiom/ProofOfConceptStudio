@@ -6,7 +6,8 @@ import {
   RegionSlug,
   RunWindow,
   REGIONS,
-  SelectedArticleProcurementLens
+  SelectedArticleProcurementLens,
+  getAgentFramework
 } from "@proof/shared";
 import type { ArticleInput } from "./prompts.js";
 import {
@@ -342,12 +343,18 @@ function articleBlock(input: ProcurementPromptInput): string {
       const sourceName = article.sourceName ? ` (${article.sourceName})` : "";
       const published = article.publishedAt ? `\nPublished: ${formatDateForRegion(article.publishedAt, input.region)}` : "";
       const contentStatus = article.contentStatus === "thin" ? "\nCONTENT_STATUS: thin (treat as early signal)" : "";
+      const eventType = article.eventLabel ? `\nEvent type: ${article.eventLabel}` : "";
+      const entities = article.entities?.length
+        ? `\nKnown suppliers/operators mentioned: ${article.entities.join(", ")}`
+        : "";
       return [
         `### Article ${index}${sourceName}`,
         `Title: ${article.title}`,
         `URL: ${article.url}`,
         published,
         contentStatus,
+        eventType,
+        entities,
         "Evidence excerpts:",
         extractEvidenceExcerpts(article.content ?? "")
       ]
@@ -355,6 +362,25 @@ function articleBlock(input: ProcurementPromptInput): string {
         .join("\n");
     })
     .join("\n\n---\n\n");
+}
+
+function categoryFrameworkBlock(input: ProcurementPromptInput): string {
+  const framework = getAgentFramework(input.agent.id);
+  if (!framework) return "";
+  const lens = framework.dailyCMLens;
+  const lines = [
+    framework.keySuppliers.length ? `- Key suppliers in this category: ${framework.keySuppliers.join(", ")}` : "",
+    framework.marketDrivers.length ? `- Market drivers: ${framework.marketDrivers.join("; ")}` : "",
+    lens?.costDrivers?.length ? `- Cost drivers to read prices through: ${lens.costDrivers.join("; ")}` : "",
+    lens?.capacityDrivers?.length ? `- Capacity drivers to read availability through: ${lens.capacityDrivers.join("; ")}` : "",
+    lens?.contractingImplications?.length
+      ? `- Contract mechanisms that matter here: ${lens.contractingImplications.join("; ")}`
+      : "",
+    lens?.complianceTriggers?.length ? `- Compliance triggers to flag: ${lens.complianceTriggers.join("; ")}` : ""
+  ].filter(Boolean);
+  if (lines.length === 0) return "";
+  return `Category framework (use this lens when judging relevance and writing implications; never invent facts from it):
+${lines.join("\n")}`;
 }
 
 function indexBlock(indices: MarketIndex[]): string {
@@ -439,6 +465,8 @@ OUTPUT RULES (strict):
 24) No fake urgency on light-signal days.
 25) If an article is weak, thematic, or peripheral, say so directly. Limited relevance is acceptable.
 26) Never paste article leads, page navigation text, bylines, or boilerplate from the source.
+27) Name the suppliers, operators, and counterparties involved whenever the article identifies them. "A major contractor" is weaker than "Subsea 7". Use the "Event type" and "Known suppliers/operators mentioned" hints on each article to anchor the procurement angle.
+28) Use the category framework below to judge relevance and phrase implications in this category's commercial language (e.g. dayrate/term for rigs, steel-indexed pricing for OCTG, escalation indices for LTSAs). Never present framework entries as facts from today's articles.
 
 JSON SHAPE:
 \`\`\`json
@@ -485,6 +513,8 @@ Context:
 - Region: ${regionLabel}
 - Run window: ${input.runWindow.toUpperCase()}
 - Coverage mode: ${coverageMode}
+
+${categoryFrameworkBlock(input)}
 
 Previous brief context:
 ${previousBriefSection(input)}

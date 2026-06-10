@@ -19,6 +19,7 @@ import { expectedCoverageDayKey } from "./brief-coverage/day.js";
 import { PlaceholderReason } from "./brief-coverage/placeholders.js";
 import { resolveFallbackBrief } from "./brief-coverage/fallback.js";
 import { fetchGeneralContextArticles, ingestAgent, ArticleDetail, IngestResult } from "./ingest/fetch.js";
+import { deriveSignalLevel, MaterialityAssessment } from "./ingest/materiality.js";
 import { generateBriefV3 } from "./brief-engine-v3/index.js";
 import type { ArticleInput } from "./llm/openai.js";
 import { publishBrief, logBriefRunResult, logBriefRunStart, logRunResult } from "./publish/dynamo.js";
@@ -378,7 +379,10 @@ function toArticleInput(article: ArticleSource): ArticleInput {
     ogImageUrl: article.ogImageUrl,
     sourceName: article.sourceName,
     publishedAt: article.published,
-    contentStatus: normalizeContentStatus(article.contentStatus)
+    contentStatus: normalizeContentStatus(article.contentStatus),
+    eventType: article.materiality?.eventType,
+    eventLabel: article.materiality?.eventLabel,
+    entities: article.materiality?.entities
   };
 }
 
@@ -976,6 +980,27 @@ export async function runAgent(
       runKey,
       briefDay
     });
+
+    // Derive the day's triage level from the materiality of the articles that
+    // made it into the brief. Awareness days get an explicit note instead of
+    // manufactured urgency; the content stays as a "worth knowing" read.
+    const materialityByUrl = new Map(
+      articles
+        .filter((article) => article.materiality)
+        .map((article) => [article.url, article.materiality as MaterialityAssessment])
+    );
+    const selectedAssessments = (published.selectedArticles ?? [])
+      .map((article) => materialityByUrl.get(article.url))
+      .filter((assessment): assessment is MaterialityAssessment => Boolean(assessment));
+    const signalLevel = deriveSignalLevel(selectedAssessments);
+    published = {
+      ...published,
+      signalLevel,
+      contextNote:
+        signalLevel === "awareness" && !published.contextNote
+          ? "Low-signal day for this category. Today's items are worth knowing about, but none require immediate action."
+          : published.contextNote
+    };
 
     try {
       const marketSnapshot = await fetchPortfolioSnapshot(agent.portfolio);
