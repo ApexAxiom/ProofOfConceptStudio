@@ -7,9 +7,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Sora", "system-ui", "sans-serif"],
-        display: ["Playfair Display", "Georgia", "serif"],
-        mono: ["IBM Plex Mono", "monospace"]
+        sans: ["var(--font-sans)", "Sora", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "Playfair Display", "Georgia", "serif"],
+        mono: ["var(--font-mono)", "IBM Plex Mono", "monospace"]
       },
       colors: {
         // Token-based colors (CSS variable driven)
