@@ -127,8 +127,23 @@ Open next:
 - [x] Admin quality panel: per-category signal mix, usefulness flags, fallback rate, and token
       spend over 7 days (`/api/admin/quality`)
 
-- [ ] 1.5 EIA / FRED / Baker Hughes rig count / ACCC-AEMO adapters with stored daily history
-- [ ] 2.1 Lean fixed brief structure + persistent watchlist items (carry/resolve day-to-day)
+- [x] 1.5 Market data history adapters: EIA (WTI/Brent/Henry Hub spot), FRED (diesel, steel
+      PPI), Baker Hughes US rig count, ACCC LNG netback (env-configured CSV; AU-scoped). Daily
+      values stored in the same table (`MARKET#<seriesId>` / `DAY#<yyyy-mm-dd>`), keyed per
+      category via `historySeriesId` on the per-portfolio index config. Brief market tiles show
+      official week-over-week trend ("w/w −4.0% · EIA"); history-only series (rig count,
+      netback) become their own tiles. Env-gated no-op by default (`MARKET_HISTORY_ENABLED` +
+      per-provider keys, see docs/env-contract.md); fetch/parse failure yields no data, never
+      fabricated values (`apps/runner/src/market/history/`, `apps/runner/src/db/market-history.ts`)
+- [x] 2.1 (persistent watchlist) Watchlist items are structured records (id, title, trigger,
+      status open/triggered/resolved, evidence link) that carry forward day-to-day. The rich
+      writer sees open items with stable ids and proposes `watchlistUpdates`/`watchlistAdditions`;
+      deterministic reconciliation migrates legacy freeform watchlists, dedupes by title
+      similarity, auto-resolves items stale >14 days, and caps carried items at 10. Brief page
+      and Action Center watchlist tab render status; freeform `watchlist` strings stay on the
+      record for backward compatibility (`apps/runner/src/watchlist/reconcile.ts`). The lean
+      fixed brief structure portion of 2.1 remains open.
+- [ ] 2.1 (remaining) Lean fixed brief structure
 - [x] 2.4 (v1) Usefulness checks: summary bullets must name an entity or carry a concrete
       figure; generic filler and rationale without a "because" trigger are flagged. Non-blocking
       (logged to qualityReport), so weak briefs are measurable without re-creating the old
@@ -159,3 +174,13 @@ Noticed while working; not yet changed:
    unify so "thin" and "awareness" don't drift apart.
 8. **Supplier registry is hand-seeded** — worth a domain review pass per category (names,
    aliases, AU vs Americas scoping) to sharpen entity matching further.
+9. **Baker Hughes rig count parser is structure-dependent** — it reads the IR "Rig Count
+   Overview" HTML table and intentionally yields nothing if the page layout changes; worth a
+   periodic check that points are still landing once enabled. AEMO (Vic gas / GBB) was left out
+   of the v1 adapters: its NEMWEB CSV layouts could not be verified from the sandbox; revisit
+   with a captured sample file.
+10. **`fetchPortfolioSnapshot` is portfolio-keyed, not region-keyed** — region scoping for
+    history-backed tiles (e.g. AU-only ACCC netback) lives in the enrichment step; if snapshots
+    ever become region-aware, fold that in.
+11. **Watchlist evidence links into old briefs** — structured watchlist items link to the
+    original article URL; a future nicety is linking to the brief day where the item was opened.

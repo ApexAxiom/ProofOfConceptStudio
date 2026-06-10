@@ -20,6 +20,28 @@ interface ActionEntry {
   signal: string;
 }
 
+interface WatchlistRow {
+  text: string;
+  trigger?: string;
+  status: "open" | "triggered" | "resolved";
+  statusNote?: string;
+  openedAt?: string;
+}
+
+interface WatchlistEntry {
+  portfolio: string;
+  postId: string;
+  title: string;
+  items: WatchlistRow[];
+  signal: string;
+}
+
+const WATCHLIST_STATUS_STYLES: Record<WatchlistRow["status"], string> = {
+  open: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  triggered: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  resolved: "border-border bg-secondary/30 text-muted-foreground"
+};
+
 interface VpActionEntry {
   portfolio: string;
   postId: string;
@@ -95,18 +117,28 @@ export default async function ActionCenter({
     .sort(byPortfolioOrder);
 
   const watchlist = briefs
-    .map<ActionEntry | null>((brief) =>
-      brief.watchlist?.length
-        ? {
-            portfolio: brief.portfolio,
-            postId: brief.postId,
-            title: brief.title,
-            items: brief.watchlist,
-            signal: inferSignals(brief)[0]?.label ?? "—"
-          }
-        : null
-    )
-    .filter((entry): entry is ActionEntry => Boolean(entry))
+    .map<WatchlistEntry | null>((brief) => {
+      // Prefer the persistent structured watchlist; old briefs fall back to
+      // their freeform strings rendered as open items.
+      const items: WatchlistRow[] = brief.watchlistItems?.length
+        ? brief.watchlistItems.map((item) => ({
+            text: item.title,
+            trigger: item.trigger !== item.title ? item.trigger : undefined,
+            status: item.status,
+            statusNote: item.statusNote,
+            openedAt: item.openedAt
+          }))
+        : (brief.watchlist ?? []).map((text) => ({ text, status: "open" as const }));
+      if (items.length === 0) return null;
+      return {
+        portfolio: brief.portfolio,
+        postId: brief.postId,
+        title: brief.title,
+        items,
+        signal: inferSignals(brief)[0]?.label ?? "—"
+      };
+    })
+    .filter((entry): entry is WatchlistEntry => Boolean(entry))
     .sort(byPortfolioOrder);
 
   const vpActions = briefs
@@ -144,7 +176,9 @@ export default async function ActionCenter({
   const filteredWatchlist = watchlist.filter((entry) => {
     if (selectedPortfolio !== "all" && entry.portfolio !== selectedPortfolio) return false;
     if (selectedSignal !== "all" && entry.signal.toLowerCase() !== selectedSignal) return false;
-    return matchesQuery(`${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.items.join(" ")}`);
+    return matchesQuery(
+      `${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.items.map((item) => `${item.text} ${item.trigger ?? ""}`).join(" ")}`
+    );
   });
 
   const flattenedVpActions = vpActions.flatMap((entry) =>
@@ -342,6 +376,7 @@ export default async function ActionCenter({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/20">
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Status</th>
                   <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Signal</th>
                   <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Portfolio</th>
                   <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Item</th>
@@ -352,9 +387,20 @@ export default async function ActionCenter({
                 {filteredWatchlist.map((entry) =>
                   entry.items.map((item, idx) => (
                     <tr key={`${entry.postId}-watch-${idx}`} className="hover:bg-secondary/10">
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${WATCHLIST_STATUS_STYLES[item.status]}`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{entry.signal}</td>
                       <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
-                      <td className="px-4 py-3 text-sm text-foreground">{item}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        <span className={item.status === "resolved" ? "text-muted-foreground line-through" : undefined}>{item.text}</span>
+                        {item.trigger ? <span className="block text-xs text-muted-foreground">Watching for: {item.trigger}</span> : null}
+                        {item.statusNote ? <span className="block text-xs text-muted-foreground">{item.statusNote}</span> : null}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <Link href={`/brief/${encodeURIComponent(entry.postId)}`} className="text-xs font-semibold text-primary hover:underline">
                           Open

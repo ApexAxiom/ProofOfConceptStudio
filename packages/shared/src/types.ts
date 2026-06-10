@@ -168,6 +168,14 @@ export interface BriefMarketSnapshotItem {
   sourceUrl: string;
   dataState?: "live" | "stale" | "fallback";
   isFallback?: boolean;
+  /** Value ~one week before `asOf`, from stored official-source history. */
+  weekAgoValue?: number;
+  /** Percent move vs `weekAgoValue`, from stored official-source history. */
+  weekOverWeekPercent?: number;
+  /** Window label for the history trend, e.g. "w/w" or "m/m". */
+  trendLabel?: string;
+  /** Official data provider backing the history trend, e.g. "eia", "fred". */
+  provider?: string;
 }
 
 export type BriefClaimStatus = "supported" | "analysis" | "needs_verification";
@@ -249,6 +257,52 @@ export interface BriefReport {
 
 export type BriefSignalLevel = "act" | "watch" | "awareness";
 
+export type WatchlistItemStatus = "open" | "triggered" | "resolved";
+
+/**
+ * A persistent watchlist entry that carries forward across daily briefs
+ * instead of being regenerated. Items stay `open` until the watched trigger
+ * fires (`triggered`), the condition settles (`resolved`), or they expire
+ * after going stale.
+ */
+export interface WatchlistItem {
+  /** Stable identifier carried across days (derived from the initial title). */
+  id: string;
+  /** Short label for what is being watched. */
+  title: string;
+  /** The concrete condition being watched for, e.g. "SLB confirms AU crew reallocation". */
+  trigger: string;
+  status: WatchlistItemStatus;
+  /** Brief day (YYYY-MM-DD) the item first appeared. */
+  openedAt: string;
+  /** Brief day the item last changed (new evidence or status change). */
+  updatedAt: string;
+  /** Brief day the item was triggered/resolved, when applicable. */
+  resolvedAt?: string;
+  /** Writer note explaining a status change. */
+  statusNote?: string;
+  /** Supporting article for the most recent update. */
+  evidenceUrl?: string;
+  evidenceTitle?: string;
+}
+
+/** Structured watchlist changes proposed by the brief writer for one run. */
+export interface WatchlistProposals {
+  updates: Array<{
+    id: string;
+    status: WatchlistItemStatus;
+    note?: string;
+    evidenceUrl?: string;
+    evidenceTitle?: string;
+  }>;
+  additions: Array<{
+    title: string;
+    trigger: string;
+    evidenceUrl?: string;
+    evidenceTitle?: string;
+  }>;
+}
+
 export interface BriefPost {
   postId: string;
   title: string;
@@ -276,8 +330,18 @@ export interface BriefPost {
   /** Explicit procurement actions to take */
   procurementActions?: string[];
 
-  /** Items to monitor closely */
+  /** Items to monitor closely (freeform; kept for backward compatibility) */
   watchlist?: string[];
+
+  /** Persistent structured watchlist carried forward day-to-day */
+  watchlistItems?: WatchlistItem[];
+
+  /**
+   * Internal: structured watchlist changes proposed by the writer for this
+   * run. Consumed by reconciliation in finalizePublishedBrief and never
+   * persisted on the published record.
+   */
+  watchlistProposals?: WatchlistProposals;
 
   /** Change log against the previous run */
   deltaSinceLastRun?: string[];

@@ -8,6 +8,7 @@ import {
   BriefSource,
   SelectedArticle,
   SelectedArticleProcurementLens,
+  WatchlistItem,
   buildSourceId,
   normalizeBriefSources,
   portfolioLabel,
@@ -431,6 +432,40 @@ function actionHorizonLabel(horizon: string): string {
   return ACTION_HORIZON_DISPLAY[horizon] ?? horizon;
 }
 
+const WATCHLIST_STATUS_STYLES: Record<WatchlistItem["status"], string> = {
+  open: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  triggered: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  resolved: "border-border bg-secondary/30 text-muted-foreground"
+};
+
+function WatchlistStatusChip({ status }: { status: WatchlistItem["status"] }): React.ReactElement {
+  return (
+    <span
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${WATCHLIST_STATUS_STYLES[status]}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+const MARKET_PROVIDER_LABELS: Record<string, string> = {
+  eia: "EIA",
+  fred: "FRED",
+  "baker-hughes": "Baker Hughes",
+  "accc-csv": "ACCC"
+};
+
+function marketProviderLabel(provider: string): string {
+  return MARKET_PROVIDER_LABELS[provider] ?? provider.toUpperCase();
+}
+
+function watchlistDateLabel(day?: string): string | undefined {
+  if (!day) return undefined;
+  const parsed = new Date(`${day.slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 /**
  * Layered category brief with source-backed reading flow.
  */
@@ -440,6 +475,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
   const fallbackImpact = deriveImpact(brief);
   const fallbackActions = deriveActions(brief);
   const watchItems = deriveWatchItems(brief);
+  const watchlistItems = brief.watchlistItems ?? [];
   const sources = deriveSources(brief);
   const sourceNumberById = new Map(sources.map((source, index) => [source.sourceId, index + 1]));
   const reportImpactGroups: BriefReportImpactGroup[] = brief.report?.impactGroups ?? [];
@@ -747,7 +783,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         </section>
       ) : null}
 
-      {(reportActionGroups.length > 0 || fallbackActions.length > 0 || watchItems.length > 0) ? (
+      {(reportActionGroups.length > 0 || fallbackActions.length > 0 || watchItems.length > 0 || watchlistItems.length > 0) ? (
         <section className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-lg font-semibold text-foreground">What to do / What to watch</h2>
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
@@ -797,7 +833,35 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
 
             <div className="rounded-xl border border-border bg-background p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What to watch</p>
-              {watchItems.length > 0 ? (
+              {watchlistItems.length > 0 ? (
+                <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
+                  {watchlistItems.map((item) => (
+                    <li key={item.id} className="space-y-1 rounded-lg border border-border/70 bg-card/60 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className={`text-sm font-medium ${item.status === "resolved" ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                          {item.title}
+                        </span>
+                        <WatchlistStatusChip status={item.status} />
+                      </div>
+                      {item.trigger && item.trigger !== item.title ? (
+                        <p className="text-xs text-muted-foreground">Watching for: {item.trigger}</p>
+                      ) : null}
+                      {item.statusNote ? <p className="text-xs text-muted-foreground">{item.statusNote}</p> : null}
+                      <p className="text-[11px] text-muted-foreground/80">
+                        Since {watchlistDateLabel(item.openedAt) ?? item.openedAt}
+                        {item.evidenceUrl ? (
+                          <>
+                            {" · "}
+                            <a href={item.evidenceUrl} target="_blank" rel="noreferrer" className="underline hover:text-primary">
+                              {item.evidenceTitle ? "evidence" : "source"}
+                            </a>
+                          </>
+                        ) : null}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : watchItems.length > 0 ? (
                 <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                   {watchItems.map((item, idx) => (
                     <li key={`${item}-${idx}`} className="flex gap-2">
@@ -844,6 +908,13 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                         <span className={item.change >= 0 ? "text-emerald-400" : "text-rose-400"}>
                           {`${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%)`}
                         </span>
+                        {typeof item.weekOverWeekPercent === "number" ? (
+                          <span className="block text-[11px] text-muted-foreground">
+                            {item.trendLabel ?? "w/w"} {item.weekOverWeekPercent >= 0 ? "+" : ""}
+                            {item.weekOverWeekPercent.toFixed(1)}%
+                            {item.provider ? ` · ${marketProviderLabel(item.provider)}` : ""}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
                         {new Date(item.asOf).toLocaleString("en-US", {

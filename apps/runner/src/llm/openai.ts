@@ -8,6 +8,7 @@ import {
   BriefReportAction,
   BriefSource,
   SelectedArticle,
+  WatchlistProposals,
   buildSourceId
 } from "@proof/shared";
 import { renderProcurementReportMarkdown } from "./render.js";
@@ -359,6 +360,34 @@ function toLegacyWatchlist(report: BriefReport, sourceNumberById: Map<string, nu
     .slice(0, 5);
 }
 
+function citationEvidence(
+  citations: number[] | undefined,
+  selectedByIndex: Map<number, SelectedArticle>
+): { evidenceUrl?: string; evidenceTitle?: string } {
+  const article = (citations ?? []).map((citation) => selectedByIndex.get(citation)).find(Boolean);
+  return article ? { evidenceUrl: article.url, evidenceTitle: article.title } : {};
+}
+
+function toWatchlistProposals(
+  parsed: ProcurementOutput,
+  selectedByIndex: Map<number, SelectedArticle>
+): WatchlistProposals | undefined {
+  if (!parsed.watchlistUpdates?.length && !parsed.watchlistAdditions?.length) return undefined;
+  return {
+    updates: (parsed.watchlistUpdates ?? []).map((update) => ({
+      id: update.id,
+      status: update.status,
+      note: update.note,
+      ...citationEvidence(update.citations, selectedByIndex)
+    })),
+    additions: (parsed.watchlistAdditions ?? []).map((addition) => ({
+      title: addition.title,
+      trigger: addition.trigger,
+      ...citationEvidence(addition.citations, selectedByIndex)
+    }))
+  };
+}
+
 function toDecisionSummary(report: BriefReport, sourceNumberById: Map<string, number>) {
   return {
     topMove: `${report.summaryBullets[0]?.text ?? "Monitor portfolio conditions"} ${citationTag(report.summaryBullets[0]?.sourceIds ?? [], sourceNumberById)}`.trim(),
@@ -634,6 +663,7 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
     highlights,
     procurementActions,
     watchlist,
+    watchlistProposals: toWatchlistProposals(parsed, selectedByIndex),
     deltaSinceLastRun,
     marketIndicators,
     selectedArticles,

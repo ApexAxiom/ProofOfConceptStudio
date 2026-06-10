@@ -29,6 +29,8 @@ import crypto from "node:crypto";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
 import { fetchPortfolioSnapshot } from "./market/portfolio-snapshot.js";
+import { enrichSnapshotWithHistory } from "./market/history/enrich.js";
+import { isMarketHistoryEnabled, updateMarketHistory } from "./market/history/update.js";
 import { emitRunnerMetrics } from "./observability/metrics.js";
 import { generateRichValidatedBrief } from "./rich-brief.js";
 import { finalizePublishedBrief } from "./published-brief.js";
@@ -483,6 +485,39 @@ export async function handleCron(
   const runId = opts?.runId ?? crypto.randomUUID();
   const tasks: (() => Promise<RunResult>)[] = [];
   const regionFilter = opts?.regions ? new Set(opts.regions) : null;
+
+  // Refresh official-source market history before briefs run so today's
+  // briefs can show stored week-over-week trend. Env-gated no-op by default;
+  // failures never fail the run.
+  if (!opts?.dryRun && isMarketHistoryEnabled()) {
+    try {
+      const historyResult = await updateMarketHistory({
+        nowIso: opts?.runDate ?? new Date().toISOString()
+      });
+      console.log(
+        JSON.stringify({
+          level: "info",
+          event: "market_history_updated",
+          runId,
+          runWindow,
+          written: historyResult.written,
+          skipped: historyResult.skipped,
+          failed: historyResult.failed
+        })
+      );
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "market_history_update_failed",
+          reasonCode: "market_history_failed",
+          runId,
+          runWindow,
+          error: (error as Error).message
+        })
+      );
+    }
+  }
 
   const regionList = regionFilter ? Array.from(regionFilter) : undefined;
   const targetedAgents = expandAgentsByRegion({ agents: filteredNormalAgents, regions: regionList });
@@ -1039,7 +1074,17 @@ export async function runAgent(
     };
 
     try {
-      const marketSnapshot = await fetchPortfolioSnapshot(agent.portfolio);
+      let marketSnapshot = await fetchPortfolioSnapshot(agent.portfolio);
+      try {
+        marketSnapshot = await enrichSnapshotWithHistory({
+          snapshot: marketSnapshot,
+          portfolioSlug: agent.portfolio,
+          region,
+          nowIso: now.toISOString()
+        });
+      } catch (error) {
+        console.warn(`[${agentId}/${region}] Market history enrichment unavailable:`, error);
+      }
       if (marketSnapshot.length > 0) {
         published = { ...published, marketSnapshot };
       }

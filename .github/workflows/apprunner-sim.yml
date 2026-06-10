@@ -53,6 +53,8 @@ jobs:
           pnpm --filter @proof/runner run brief-engine-v3:smoke
           pnpm --filter @proof/runner run render:smoke
           pnpm --filter @proof/runner run fallback:smoke
+          pnpm --filter @proof/runner run market-history:smoke
+          pnpm --filter @proof/runner run watchlist:smoke
 
       - name: Smoke tests (api + web)
         run: |

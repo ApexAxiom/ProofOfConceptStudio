@@ -132,7 +132,7 @@ export async function fetchPortfolioSnapshot(portfolioSlug: string): Promise<Bri
   if (indices.length === 0) return [];
 
   const store = (await readStore()) ?? { savedAt: new Date().toISOString(), quotes: {} };
-  const symbols = indices.map((index) => index.yahooSymbol);
+  const symbols = indices.map((index) => index.yahooSymbol).filter(Boolean);
   const sparkMap = await fetchSparkSeries(symbols);
   const nextStoredQuotes = { ...store.quotes };
   const nowIso = new Date().toISOString();
@@ -144,6 +144,9 @@ export async function fetchPortfolioSnapshot(portfolioSlug: string): Promise<Bri
 
   const items = indices
     .map((index) => {
+      // History-only indices (no Yahoo symbol) are populated from the stored
+      // official-source history by enrichSnapshotWithHistory, never faked here.
+      if (!index.yahooSymbol) return null;
       const series = sparkMap.get(index.yahooSymbol);
       if (series) {
         const { latest, prior } = selectLatestAndPrior(series.close, DEFAULT_LOOKBACK_DAYS);

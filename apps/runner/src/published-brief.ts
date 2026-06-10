@@ -6,6 +6,7 @@ import {
   makeCategoryPlaceholderDataUrl
 } from "@proof/shared";
 import { buildContextNote, buildTopStories, deriveDeltaSinceLastRun, normalizeNewsStatus } from "./brief-v2.js";
+import { reconcileWatchlist } from "./watchlist/reconcile.js";
 
 export function finalizePublishedBrief(params: {
   brief: BriefPost;
@@ -40,6 +41,17 @@ export function finalizePublishedBrief(params: {
     firstImage?.title ??
     params.brief.title;
 
+  // Persistent watchlist: carry yesterday's open items forward, apply the
+  // writer's structured updates/additions, and migrate legacy freeform
+  // watchlists. The freeform `watchlist` strings stay untouched for
+  // backward compatibility.
+  const watchlistItems = reconcileWatchlist({
+    previousBrief: params.previousBrief,
+    proposals: params.brief.watchlistProposals,
+    freeformWatchlist: params.brief.watchlist,
+    briefDay: params.briefDay
+  });
+
   return {
     ...params.brief,
     postId: params.postId,
@@ -65,6 +77,8 @@ export function finalizePublishedBrief(params: {
       params.brief.selectedArticles?.[0]?.url,
     newsStatus: normalizedStatus,
     deltaSinceLastRun,
+    watchlistItems: watchlistItems.length > 0 ? watchlistItems : undefined,
+    watchlistProposals: undefined,
     contextNote: buildContextNote(params.agent.label, topStories, normalizedStatus)
   };
 }

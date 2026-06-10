@@ -135,6 +135,12 @@ const raw = JSON.stringify({
   marketIndicators: [
     { indexId: "cme-wti", note: "Commodity momentum influences upstream activity levels and service demand." },
     { indexId: "ice-brent", note: "Benchmark trend supports continued project cadence in key producing basins." }
+  ],
+  watchlistUpdates: [
+    { id: "wl-1234567890", status: "triggered", note: "The watched dayrate reset was confirmed today.", citations: [14] }
+  ],
+  watchlistAdditions: [
+    { title: "Vessel slot availability for Q3 campaigns", trigger: "Slots for the Q3 window are confirmed or withdrawn", citations: [1] }
   ]
 });
 
@@ -174,6 +180,13 @@ assert(titleWords.length >= 8 && titleWords.length <= 14, "Title should be norma
 assert(!/\bdaily brief\b/i.test(parsed.title), "Title should not include Daily Brief");
 
 assert(selectedSet.has(parsed.heroSelection.articleIndex), "Hero selection must reference selected article index");
+
+// Persistent watchlist fields pass through with citations normalized to selected articles.
+assert.equal(parsed.watchlistUpdates?.length, 1);
+assert.equal(parsed.watchlistUpdates?.[0].status, "triggered");
+assert.deepEqual(parsed.watchlistUpdates?.[0].citations, [], "Unselected citation indices must be dropped");
+assert.equal(parsed.watchlistAdditions?.length, 1);
+assert.deepEqual(parsed.watchlistAdditions?.[0].citations, [1]);
 assert.equal(parsed.selectedArticles[0]?.procurementLens.signalStrength, "strong");
 assert.match(parsed.selectedArticles[0]?.procurementLens.costMoney ?? "", /directional/i);
 

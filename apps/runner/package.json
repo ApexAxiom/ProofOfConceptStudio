@@ -38,7 +38,9 @@
     "cron:international": "tsx src/cli.ts international",
     "run-briefs": "tsx ../../scripts/run-briefs.ts",
     "lint": "eslint . --ext .ts,.tsx || true",
-    "brief-engine-v3:smoke": "tsx src/brief-engine-v3.smoke.ts"
+    "brief-engine-v3:smoke": "tsx src/brief-engine-v3.smoke.ts",
+    "market-history:smoke": "tsx src/market/history/market-history.smoke.ts",
+    "watchlist:smoke": "tsx src/watchlist/watchlist.smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.972.0",

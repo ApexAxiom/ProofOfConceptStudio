@@ -54,6 +54,27 @@ const brief: BriefPost = {
   highlights: ["Highlight"],
   procurementActions: ["Do thing"],
   watchlist: ["Watch"],
+  watchlistItems: [
+    {
+      id: "wl-open000001",
+      title: "Valaris dayrate reset",
+      trigger: "A confirmed reset on AU jackups",
+      status: "open",
+      openedAt: "2026-06-08",
+      updatedAt: "2026-06-09"
+    },
+    {
+      id: "wl-trig000001",
+      title: "Subsea vessel slot squeeze",
+      trigger: "Q3 slots withdrawn",
+      status: "triggered",
+      statusNote: "Two Q3 slots were withdrawn today.",
+      openedAt: "2026-06-01",
+      updatedAt: "2026-06-09",
+      evidenceUrl: "https://example.com/a1",
+      evidenceTitle: "Article 1"
+    }
+  ],
   decisionSummary: {
     topMove: "Lock in pricing",
     whatChanged: ["Rates moved"],
@@ -72,7 +93,11 @@ const brief: BriefPost = {
       change: 1,
       changePercent: 1.4,
       asOf: new Date().toISOString(),
-      sourceUrl: "https://finance.yahoo.com/quote/CL=F"
+      sourceUrl: "https://finance.yahoo.com/quote/CL=F",
+      weekAgoValue: 73.5,
+      weekOverWeekPercent: -4.76,
+      trendLabel: "w/w",
+      provider: "eia"
     }
   ],
   cmSnapshot: {
@@ -223,5 +248,24 @@ assert(html.includes("Cost / money"));
 assert(html.includes("Supplier / commercial"));
 assert(html.includes("Safety / operations"));
 assert(html.includes("What to watch"));
+
+// Persistent watchlist items render with status chips, triggers, and evidence.
+assert(html.includes("Valaris dayrate reset"));
+assert(html.includes("Subsea vessel slot squeeze"));
+assert(html.includes("triggered"));
+assert(html.includes("Watching for: Q3 slots withdrawn"));
+assert(html.includes("Two Q3 slots were withdrawn today."));
+
+// Official-source week-over-week trend renders on the market pulse tile.
+assert(html.includes("w/w -4.8%"));
+assert(html.includes("EIA"));
+
+// Old briefs without structured items fall back to freeform watch items.
+{
+  const legacy = { ...brief, watchlistItems: undefined };
+  const legacyHtml = renderToStaticMarkup(<BriefDetailContent brief={legacy} />);
+  assert(legacyHtml.includes("What to watch"));
+  assert(legacyHtml.includes("Watch"));
+}
 
 console.log("brief-detail.smoke passed");

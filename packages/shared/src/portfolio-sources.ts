@@ -16,10 +16,16 @@ export interface PortfolioSource {
 export interface PortfolioIndex {
   symbol: string;
   name: string;
+  /** Yahoo Finance symbol for live quotes. Empty for history-only series (e.g. rig count). */
   yahooSymbol: string;
   unit: string;
   fallbackPrice: number;
   sourceUrl: string;
+  /**
+   * Optional id of an official-source daily history series (EIA/FRED/Baker
+   * Hughes/ACCC) backing this index. See the runner market-history registry.
+   */
+  historySeriesId?: string;
 }
 
 export interface PortfolioConfig {
@@ -46,10 +52,22 @@ export function getPortfolioMarketIndices(portfolioSlug: string): MarketIndex[] 
 
 // Common energy indices
 const energyIndices: PortfolioIndex[] = [
-  { symbol: "WTI", name: "WTI Crude", yahooSymbol: "CL=F", unit: "/bbl", fallbackPrice: 71.23, sourceUrl: "https://finance.yahoo.com/quote/CL=F" },
-  { symbol: "BRENT", name: "Brent Crude", yahooSymbol: "BZ=F", unit: "/bbl", fallbackPrice: 74.89, sourceUrl: "https://finance.yahoo.com/quote/BZ=F" },
-  { symbol: "NG", name: "Natural Gas", yahooSymbol: "NG=F", unit: "/MMBtu", fallbackPrice: 3.12, sourceUrl: "https://finance.yahoo.com/quote/NG=F" },
+  { symbol: "WTI", name: "WTI Crude", yahooSymbol: "CL=F", unit: "/bbl", fallbackPrice: 71.23, sourceUrl: "https://finance.yahoo.com/quote/CL=F", historySeriesId: "eia-wti-spot" },
+  { symbol: "BRENT", name: "Brent Crude", yahooSymbol: "BZ=F", unit: "/bbl", fallbackPrice: 74.89, sourceUrl: "https://finance.yahoo.com/quote/BZ=F", historySeriesId: "eia-brent-spot" },
+  { symbol: "NG", name: "Natural Gas", yahooSymbol: "NG=F", unit: "/MMBtu", fallbackPrice: 3.12, sourceUrl: "https://finance.yahoo.com/quote/NG=F", historySeriesId: "eia-henry-hub-spot" },
 ];
+
+// History-only series (no Yahoo symbol): values come exclusively from the
+// stored official-source daily history, so they never fabricate a fallback.
+const usRigCountIndex: PortfolioIndex = {
+  symbol: "US_RIGS",
+  name: "US Rig Count (Baker Hughes)",
+  yahooSymbol: "",
+  unit: "rigs",
+  fallbackPrice: 0,
+  sourceUrl: "https://rigcount.bakerhughes.com/",
+  historySeriesId: "baker-hughes-rig-count-us"
+};
 
 // Steel indices
 const steelIndices: PortfolioIndex[] = [
@@ -57,19 +75,22 @@ const steelIndices: PortfolioIndex[] = [
   { symbol: "HRC", name: "HRC Steel", yahooSymbol: "HRC=F", unit: "/ton", fallbackPrice: 740, sourceUrl: "https://www.cmegroup.com/markets/metals/ferrous/hrc-steel.html" },
   { symbol: "COPPER", name: "Copper", yahooSymbol: "HG=F", unit: "/lb", fallbackPrice: 3.85, sourceUrl: "https://finance.yahoo.com/quote/HG=F" },
   { symbol: "IRON", name: "Iron Ore", yahooSymbol: "TIO=F", unit: "/t", fallbackPrice: 108.5, sourceUrl: "https://finance.yahoo.com/quote/TIO=F" },
+  { symbol: "STEEL_PPI", name: "Steel Mill Products PPI", yahooSymbol: "", unit: "index", fallbackPrice: 0, sourceUrl: "https://fred.stlouisfed.org/series/WPU1017", historySeriesId: "fred-steel-ppi" },
 ];
 
 // Shipping indices
 const shippingIndices: PortfolioIndex[] = [
   { symbol: "BDRY", name: "Dry Bulk Shipping (BDRY)", yahooSymbol: "BDRY", unit: "", fallbackPrice: 0, sourceUrl: "https://finance.yahoo.com/quote/BDRY" },
-  { symbol: "WTI", name: "WTI (Fuel)", yahooSymbol: "CL=F", unit: "/bbl", fallbackPrice: 71.23, sourceUrl: "https://finance.yahoo.com/quote/CL=F" },
+  { symbol: "WTI", name: "WTI (Fuel)", yahooSymbol: "CL=F", unit: "/bbl", fallbackPrice: 71.23, sourceUrl: "https://finance.yahoo.com/quote/CL=F", historySeriesId: "eia-wti-spot" },
+  { symbol: "DIESEL_US", name: "US Diesel Retail", yahooSymbol: "", unit: "/gal", fallbackPrice: 0, sourceUrl: "https://fred.stlouisfed.org/series/GASDESW", historySeriesId: "fred-diesel-retail" },
 ];
 
 // LNG indices
 const lngIndices: PortfolioIndex[] = [
-  { symbol: "NG", name: "Henry Hub Gas", yahooSymbol: "NG=F", unit: "/MMBtu", fallbackPrice: 3.12, sourceUrl: "https://finance.yahoo.com/quote/NG=F" },
+  { symbol: "NG", name: "Henry Hub Gas", yahooSymbol: "NG=F", unit: "/MMBtu", fallbackPrice: 3.12, sourceUrl: "https://finance.yahoo.com/quote/NG=F", historySeriesId: "eia-henry-hub-spot" },
   { symbol: "LNG", name: "Cheniere (LNG)", yahooSymbol: "LNG", unit: "", fallbackPrice: 185, sourceUrl: "https://finance.yahoo.com/quote/LNG" },
-  { symbol: "BRENT", name: "Brent Crude", yahooSymbol: "BZ=F", unit: "/bbl", fallbackPrice: 74.89, sourceUrl: "https://finance.yahoo.com/quote/BZ=F" },
+  { symbol: "BRENT", name: "Brent Crude", yahooSymbol: "BZ=F", unit: "/bbl", fallbackPrice: 74.89, sourceUrl: "https://finance.yahoo.com/quote/BZ=F", historySeriesId: "eia-brent-spot" },
+  { symbol: "LNG_NETBACK", name: "ACCC LNG Netback (AU)", yahooSymbol: "", unit: "/GJ", fallbackPrice: 0, sourceUrl: "https://www.accc.gov.au/inquiries-and-consultations/gas-inquiry-2017-30/lng-netback-price-series", historySeriesId: "accc-lng-netback" },
 ];
 
 export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
@@ -91,6 +112,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
     ],
     indices: [
       ...energyIndices,
+      usRigCountIndex,
       { symbol: "RIG", name: "Transocean", yahooSymbol: "RIG", unit: "", fallbackPrice: 4.50, sourceUrl: "https://finance.yahoo.com/quote/RIG" },
       { symbol: "VAL", name: "Valaris", yahooSymbol: "VAL", unit: "", fallbackPrice: 52, sourceUrl: "https://finance.yahoo.com/quote/VAL" },
     ],
@@ -110,6 +132,7 @@ export const PORTFOLIO_CONFIGS: Record<string, PortfolioConfig> = {
     ],
     indices: [
       ...energyIndices,
+      usRigCountIndex,
       { symbol: "SLB", name: "Schlumberger", yahooSymbol: "SLB", unit: "", fallbackPrice: 48, sourceUrl: "https://finance.yahoo.com/quote/SLB" },
       { symbol: "HAL", name: "Halliburton", yahooSymbol: "HAL", unit: "", fallbackPrice: 35, sourceUrl: "https://finance.yahoo.com/quote/HAL" },
       { symbol: "BKR", name: "Baker Hughes", yahooSymbol: "BKR", unit: "", fallbackPrice: 32, sourceUrl: "https://finance.yahoo.com/quote/BKR" },

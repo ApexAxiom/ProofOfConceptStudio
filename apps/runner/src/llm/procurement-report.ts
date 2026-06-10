@@ -7,9 +7,11 @@ import {
   RunWindow,
   REGIONS,
   SelectedArticleProcurementLens,
+  WatchlistItem,
   getAgentFramework
 } from "@proof/shared";
 import type { ArticleInput } from "./prompts.js";
+import { carriedWatchlistItems } from "../watchlist/reconcile.js";
 import {
   hasUnsupportedQuantifiedProcurementClaim,
   isWeakProcurementLensText,
@@ -28,10 +30,12 @@ export interface ProcurementPromptInput {
   previousJson?: string;
   previousBrief?: {
     publishedAt: string;
+    briefDay?: string;
     title: string;
     highlights?: string[];
     procurementActions?: string[];
     watchlist?: string[];
+    watchlistItems?: WatchlistItem[];
     selectedArticles?: Array<{ title: string; url: string; keyMetrics?: string[] }>;
   };
 }
@@ -75,6 +79,19 @@ export interface ProcurementOutput {
   }>;
   heroSelection: { articleIndex: number };
   marketIndicators: Array<{ indexId: string; note: string }>;
+  /** Status changes for carried persistent-watchlist items (by id). */
+  watchlistUpdates?: Array<{
+    id: string;
+    status: "open" | "triggered" | "resolved";
+    note?: string;
+    citations?: number[];
+  }>;
+  /** Genuinely new persistent-watchlist items with a concrete trigger. */
+  watchlistAdditions?: Array<{
+    title: string;
+    trigger: string;
+    citations?: number[];
+  }>;
 }
 
 const SIGNAL_ENUM = z.enum(["confirmed", "early-signal", "unconfirmed"]);
@@ -244,7 +261,29 @@ const outputSchema = z.object({
     .min(1)
     .max(5),
   heroSelection: z.object({ articleIndex: z.number().int().positive() }),
-  marketIndicators: z.array(z.object({ indexId: z.string().min(2), note: z.string().min(8).max(240) })).min(2).max(8)
+  marketIndicators: z.array(z.object({ indexId: z.string().min(2), note: z.string().min(8).max(240) })).min(2).max(8),
+  // Persistent watchlist changes are optional: older outputs simply omit them.
+  watchlistUpdates: z
+    .array(
+      z.object({
+        id: z.string().min(3).max(64),
+        status: z.enum(["open", "triggered", "resolved"]),
+        note: z.string().min(8).max(240).optional(),
+        citations: z.array(z.number().int().positive()).max(CITATION_LIST_LIMIT).optional()
+      })
+    )
+    .max(10)
+    .optional(),
+  watchlistAdditions: z
+    .array(
+      z.object({
+        title: z.string().min(8).max(140),
+        trigger: z.string().min(8).max(240),
+        citations: z.array(z.number().int().positive()).max(CITATION_LIST_LIMIT).optional()
+      })
+    )
+    .max(5)
+    .optional()
 });
 
 const TITLE_MIN_WORDS = 8;
@@ -334,6 +373,20 @@ function previousBriefSection(input: ProcurementPromptInput): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function persistentWatchlistSection(input: ProcurementPromptInput): string {
+  const items = carriedWatchlistItems(input.previousBrief);
+  if (items.length === 0) {
+    return `Persistent watchlist: empty. Propose up to 3 watchlistAdditions only if today's articles surface a concrete, monitorable condition.`;
+  }
+  return [
+    "Persistent watchlist (these items carry forward day to day; reference them by id):",
+    ...items.map(
+      (item) =>
+        `- id=${item.id} | status=${item.status} | opened ${item.openedAt} | ${item.title} — watching for: ${item.trigger}`
+    )
+  ].join("\n");
 }
 
 function articleBlock(input: ProcurementPromptInput): string {
@@ -471,6 +524,10 @@ OUTPUT RULES (strict):
 26) Never paste article leads, page navigation text, bylines, or boilerplate from the source.
 27) Name the suppliers, operators, and counterparties involved whenever the article identifies them. "A major contractor" is weaker than "Subsea 7". Use the "Event type" and "Known suppliers/operators mentioned" hints on each article to anchor the procurement angle.
 28) Use the category framework below to judge relevance and phrase implications in this category's commercial language (e.g. dayrate/term for rigs, steel-indexed pricing for OCTG, escalation indices for LTSAs). Never present framework entries as facts from today's articles.
+29) PERSISTENT WATCHLIST: the watchlist below carries forward automatically; do not restate carried items.
+    - watchlistUpdates: only when today's articles change an existing item. Use status "triggered" when the watched condition has now happened, "resolved" when it is settled or no longer relevant. Every update needs a short note and citations. Use the exact item id; never invent ids.
+    - watchlistAdditions: at most 3 genuinely new conditions worth tracking across days. Each needs a concrete trigger ("X is confirmed / price crosses Y / award announced by Z"), not a vague theme, plus citations.
+    - Omit both fields when nothing changed.
 
 JSON SHAPE:
 \`\`\`json
@@ -508,7 +565,9 @@ JSON SHAPE:
     }
   ],
   "heroSelection": { "articleIndex": 1 },
-  "marketIndicators": [{ "indexId": "some-id", "note": "procurement implication" }]
+  "marketIndicators": [{ "indexId": "some-id", "note": "procurement implication" }],
+  "watchlistUpdates": [{ "id": "wl-abc123def0", "status": "triggered", "note": "What happened and why it fires this item", "citations": [1] }],
+  "watchlistAdditions": [{ "title": "Short label for the watch item", "trigger": "Concrete condition to watch for", "citations": [2] }]
 }
 \`\`\`
 
@@ -522,6 +581,8 @@ ${categoryFrameworkBlock(input)}
 
 Previous brief context:
 ${previousBriefSection(input)}
+
+${persistentWatchlistSection(input)}
 
 Market indices (use indexId only):
 ${indexBlock(input.indices)}
@@ -863,7 +924,15 @@ function normalizeOutputForValidation(
         ...action,
         citations: normalizeCitations(action.citations, selectedSet)
       }))
-    }
+    },
+    watchlistUpdates: output.watchlistUpdates?.map((update) => ({
+      ...update,
+      citations: normalizeCitations(update.citations ?? [], selectedSet)
+    })),
+    watchlistAdditions: output.watchlistAdditions?.map((addition) => ({
+      ...addition,
+      citations: normalizeCitations(addition.citations ?? [], selectedSet)
+    }))
   };
 
   dedupeSectionsByText(normalized);
