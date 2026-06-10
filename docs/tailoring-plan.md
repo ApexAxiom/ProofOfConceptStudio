@@ -121,8 +121,10 @@ Open next:
 
 - [ ] 1.5 EIA / FRED / Baker Hughes rig count / ACCC-AEMO adapters with stored daily history
 - [ ] 2.1 Lean fixed brief structure + persistent watchlist items (carry/resolve day-to-day)
-- [ ] 2.4 Validation refocus: each signal names an entity, has a number/date, and states a
-      category-specific implication
+- [x] 2.4 (v1) Usefulness checks: summary bullets must name an entity or carry a concrete
+      figure; generic filler and rationale without a "because" trigger are flagged. Non-blocking
+      (logged to qualityReport), so weak briefs are measurable without re-creating the old
+      FACTCHECK failure storms (`apps/runner/src/publish/usefulness.ts`)
 - [ ] 2.5 Weekly deep-dive edition
 - [ ] Phase 4 personalization (profile, supplier pages, feedback loop, entity-grounded chat)
 

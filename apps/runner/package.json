@@ -10,6 +10,7 @@
     "generate:agent-catalog": "node scripts/generate-agent-catalog.mjs",
     "start": "node dist/server.js",
     "validate:smoke": "tsx src/publish/validate.smoke.ts",
+    "usefulness:smoke": "tsx src/publish/usefulness.smoke.ts",
     "evidence:smoke": "tsx src/publish/evidence.smoke.ts",
     "selection:smoke": "tsx src/agents/selection.smoke.ts",
     "feeds:audit": "tsx src/agents/feed-audit.ts",

@@ -23,6 +23,7 @@ import { deriveSignalLevel, MaterialityAssessment } from "./ingest/materiality.j
 import { generateBriefV3 } from "./brief-engine-v3/index.js";
 import type { ArticleInput } from "./llm/openai.js";
 import { publishBrief, logBriefRunResult, logBriefRunStart, logRunResult } from "./publish/dynamo.js";
+import { assessBriefUsefulness } from "./publish/usefulness.js";
 import crypto from "node:crypto";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
@@ -1016,7 +1017,10 @@ export async function runAgent(
     const qualityIssues = [
       ...(published.qualityReport?.issues ?? []),
       ...(richWriterFallbackIssue ? [richWriterFallbackIssue] : []),
-      ...v2Validation.issues
+      ...v2Validation.issues,
+      // Non-blocking usefulness bar: signals should name entities and carry
+      // concrete figures. Logged for observability, never blocks publishing.
+      ...assessBriefUsefulness(published)
     ];
     if (qualityIssues.length > 0) {
       published = {
