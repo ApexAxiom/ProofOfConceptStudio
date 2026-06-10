@@ -23,6 +23,27 @@ interface AdminBriefEntry {
   briefDay?: string;
 }
 
+interface QualityRow {
+  portfolio: string;
+  portfolioLabel: string;
+  briefCount: number;
+  signalLevels: { act: number; watch: number; awareness: number; none: number };
+  issueCount: number;
+  usefulnessIssueCount: number;
+  fallbackCount: number;
+  totalTokens: number;
+  latestPostId: string | null;
+  sampleIssues: string[];
+}
+
+interface QualityTotals {
+  briefCount: number;
+  issueCount: number;
+  usefulnessIssueCount: number;
+  fallbackCount: number;
+  totalTokens: number;
+}
+
 function TerminalIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -52,6 +73,8 @@ export default function AdminPage() {
   const [feedHealthUpdatedAt, setFeedHealthUpdatedAt] = useState<string>("");
   const [storedBriefs, setStoredBriefs] = useState<AdminBriefEntry[]>([]);
   const [storedBriefCount, setStoredBriefCount] = useState<number>(0);
+  const [qualityRows, setQualityRows] = useState<QualityRow[]>([]);
+  const [qualityTotals, setQualityTotals] = useState<QualityTotals | null>(null);
   const [loading, setLoading] = useState(false);
 
   const runRequest = async (payload: {
@@ -227,6 +250,30 @@ export default function AdminPage() {
     }
   };
 
+  const loadQuality = async () => {
+    if (!adminToken) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/quality", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminToken, region, days: 7 })
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage(JSON.stringify(json, null, 2));
+        return;
+      }
+      setQualityRows(Array.isArray(json.rows) ? json.rows : []);
+      setQualityTotals(json.totals ?? null);
+    } catch (err) {
+      setMessage("Failed to load quality report.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
@@ -381,6 +428,13 @@ export default function AdminPage() {
           >
             Load Stored Briefs
           </button>
+          <button
+            onClick={loadQuality}
+            disabled={loading || !adminToken}
+            className="btn-secondary"
+          >
+            Load Quality Report
+          </button>
           <span className="text-sm text-muted-foreground">
             {!adminToken ? "Enter admin token to enable" : "All-portfolio runs dispatch in batches of 3."}
           </span>
@@ -437,6 +491,56 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Brief quality */}
+      {qualityTotals ? (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Brief quality (7 days)</h3>
+            <p className="text-xs text-muted-foreground">
+              {qualityTotals.briefCount} briefs · {qualityTotals.usefulnessIssueCount} usefulness flags ·{" "}
+              {qualityTotals.fallbackCount} fallbacks · {qualityTotals.totalTokens.toLocaleString("en-US")} tokens
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2 text-right">Briefs</th>
+                  <th className="px-3 py-2 text-right">Act / Watch / FYI</th>
+                  <th className="px-3 py-2 text-right">Usefulness flags</th>
+                  <th className="px-3 py-2 text-right">Fallbacks</th>
+                  <th className="px-3 py-2 text-right">Tokens</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {qualityRows.map((row) => (
+                  <tr key={row.portfolio}>
+                    <td className="px-3 py-2 text-foreground">
+                      {row.portfolioLabel}
+                      {row.sampleIssues.length > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{row.sampleIssues[0]}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{row.briefCount}</td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                      {row.signalLevels.act} / {row.signalLevels.watch} / {row.signalLevels.awareness}
+                    </td>
+                    <td className={`px-3 py-2 text-right ${row.usefulnessIssueCount > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
+                      {row.usefulnessIssueCount}
+                    </td>
+                    <td className={`px-3 py-2 text-right ${row.fallbackCount > 0 ? "text-rose-400" : "text-muted-foreground"}`}>
+                      {row.fallbackCount}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{row.totalTokens.toLocaleString("en-US")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : null}

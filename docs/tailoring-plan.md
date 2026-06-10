@@ -123,6 +123,9 @@ Open next:
       (`apps/runner/src/digest/`)
 - [x] CI runs the deterministic smoke suites; route error/404/loading pages; region badges
       corrected to AU / INTL
+- [x] Optional site-wide access gate (SITE_ACCESS_GATE; reuses chat-access session via /login)
+- [x] Admin quality panel: per-category signal mix, usefulness flags, fallback rate, and token
+      spend over 7 days (`/api/admin/quality`)
 
 - [ ] 1.5 EIA / FRED / Baker Hughes rig count / ACCC-AEMO adapters with stored daily history
 - [ ] 2.1 Lean fixed brief structure + persistent watchlist items (carry/resolve day-to-day)
