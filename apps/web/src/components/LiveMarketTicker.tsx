@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatTimestampWithTimezones } from "@/lib/format-time";
+import { EmptyState } from "./EmptyState";
 
 interface MarketQuote {
   symbol: string;
@@ -147,7 +148,13 @@ export function LiveMarketTicker({
   }
 
   if (displayQuotes.length === 0) {
-    return <p className="text-sm text-muted-foreground">Market data is currently unavailable.</p>;
+    return (
+      <EmptyState
+        compact
+        title="Benchmarks updating"
+        hint="Live commodity quotes refresh hourly and will appear here shortly."
+      />
+    );
   }
 
   return (

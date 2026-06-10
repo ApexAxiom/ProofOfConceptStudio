@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatTimestampWithTimezones } from "@/lib/format-time";
+import { EmptyState } from "./EmptyState";
 
 interface PriceData {
   symbol: string;
@@ -171,9 +172,11 @@ export function PortfolioMarketTicker({
 
   if (displayData.length === 0) {
     return (
-      <div className="text-sm text-muted-foreground">
-        Market indices are currently unavailable for this portfolio.
-      </div>
+      <EmptyState
+        compact
+        title="Benchmarks updating"
+        hint="Portfolio market indices refresh hourly and will appear here shortly."
+      />
     );
   }
 

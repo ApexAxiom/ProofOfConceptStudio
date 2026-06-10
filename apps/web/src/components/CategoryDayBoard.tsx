@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { BriefSignalLevel } from "@proof/shared";
 import { SignalBadge } from "./SignalBadge";
+import { EmptyState } from "./EmptyState";
 
 export interface CategoryDayRow {
   portfolio: string;
@@ -70,15 +71,20 @@ export function CategoryDayBoard({ boards }: { boards: RegionBoard[] }) {
           <li key={`${active.region}-${row.portfolio}`}>
             <Link
               href={`/brief/${encodeURIComponent(row.postId)}`}
-              className="flex items-center gap-3 px-2 py-2.5 transition hover:bg-secondary/40"
+              className="block rounded-md px-2 py-2.5 transition hover:bg-secondary/40 sm:flex sm:items-center sm:gap-3"
             >
-              <span className="w-44 shrink-0 truncate text-sm font-medium text-foreground md:w-56">
-                {row.portfolioLabel}
+              {/* Mobile stacks portfolio + badge above the headline; sm+ uses fixed columns. */}
+              <span className="flex items-center justify-between gap-3 sm:contents">
+                <span className="min-w-0 truncate text-sm font-medium text-foreground sm:w-44 sm:shrink-0 md:w-56">
+                  {row.portfolioLabel}
+                </span>
+                <span className="shrink-0 sm:w-20">
+                  <SignalBadge level={row.signalLevel} />
+                </span>
               </span>
-              <span className="w-20 shrink-0">
-                <SignalBadge level={row.signalLevel} />
+              <span className="mt-1 block truncate text-sm text-muted-foreground sm:mt-0 sm:min-w-0 sm:flex-1">
+                {row.title}
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{row.title}</span>
               <span className="hidden shrink-0 text-xs font-mono text-muted-foreground sm:block">
                 {formatDay(row.publishedAt)}
               </span>
@@ -86,8 +92,12 @@ export function CategoryDayBoard({ boards }: { boards: RegionBoard[] }) {
           </li>
         ))}
         {active.rows.length === 0 ? (
-          <li className="px-2 py-4 text-sm text-muted-foreground">
-            No briefs published for this region yet. They appear after the next category run.
+          <li className="py-3">
+            <EmptyState
+              compact
+              title="Briefs on the way"
+              hint="Nothing published for this region yet — new briefs land after the next scheduled category run."
+            />
           </li>
         ) : null}
       </ul>

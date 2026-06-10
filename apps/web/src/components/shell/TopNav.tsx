@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { REGION_LIST } from "@proof/shared";
 import { ThemeToggle } from "../ThemeToggle";
 import { MobileNav } from "../MobileNav";
+import { BrandMark } from "./BrandMark";
 
 const primaryNav = [
   { href: "/", label: "Today" },
@@ -51,12 +52,10 @@ export function TopNav() {
               <MenuIcon />
             </button>
             <Link href="/" className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-primary">
-                ◈
-              </span>
-              <div className="hidden sm:block">
-                <p className="text-sm font-semibold text-foreground">Intelligence Hub</p>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Market signals</p>
+              <BrandMark size={36} />
+              <div>
+                <p className="text-sm font-semibold leading-tight text-foreground">Intelligence Hub</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Market signals</p>
               </div>
             </Link>
           </div>

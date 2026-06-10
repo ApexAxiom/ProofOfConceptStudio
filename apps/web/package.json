@@ -9,7 +9,8 @@
     "lint": "next lint",
     "brief-detail:smoke": "tsx src/app/brief/brief-detail.smoke.tsx && tsx src/app/brief/brief-snapshots.smoke.tsx",
     "executive-dashboard:smoke": "tsx src/lib/executive-dashboard.smoke.ts",
-    "homepage-freshness:smoke": "tsx src/app/page.production.smoke.ts"
+    "homepage-freshness:smoke": "tsx src/app/page.production.smoke.ts",
+    "assets:smoke": "node scripts/asset-smoke.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.609.0",

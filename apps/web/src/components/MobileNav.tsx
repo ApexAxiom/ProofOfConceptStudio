@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META, REGION_LIST } from "@proof/shared";
+import { BrandMark } from "./shell/BrandMark";
 
 function DashboardIcon() {
   return (
@@ -86,12 +87,10 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       <div className="mobile-nav-drawer">
         <div className="mobile-nav-header">
           <Link href="/" className="flex items-center gap-3" onClick={onClose}>
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
-              <span className="font-display text-base font-bold text-primary">◈</span>
-            </div>
+            <BrandMark size={36} />
             <div className="flex flex-col">
-              <span className="font-display text-sm font-semibold text-foreground">Intelligence</span>
-              <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-primary">Market Hub</span>
+              <span className="text-sm font-semibold text-foreground">Intelligence Hub</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-primary">Market signals</span>
             </div>
           </Link>
           <button 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { RegionTabs } from "../../components/RegionTabs";
-import { PortfolioNav } from "../../components/PortfolioNav";
+import { CategoryBrowser } from "../../components/CategoryBrowser";
 import { BriefsTable } from "../../components/BriefsTable";
 import { LiveMarketTicker } from "../../components/LiveMarketTicker";
 import { RegionSlug, REGIONS } from "@proof/shared";
@@ -96,15 +96,15 @@ export default async function RegionPage({
         <LiveMarketTicker showHeader={true} initialData={market.quotes} initialTimestamp={market.generatedAt} />
       </div>
       
-      {/* Category Filter */}
-      <div className="space-y-3">
-        <details className="rounded-lg border border-border bg-card p-4" open>
-          <summary className="cursor-pointer text-sm font-semibold text-foreground">Browse by Category</summary>
-          <div className="mt-3">
-            <PortfolioNav region={region} />
-          </div>
-        </details>
-      </div>
+      {/* Category Browser */}
+      <details className="rounded-lg border border-border bg-card p-4" open>
+        <summary className="cursor-pointer text-sm font-semibold text-foreground">
+          Browse by category
+        </summary>
+        <div className="mt-3">
+          <CategoryBrowser region={region} briefs={briefs} />
+        </div>
+      </details>
       
       {/* Briefs Table */}
       <div className="space-y-4">

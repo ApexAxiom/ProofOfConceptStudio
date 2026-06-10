@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CategoryGroup, CATEGORY_INDICES } from "@proof/shared";
 import { formatTimestampWithTimezones } from "@/lib/format-time";
+import { EmptyState } from "./EmptyState";
 
 interface PriceData {
   symbol: string;
@@ -132,7 +133,13 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
   }
 
   if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground">Category market data is currently unavailable.</p>;
+    return (
+      <EmptyState
+        compact
+        title="Benchmarks updating"
+        hint="Category market quotes refresh hourly and will appear here shortly."
+      />
+    );
   }
 
   return (
