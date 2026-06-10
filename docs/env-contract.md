@@ -67,3 +67,8 @@
 | `DIGEST_RECIPIENTS` | when enabled | Comma-separated recipient list. |
 | `DIGEST_SES_REGION` | no | Defaults to `AWS_REGION` / `us-east-1`. |
 | `DIGEST_SITE_BASE_URL` | no | Link base for brief URLs; defaults to `SITE_URL`. |
+
+## Site access gate (web, optional)
+| Var | Required | Notes |
+| --- | --- | --- |
+| `SITE_ACCESS_GATE` | no (default `false`) | When `true` and chat admin credentials are set, the whole site requires sign-in (`/login`); `/api/healthz`, robots, and sitemap stay public. |
