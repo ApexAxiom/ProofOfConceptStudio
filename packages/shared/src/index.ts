@@ -6,7 +6,6 @@ export * from "./time.js";
 export * from "./keywords.js";
 export * from "./secrets.js";
 export * from "./category.js";
-export * from "./category-indices.js";
 export * from "./portfolio-sources.js";
 export * from "./portfolio-catalog.js";
 export * from "./bootstrap-secrets.js";

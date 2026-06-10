@@ -2,7 +2,7 @@ import Link from "next/link";
 import { RegionTabs } from "../../components/RegionTabs";
 import { PortfolioNav } from "../../components/PortfolioNav";
 import { BriefsTable } from "../../components/BriefsTable";
-import { LiveMarketTicker } from "../../components/LiveMarketTicker";
+import { MarketTicker } from "../../components/MarketTicker";
 import { RegionSlug, REGIONS } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../lib/api";
 import { getExecutiveMarketQuotes } from "../../lib/market-data";
@@ -93,7 +93,7 @@ export default async function RegionPage({
 
       {/* Market Indices */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <LiveMarketTicker showHeader={true} initialData={market.quotes} initialTimestamp={market.generatedAt} />
+        <MarketTicker showHeader={true} initialData={market.quotes} initialTimestamp={market.generatedAt} />
       </div>
       
       {/* Category Filter */}

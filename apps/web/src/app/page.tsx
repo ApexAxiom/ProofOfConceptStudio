@@ -3,7 +3,7 @@ import { BriefPost, REGION_LIST, portfolioLabel, regionLabel } from "@proof/shar
 import { fetchLatestByPortfolio } from "../lib/api";
 import { getExecutiveDashboardData } from "../lib/executive-dashboard";
 import { formatDateWithTimezone } from "../lib/format-time";
-import { LiveMarketTicker } from "../components/LiveMarketTicker";
+import { MarketTicker } from "../components/MarketTicker";
 import { CategoryDayBoard, CategoryDayRow } from "../components/CategoryDayBoard";
 import { NewsTabs } from "../components/NewsTabs";
 
@@ -114,7 +114,7 @@ export default async function TodayPage() {
           </span>
         </div>
         <div className="mt-4">
-          <LiveMarketTicker
+          <MarketTicker
             showHeader={false}
             symbols={EXECUTIVE_MARKET_SYMBOLS}
             initialData={executiveData.market.quotes}

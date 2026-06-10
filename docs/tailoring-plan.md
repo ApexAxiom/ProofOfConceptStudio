@@ -160,8 +160,10 @@ Noticed while working; not yet changed:
    root-level investigation files (`ROOT_CAUSE.md`, `JAN21_INVESTIGATION.md`,
    `DIAGNOSIS_MISSING_BRIEFS.md`, `BRIEF_DEPTH_FIXES.md`, …) are debugging session debris and
    could move to `docs/archive/`.
-2. **Three ticker components** remain (`LiveMarketTicker`, `PortfolioMarketTicker`,
-   `CategoryMarketTicker`) — consolidate into one with a symbols prop.
+2. ~~**Three ticker components** remain (`LiveMarketTicker`, `PortfolioMarketTicker`,
+   `CategoryMarketTicker`) — consolidate into one with a symbols prop.~~ Done (June 2026):
+   one `MarketTicker` with `portfolio` / `symbols` / `variant` props; `CategoryMarketTicker`
+   was unused and its `CATEGORY_INDICES` config was dead — both removed.
 3. **`inferSignals` keyword chips** in `BriefsTable` are now partially redundant with real
    signal badges; retire once all live briefs carry `signalLevel`.
 4. **`/category/[category]`** is still a thin wrapper around portfolio listing; fold into

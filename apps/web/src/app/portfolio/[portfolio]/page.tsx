@@ -12,7 +12,7 @@ import {
 import { fetchPosts } from "../../../lib/api";
 import { getPortfolioMarketQuotes } from "../../../lib/market-data";
 import { getPortfolioNews } from "../../../lib/portfolio-news";
-import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
+import { MarketTicker } from "../../../components/MarketTicker";
 import { DashboardCard, ListRow } from "../../../components/portfolio-dashboard";
 import { SignalBadge } from "../../../components/SignalBadge";
 import styles from "./portfolio-dashboard.module.css";
@@ -612,7 +612,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
             headerClassName={styles.cardHeader}
             bodyClassName={styles.cardBody}
           >
-            <PortfolioMarketTicker
+            <MarketTicker
               portfolio={portfolio}
               variant="grid"
               limit={4}
