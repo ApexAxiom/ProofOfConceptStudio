@@ -58,3 +58,12 @@
 - `AWS_SECRET_NAME`
 - `CRON_SECRET`
 - `SECRETS_CACHE_TTL_MS`
+
+## Digest (runner, optional)
+| Var | Required | Notes |
+| --- | --- | --- |
+| `DIGEST_ENABLED` | no (default `false`) | Master switch for the daily email digest. |
+| `DIGEST_FROM_ADDRESS` | when enabled | SES-verified sender address. |
+| `DIGEST_RECIPIENTS` | when enabled | Comma-separated recipient list. |
+| `DIGEST_SES_REGION` | no | Defaults to `AWS_REGION` / `us-east-1`. |
+| `DIGEST_SITE_BASE_URL` | no | Link base for brief URLs; defaults to `SITE_URL`. |

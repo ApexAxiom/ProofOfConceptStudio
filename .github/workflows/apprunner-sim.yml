@@ -46,6 +46,7 @@ jobs:
           pnpm --filter @proof/runner run validate:smoke
           pnpm --filter @proof/runner run evidence:smoke
           pnpm --filter @proof/runner run usefulness:smoke
+          pnpm --filter @proof/runner run digest:smoke
           pnpm --filter @proof/runner run ingest:smoke
           pnpm --filter @proof/runner run brief-v2:validate:smoke
           pnpm --filter @proof/runner run procurement-report:smoke

@@ -24,6 +24,7 @@ import { generateBriefV3 } from "./brief-engine-v3/index.js";
 import type { ArticleInput } from "./llm/openai.js";
 import { publishBrief, logBriefRunResult, logBriefRunStart, logRunResult } from "./publish/dynamo.js";
 import { assessBriefUsefulness } from "./publish/usefulness.js";
+import { isDigestEnabled, sendRegionDigest } from "./digest/send.js";
 import crypto from "node:crypto";
 import { runMarketDashboard } from "./market/dashboard.js";
 import { getLatestPublishedBrief } from "./db/previous-brief.js";
@@ -667,6 +668,39 @@ export async function handleCron(
           error: (error as Error).message
         })
       );
+    }
+  }
+
+  // Daily email digest per region (env-gated; no-op unless DIGEST_ENABLED
+  // and SES sender/recipients are configured). Failures never fail the run.
+  if (!opts?.dryRun && isDigestEnabled()) {
+    for (const region of auditRegions) {
+      try {
+        const digestResult = await sendRegionDigest({ region, nowIso: runNow.toISOString() });
+        console.log(
+          JSON.stringify({
+            level: "info",
+            event: digestResult.sent ? "digest_sent" : "digest_skipped",
+            runId,
+            region,
+            runWindow,
+            reason: digestResult.reason,
+            entryCount: digestResult.entryCount
+          })
+        );
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            event: "digest_send_failed",
+            reasonCode: "digest_send_failed",
+            runId,
+            region,
+            runWindow,
+            error: (error as Error).message
+          })
+        );
+      }
     }
   }
 

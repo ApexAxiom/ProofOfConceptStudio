@@ -119,6 +119,11 @@ Done (June 2026):
 
 Open next:
 
+- [x] Daily email digest per region (env-gated SES; act/watch counts + per-category rows)
+      (`apps/runner/src/digest/`)
+- [x] CI runs the deterministic smoke suites; route error/404/loading pages; region badges
+      corrected to AU / INTL
+
 - [ ] 1.5 EIA / FRED / Baker Hughes rig count / ACCC-AEMO adapters with stored daily history
 - [ ] 2.1 Lean fixed brief structure + persistent watchlist items (carry/resolve day-to-day)
 - [x] 2.4 (v1) Usefulness checks: summary bullets must name an entity or carry a concrete
