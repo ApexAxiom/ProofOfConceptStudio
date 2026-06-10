@@ -1,10 +1,13 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 interface ListRowProps {
   title: string;
   href?: string;
   meta?: string;
   note?: string;
+  /** Optional chip (e.g. signal level) rendered inline before the title. */
+  badge?: ReactNode;
   className?: string;
   titleClassName?: string;
   metaClassName?: string;
@@ -25,6 +28,7 @@ export function ListRow({
   href,
   meta,
   note,
+  badge,
   className,
   titleClassName,
   metaClassName,
@@ -33,7 +37,10 @@ export function ListRow({
 }: ListRowProps) {
   const content = (
     <>
-      <p className={joinClasses("text-base font-medium text-foreground", titleClassName)}>{title}</p>
+      <p className={joinClasses("text-base font-medium text-foreground", titleClassName)}>
+        {badge ? <span className="mr-2 inline-flex align-middle">{badge}</span> : null}
+        {title}
+      </p>
       {meta ? <p className={joinClasses("mt-1 text-xs text-muted-foreground", metaClassName)}>{meta}</p> : null}
       {note ? <p className={joinClasses("mt-2 text-sm text-muted-foreground", noteClassName)}>{note}</p> : null}
     </>

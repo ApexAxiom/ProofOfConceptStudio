@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { BriefPost, portfolioLabel } from "@proof/shared";
 import { inferSignals } from "../lib/signals";
+import { SignalBadge } from "./SignalBadge";
 
 interface BriefsTableProps {
   briefs: BriefPost[];
@@ -258,16 +259,17 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                         </Link>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <SignalBadge level={brief.signalLevel} />
                           {signals.length > 0 ? (
                             signals.slice(0, 2).map((signal) => (
                               <span key={signal.type} className="signal-chip text-[10px]">
                                 {signal.label}
                               </span>
                             ))
-                          ) : (
+                          ) : !brief.signalLevel ? (
                             <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right">

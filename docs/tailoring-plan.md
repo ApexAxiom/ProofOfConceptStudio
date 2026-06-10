@@ -92,3 +92,60 @@ categories**, not keyword matches:
 
 Phase 1 → 2 → 3 → 4. Quick wins that can land alongside Phase 1: homepage consolidation,
 brief-page diet, low-signal handling, real market data.
+
+## Progress
+
+Done (June 2026):
+
+- [x] 1.1 Event taxonomy (`packages/shared/src/event-taxonomy.ts`)
+- [x] 1.2 Supplier/entity registry (`packages/shared/src/supplier-registry.ts`)
+- [x] 1.3 Materiality scoring in ingestion ranking (`apps/runner/src/ingest/materiality.ts`)
+- [x] 1.4 Cross-day story threading v1 — title-similarity demotion + "frame as update" prompt
+      hint (`apps/runner/src/ingest/similarity.ts`, `apps/runner/src/db/used-urls.ts`)
+- [x] 1.5 (partial) Market data credibility: runner snapshot no longer publishes fabricated
+      fallback prices in production (`apps/runner/src/market/portfolio-snapshot.ts`). Live data
+      remains Yahoo-spark based; EIA/FRED/rig-count adapters still open.
+- [x] 1.6 Signal level (act/watch/awareness) derived per brief, persisted, with awareness-day
+      context note (`apps/runner/src/run.ts`)
+- [x] 2.3 Category framework (cost drivers, contract mechanisms, suppliers, compliance
+      triggers) injected into the production brief prompt; event/entity hints per article
+- [x] 3.1 Homepage rebuilt as the Today triage board (per-category signal rows, region toggle,
+      tabbed headlines, trimmed ticker)
+- [x] 3.2 `/morning-scan` → `/`; `/watchlist` → Action Center watchlist tab; nav simplified to
+      Today / My Portfolios / Action Center / Assistant
+- [x] 3.3 (partial) Brief page diet: signal badge in header, hero image removed, one persona
+      panel per brief (CM preferred; VP only for legacy briefs)
+- [x] Signal badges on the region briefs table and portfolio dashboard brief lists
+
+Open next:
+
+- [ ] 1.5 EIA / FRED / Baker Hughes rig count / ACCC-AEMO adapters with stored daily history
+- [ ] 2.1 Lean fixed brief structure + persistent watchlist items (carry/resolve day-to-day)
+- [ ] 2.4 Validation refocus: each signal names an entity, has a number/date, and states a
+      category-specific implication
+- [ ] 2.5 Weekly deep-dive edition
+- [ ] Phase 4 personalization (profile, supplier pages, feedback loop, entity-grounded chat)
+
+## Observations backlog (quality watch-items)
+
+Noticed while working; not yet changed:
+
+1. **Stale docs** — `MODEL_AND_CATEGORIES.md` says the writer defaults to gpt-4o; the code
+   default is `gpt-5-mini` (`BRIEF_WRITER_MODEL` in `apps/runner/src/llm/openai.ts`). Several
+   root-level investigation files (`ROOT_CAUSE.md`, `JAN21_INVESTIGATION.md`,
+   `DIAGNOSIS_MISSING_BRIEFS.md`, `BRIEF_DEPTH_FIXES.md`, …) are debugging session debris and
+   could move to `docs/archive/`.
+2. **Three ticker components** remain (`LiveMarketTicker`, `PortfolioMarketTicker`,
+   `CategoryMarketTicker`) — consolidate into one with a symbols prop.
+3. **`inferSignals` keyword chips** in `BriefsTable` are now partially redundant with real
+   signal badges; retire once all live briefs carry `signalLevel`.
+4. **`/category/[category]`** is still a thin wrapper around portfolio listing; fold into
+   `/portfolios` when convenient.
+5. **Chat context not persisted** — region/portfolio selections reset between pages; a tiny
+   localStorage preference would carry the user's categories everywhere (feeds Phase 4).
+6. **`executive-dashboard` smoke test is network-dependent** (live Yahoo call); it fails in
+   sandboxes without market access. Inject a fixture or set placeholder env in test runs.
+7. **`isThinCategoryDay` content-length heuristic** overlaps with the new signal levels;
+   unify so "thin" and "awareness" don't drift apart.
+8. **Supplier registry is hand-seeded** — worth a domain review pass per category (names,
+   aliases, AU vs Americas scoping) to sharpen entity matching further.

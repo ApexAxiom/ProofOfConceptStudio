@@ -14,6 +14,7 @@ import { getPortfolioMarketQuotes } from "../../../lib/market-data";
 import { getPortfolioNews } from "../../../lib/portfolio-news";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
 import { DashboardCard, ListRow } from "../../../components/portfolio-dashboard";
+import { SignalBadge } from "../../../components/SignalBadge";
 import styles from "./portfolio-dashboard.module.css";
 
 export const revalidate = 60;
@@ -563,6 +564,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                   <ListRow
                     key={brief.postId}
                     title={brief.title}
+                    badge={<SignalBadge level={brief.signalLevel} />}
                     href={`/brief/${encodeURIComponent(brief.postId)}`}
                     external={false}
                     meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
@@ -587,6 +589,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                     <ListRow
                       key={brief.postId}
                       title={brief.title}
+                      badge={<SignalBadge level={brief.signalLevel} />}
                       href={`/brief/${encodeURIComponent(brief.postId)}`}
                       external={false}
                       meta={`${regionBadge(brief)} · ${regionLabel(brief.region)} · ${shortDate(brief.publishedAt)}`}
