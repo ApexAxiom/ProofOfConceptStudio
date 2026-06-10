@@ -63,6 +63,6 @@ aws cloudformation deploy --template-file scheduler-lambda.yml --stack-name brie
 
 ## References
 
-- `JAN21_INVESTIGATION.md` – EventBridge Scheduler did not invoke Lambda on Jan 21.
-- `DIAGNOSIS_MISSING_BRIEFS.md` – General diagnosis steps.
+- `docs/archive/JAN21_INVESTIGATION.md` – EventBridge Scheduler did not invoke Lambda on Jan 21.
+- `docs/archive/DIAGNOSIS_MISSING_BRIEFS.md` – General diagnosis steps.
 - `docs/production-runbook.md` – Manual run and alarm playbooks.

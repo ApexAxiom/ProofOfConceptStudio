@@ -155,11 +155,14 @@ Open next:
 
 Noticed while working; not yet changed:
 
-1. **Stale docs** — `MODEL_AND_CATEGORIES.md` says the writer defaults to gpt-4o; the code
+1. ~~**Stale docs** — `MODEL_AND_CATEGORIES.md` says the writer defaults to gpt-4o; the code
    default is `gpt-5-mini` (`BRIEF_WRITER_MODEL` in `apps/runner/src/llm/openai.ts`). Several
    root-level investigation files (`ROOT_CAUSE.md`, `JAN21_INVESTIGATION.md`,
    `DIAGNOSIS_MISSING_BRIEFS.md`, `BRIEF_DEPTH_FIXES.md`, …) are debugging session debris and
-   could move to `docs/archive/`.
+   could move to `docs/archive/`.~~ Done (June 2026): model section rewritten against actual
+   code defaults; the four investigation files moved to `docs/archive/`. Remaining root-level
+   candidates (`IMPROVEMENTS_SUMMARY.md`, `BRIEF_IMPROVEMENT_PROMPT.md`) left in place pending
+   a call on whether they are still referenced workflows.
 2. ~~**Three ticker components** remain (`LiveMarketTicker`, `PortfolioMarketTicker`,
    `CategoryMarketTicker`) — consolidate into one with a symbols prop.~~ Done (June 2026):
    one `MarketTicker` with `portfolio` / `symbols` / `variant` props; `CategoryMarketTicker`
