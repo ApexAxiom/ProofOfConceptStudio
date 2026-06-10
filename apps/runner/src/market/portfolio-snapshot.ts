@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { BriefMarketSnapshotItem, PortfolioIndex, getPortfolioIndices } from "@proof/shared";
+import { BriefMarketSnapshotItem, PortfolioIndex, getPortfolioIndices, isPlaceholdersAllowed } from "@proof/shared";
 
 const DEFAULT_LOOKBACK_DAYS = 5;
 const RETRY_BACKOFF_MS = [300, 900, 1800];
@@ -137,41 +137,50 @@ export async function fetchPortfolioSnapshot(portfolioSlug: string): Promise<Bri
   const nextStoredQuotes = { ...store.quotes };
   const nowIso = new Date().toISOString();
 
-  const items = indices.map((index) => {
-    const series = sparkMap.get(index.yahooSymbol);
-    if (series) {
-      const { latest, prior } = selectLatestAndPrior(series.close, DEFAULT_LOOKBACK_DAYS);
-      if (typeof latest === "number" && typeof prior === "number") {
-        const timestamp = series.timestamp[series.timestamp.length - 1];
-        const asOf = timestamp ? new Date(timestamp * 1000).toISOString() : nowIso;
-        nextStoredQuotes[storeKey(index)] = {
-          latest,
-          prior,
-          asOf
-        };
-        return toSnapshotItem({ index, latest, prior, asOf, dataState: "live" });
-      }
-    }
+  // Published briefs must never carry invented prices: fallback values are
+  // only allowed where the placeholder policy explicitly permits them
+  // (dev/test). In production a missing quote is dropped, not fabricated.
+  const allowFallback = isPlaceholdersAllowed();
 
-    const stored = store.quotes[storeKey(index)];
-    if (stored && Number.isFinite(stored.latest) && Number.isFinite(stored.prior)) {
+  const items = indices
+    .map((index) => {
+      const series = sparkMap.get(index.yahooSymbol);
+      if (series) {
+        const { latest, prior } = selectLatestAndPrior(series.close, DEFAULT_LOOKBACK_DAYS);
+        if (typeof latest === "number" && typeof prior === "number") {
+          const timestamp = series.timestamp[series.timestamp.length - 1];
+          const asOf = timestamp ? new Date(timestamp * 1000).toISOString() : nowIso;
+          nextStoredQuotes[storeKey(index)] = {
+            latest,
+            prior,
+            asOf
+          };
+          return toSnapshotItem({ index, latest, prior, asOf, dataState: "live" });
+        }
+      }
+
+      const stored = store.quotes[storeKey(index)];
+      if (stored && Number.isFinite(stored.latest) && Number.isFinite(stored.prior)) {
+        return toSnapshotItem({
+          index,
+          latest: stored.latest,
+          prior: stored.prior,
+          asOf: stored.asOf || nowIso,
+          dataState: "stale"
+        });
+      }
+
+      if (!allowFallback) return null;
+
       return toSnapshotItem({
         index,
-        latest: stored.latest,
-        prior: stored.prior,
-        asOf: stored.asOf || nowIso,
-        dataState: "stale"
+        latest: index.fallbackPrice,
+        prior: index.fallbackPrice,
+        asOf: nowIso,
+        dataState: "fallback"
       });
-    }
-
-    return toSnapshotItem({
-      index,
-      latest: index.fallbackPrice,
-      prior: index.fallbackPrice,
-      asOf: nowIso,
-      dataState: "fallback"
-    });
-  });
+    })
+    .filter((item): item is BriefMarketSnapshotItem => Boolean(item));
 
   await writeStore({
     savedAt: nowIso,

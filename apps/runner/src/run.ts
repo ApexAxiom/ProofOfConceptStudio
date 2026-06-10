@@ -382,7 +382,8 @@ function toArticleInput(article: ArticleSource): ArticleInput {
     contentStatus: normalizeContentStatus(article.contentStatus),
     eventType: article.materiality?.eventType,
     eventLabel: article.materiality?.eventLabel,
-    entities: article.materiality?.entities
+    entities: article.materiality?.entities,
+    previouslyCovered: article.previouslyCovered
   };
 }
 

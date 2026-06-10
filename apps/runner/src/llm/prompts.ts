@@ -107,6 +107,8 @@ export interface ArticleInput {
   eventLabel?: string;
   /** Canonical registry entities (suppliers/operators) mentioned in the article. */
   entities?: string[];
+  /** A near-duplicate headline ran in a recent brief for this category. */
+  previouslyCovered?: boolean;
 }
 
 export interface PromptInput {

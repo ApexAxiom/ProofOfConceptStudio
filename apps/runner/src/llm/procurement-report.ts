@@ -347,6 +347,9 @@ function articleBlock(input: ProcurementPromptInput): string {
       const entities = article.entities?.length
         ? `\nKnown suppliers/operators mentioned: ${article.entities.join(", ")}`
         : "";
+      const covered = article.previouslyCovered
+        ? "\nNOTE: A similar story ran in a recent brief for this category. Only feature it if there is a genuinely new development, and frame it as an update (what changed), not as news."
+        : "";
       return [
         `### Article ${index}${sourceName}`,
         `Title: ${article.title}`,
@@ -355,6 +358,7 @@ function articleBlock(input: ProcurementPromptInput): string {
         contentStatus,
         eventType,
         entities,
+        covered,
         "Evidence excerpts:",
         extractEvidenceExcerpts(article.content ?? "")
       ]

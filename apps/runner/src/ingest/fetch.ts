@@ -13,7 +13,8 @@ import { shallowScrape, fetchArticleDetails, ArticleDetails } from "./extract.js
 import { dedupeArticles } from "./dedupe.js";
 import { assessArticleMateriality, MaterialityAssessment } from "./materiality.js";
 import { normalizeForDedupe } from "./url-normalize.js";
-import { getRecentlyUsedUrls } from "../db/used-urls.js";
+import { isNearDuplicateTitle, titleTokens } from "./similarity.js";
+import { getRecentBriefHistory } from "../db/used-urls.js";
 import { FeedAttempt, recordFeedAttempts } from "./feed-health.js";
 import { emitRunnerMetrics } from "../observability/metrics.js";
 
@@ -31,6 +32,8 @@ export interface ArticleDetail extends ArticleCandidate {
   contentStatus?: "ok" | "thin";
   /** Materiality assessment (event type + matched entities) from ranking. */
   materiality?: MaterialityAssessment;
+  /** A near-duplicate headline ran in a recent brief for this category. */
+  previouslyCovered?: boolean;
 }
 
 const MIN_CONTENT_LEN = 300; // Reduced from 400 to allow more articles with good content
@@ -597,14 +600,17 @@ export async function ingestAgent(
   // while allowing cross-category article reuse.
   const lookbackDays = agent.lookbackDays ?? 3;
   let usedUrls: Set<string>;
-  
+  let recentTitleSets: Array<Set<string>> = [];
+
   try {
-    usedUrls = await getRecentlyUsedUrls({
+    const history = await getRecentBriefHistory({
       portfolio: agent.portfolio, // Category-specific filtering
       region,
       lookbackDays,
       limit: 200
     });
+    usedUrls = history.urls;
+    recentTitleSets = history.titles.map((title) => titleTokens(title));
   } catch (err) {
     console.warn(
       JSON.stringify({
@@ -688,6 +694,8 @@ export async function ingestAgent(
   const secondaryKeywords = keywordPack.secondary;
   const excludeKeywords = keywordPack.exclude;
 
+  const PREVIOUSLY_COVERED_PENALTY = 15;
+
   const scoredAll = dedupeSafeList
     .map((item) => {
       const hay = `${item.title} ${item.url} ${item.summary ?? ""}`.toLowerCase();
@@ -699,7 +707,12 @@ export async function ingestAgent(
         portfolio: agent.portfolio,
         region
       });
-      return { ...item, ...signals, materiality, triageScore: signals.score + materiality.materialityScore };
+      // Same story from another outlet (different URL, near-identical headline)
+      // is demoted, not excluded: a genuinely material update can still win.
+      const previouslyCovered = isNearDuplicateTitle(item.title, recentTitleSets);
+      const triageScore =
+        signals.score + materiality.materialityScore - (previouslyCovered ? PREVIOUSLY_COVERED_PENALTY : 0);
+      return { ...item, ...signals, materiality, previouslyCovered, triageScore };
     })
     .filter((item) => !item.hasExclude)
     .sort((a, b) => b.triageScore - a.triageScore);
@@ -735,7 +748,8 @@ export async function ingestAgent(
             summary: details.description ?? candidate.summary,
             content: details.content,
             ogImageUrl: details.ogImageUrl,
-            sourceName: details.sourceName || candidate.sourceName // Prefer extracted, fall back to feed config
+            sourceName: details.sourceName || candidate.sourceName, // Prefer extracted, fall back to feed config
+            previouslyCovered: candidate.previouslyCovered
           };
         } catch (err) {
           console.error(
@@ -758,7 +772,8 @@ export async function ingestAgent(
             url: candidate.url,
             published: candidate.published,
             summary: candidate.summary,
-            sourceName: candidate.sourceName
+            sourceName: candidate.sourceName,
+            previouslyCovered: candidate.previouslyCovered
           };
         }
       })
