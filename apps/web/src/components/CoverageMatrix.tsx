@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PORTFOLIOS, REGION_LIST, RegionSlug, BriefPost } from "@proof/shared";
+import { PORTFOLIOS, REGION_LIST, RegionSlug, BriefPost, regionShortLabel } from "@proof/shared";
 import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 
 interface CoverageMatrixProps {
@@ -69,7 +69,7 @@ export function CoverageMatrix({ briefsByRegion }: CoverageMatrixProps) {
                 </th>
                 {REGION_LIST.map(region => (
                   <th key={region.slug} className="px-3 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {region.slug === "au" ? "🇦🇺 AU" : "🇺🇸 US"}
+                    {regionShortLabel(region.slug)}
                   </th>
                 ))}
               </tr>

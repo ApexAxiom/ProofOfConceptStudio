@@ -39,3 +39,21 @@ jobs:
 
       - name: Build runner app
         run: pnpm --filter @proof/runner... build
+
+      # Deterministic smoke suites only — no network or AWS credentials needed.
+      - name: Smoke tests (runner)
+        run: |
+          pnpm --filter @proof/runner run validate:smoke
+          pnpm --filter @proof/runner run evidence:smoke
+          pnpm --filter @proof/runner run usefulness:smoke
+          pnpm --filter @proof/runner run ingest:smoke
+          pnpm --filter @proof/runner run brief-v2:validate:smoke
+          pnpm --filter @proof/runner run procurement-report:smoke
+          pnpm --filter @proof/runner run brief-engine-v3:smoke
+          pnpm --filter @proof/runner run render:smoke
+          pnpm --filter @proof/runner run fallback:smoke
+
+      - name: Smoke tests (api + web)
+        run: |
+          pnpm --filter @proof/api run latest-selection:smoke
+          pnpm --filter @proof/web run brief-detail:smoke

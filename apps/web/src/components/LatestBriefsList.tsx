@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BriefPost, portfolioLabel } from "@proof/shared";
+import { BriefPost, portfolioLabel, regionShortLabel } from "@proof/shared";
 import { categoryForPortfolio, CATEGORY_META } from "@proof/shared";
 
 interface LatestBriefsListProps {
@@ -78,7 +78,7 @@ export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
                         {brief.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                        <span className="text-base">{brief.region === "au" ? "🇦🇺" : "🇺🇸"}</span>
+                        <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{regionShortLabel(brief.region)}</span>
                         <span className="truncate max-w-[140px] font-medium">
                           {portfolioLabel(brief.portfolio)}
                         </span>

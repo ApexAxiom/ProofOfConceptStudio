@@ -10,9 +10,10 @@ function GlobeIcon() {
 }
 
 function getRegionFlag(slug: RegionSlug): string {
+  // The international region spans US/Mexico/LatAm/Senegal — no single flag.
   const flags: Record<RegionSlug, string> = {
-    "au": "🇦🇺",
-    "us-mx-la-lng": "🇺🇸"
+    "au": "AU",
+    "us-mx-la-lng": "INTL"
   };
   return flags[slug] || "🌍";
 }

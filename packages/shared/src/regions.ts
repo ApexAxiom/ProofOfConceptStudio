@@ -23,3 +23,11 @@ export const REGION_LIST = Object.values(REGIONS);
 export function regionLabel(slug: RegionSlug): string {
   return REGIONS[slug]?.label ?? slug;
 }
+
+/**
+ * Short badge label. The international region spans US/Mexico/LatAm/Senegal,
+ * so it is rendered as "INTL" rather than a single country flag.
+ */
+export function regionShortLabel(slug: RegionSlug): string {
+  return slug === "au" ? "AU" : "INTL";
+}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { BriefPost, portfolioLabel } from "@proof/shared";
+import { BriefPost, portfolioLabel, regionShortLabel } from "@proof/shared";
 import { inferSignals } from "../lib/signals";
 import { SignalBadge } from "./SignalBadge";
 
@@ -246,7 +246,7 @@ export function BriefsTable({ briefs, showRegion = true, variant = "full" }: Bri
                       </td>
                       {showRegion && (
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <span className="text-sm">{brief.region === "au" ? "🇦🇺 AU" : "🇺🇸 US"}</span>
+                          <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{regionShortLabel(brief.region)}</span>
                         </td>
                       )}
                       <td className="px-4 py-4">
