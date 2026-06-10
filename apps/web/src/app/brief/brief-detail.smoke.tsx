@@ -200,8 +200,16 @@ assert(html.includes("Top stories"));
 assert(html.includes("What to do / What to watch"));
 assert(html.includes("Sources"));
 assert(html.includes("Market pulse"));
-assert(html.includes("Executive Risk &amp; Action View"));
+// One persona panel per brief: CM panel renders, VP panel is reserved for
+// older briefs without a cmSnapshot (and for the Action Center leadership view).
+assert(!html.includes("Executive Risk &amp; Action View"));
 assert(html.includes("Category Manager Decision Detail"));
+
+{
+  const vpOnly = { ...brief, cmSnapshot: undefined };
+  const vpHtml = renderToStaticMarkup(<BriefDetailContent brief={vpOnly} />);
+  assert(vpHtml.includes("Executive Risk &amp; Action View"));
+}
 assert(html.includes("Supplier radar"));
 assert(html.includes("Negotiation levers"));
 assert(html.includes("Source notes [1]"));

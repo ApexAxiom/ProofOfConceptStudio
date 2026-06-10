@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   BriefClaim,
   BriefCitedBullet,
@@ -17,6 +16,7 @@ import {
 } from "@proof/shared";
 import { CmSnapshotPanel } from "../../components/cm/CmSnapshotPanel";
 import { NegotiationLevers } from "../../components/NegotiationLevers";
+import { SignalBadge } from "../../components/SignalBadge";
 import { SupplierRadar } from "../../components/SupplierRadar";
 import { VpSnapshotPanel } from "../../components/vp/VpSnapshotPanel";
 
@@ -446,8 +446,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
   const reportActionGroups = brief.report?.actionGroups ?? [];
   const marketSnapshot = (brief.marketSnapshot ?? []).slice(0, 6);
   const marketNotes = unique((brief.marketIndicators ?? []).map((indicator) => `${indicator.label}: ${indicator.note}`)).slice(0, 5);
-  const shouldRenderHero =
-    view.heroImage.url.startsWith("https://") && !/daily intel report/i.test(view.heroImage.alt);
   const topMove = sanitizePresentationText(brief.decisionSummary?.topMove) || fallbackSummary;
 
   const keyTakeaways = brief.report?.summaryBullets?.length
@@ -470,6 +468,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
             </p>
             <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{view.title}</h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <SignalBadge level={brief.signalLevel} />
               <span>Published {view.dateLabel}</span>
               <span className="text-border">•</span>
               <span>{brief.runWindow.toUpperCase()}</span>
@@ -486,20 +485,8 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         </div>
       </header>
 
-      {shouldRenderHero ? (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <Image
-            src={view.heroImage.url}
-            alt={view.heroImage.alt}
-            width={1600}
-            height={900}
-            sizes="(min-width: 1024px) 1024px, 100vw"
-            unoptimized
-            className="h-64 w-full rounded-lg border border-border bg-background object-cover sm:h-80"
-            loading="eager"
-          />
-        </section>
-      ) : null}
+      {/* The full-width hero image was decorative weight above the decision
+          content, so it is intentionally not rendered. */}
 
       {view.contextNote ? (
         <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
@@ -741,9 +728,10 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         </section>
       ) : null}
 
-      {brief.vpSnapshot ? <VpSnapshotPanel brief={brief} /> : null}
-
-      {brief.cmSnapshot ? <CmSnapshotPanel brief={brief} /> : null}
+      {/* The brief is the category manager's product: one persona panel.
+          VP content lives in the Action Center leadership view; the VP panel
+          renders here only for older briefs that lack a CM snapshot. */}
+      {brief.cmSnapshot ? <CmSnapshotPanel brief={brief} /> : brief.vpSnapshot ? <VpSnapshotPanel brief={brief} /> : null}
 
       {brief.cmSnapshot?.supplierRadar?.length ? (
         <section className="rounded-xl border border-border bg-card p-5">
@@ -1030,7 +1018,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
           More from {portfolioLabel(brief.portfolio)}
         </Link>
         <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary">
-          Back to Executive View
+          Back to Today view
         </Link>
       </div>
     </div>

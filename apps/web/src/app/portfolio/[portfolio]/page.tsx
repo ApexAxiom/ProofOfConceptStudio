@@ -268,7 +268,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
         <h1 className="text-xl font-semibold text-foreground">Portfolio not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">{portfolio} is not configured.</p>
         <Link href="/" className="btn-secondary mt-4 inline-flex">
-          Back to Executive View
+          Back to Today view
         </Link>
       </div>
     );
@@ -333,7 +333,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
           <div>
             <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
               <Link href="/" className={`${styles.breadcrumbLink} ${styles.focusable}`}>
-                Executive View
+                Today
               </Link>
               <span>/</span>
               <Link href="/portfolios" className={`${styles.breadcrumbLink} ${styles.focusable}`}>

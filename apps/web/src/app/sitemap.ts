@@ -15,9 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const paths = [
     "/",
-    "/morning-scan",
     "/portfolios",
-    "/watchlist",
     ...REGION_LIST.map((region) => `/${region.slug}`),
     ...REGION_LIST.map((region) => `/actions/${region.slug}`),
     ...PORTFOLIOS.map((portfolio) => `/portfolio/${portfolio.slug}`),

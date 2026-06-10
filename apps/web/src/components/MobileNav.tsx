@@ -109,7 +109,7 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             className={`mobile-nav-link ${pathname === "/" ? "active" : ""}`}
           >
             <DashboardIcon />
-            <span>Executive View</span>
+            <span>Today</span>
           </Link>
           <Link
             href={`/actions/${defaultActionCenter}`}

@@ -72,7 +72,7 @@ export function Sidebar() {
               className={`sidebar-link relative ${pathname === "/" ? "active" : ""}`}
             >
               <DashboardIcon />
-              <span>Executive View</span>
+              <span>Today</span>
             </Link>
             <Link
               href={`/actions/${REGION_LIST[0].slug}`}

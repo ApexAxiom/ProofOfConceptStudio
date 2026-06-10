@@ -59,7 +59,8 @@ assert(html.includes("Why it matters"));
 assert(html.includes("Top stories"));
 assert(html.includes("What to do / What to watch"));
 assert(html.includes("Sources"));
-assert(html.includes("Executive Risk &amp; Action View"));
+// One persona panel per brief: CM wins when both snapshots are present.
+assert(!html.includes("Executive Risk &amp; Action View"));
 assert(html.includes("Category Manager Decision Detail"));
 assert(!html.includes("Market pulse"));
 assert(html.includes("Read source"));

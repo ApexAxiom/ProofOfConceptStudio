@@ -8,11 +8,9 @@ import { ThemeToggle } from "../ThemeToggle";
 import { MobileNav } from "../MobileNav";
 
 const primaryNav = [
-  { href: "/", label: "Executive View" },
-  { href: "/morning-scan", label: "Morning Scan" },
+  { href: "/", label: "Today" },
   { href: "/portfolios", label: "My Portfolios" },
   { href: `/actions/${REGION_LIST[0].slug}`, label: "Action Center" },
-  { href: "/watchlist", label: "Watchlist" },
   { href: "/chat", label: "Assistant" }
 ];
 
