@@ -8,13 +8,13 @@ interface ThemeProviderProps {
 }
 
 /**
- * Provides theme context with a dark default.
+ * Provides theme context with a light default.
  */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
+      defaultTheme="light"
       enableSystem={false}
       disableTransitionOnChange
     >

@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { getGoogleNewsFeeds, getPortfolioSources } from "@proof/shared";
+import { withTtlMemo } from "./server/ttl-cache";
 import {
   canonicalizeUrl,
   cleanText,
@@ -18,7 +19,7 @@ export interface PortfolioNewsArticle {
   region: "APAC" | "INTL";
 }
 
-const FEED_TIMEOUT_MS = 12_000;
+const FEED_TIMEOUT_MS = 5_000;
 const MAX_FEEDS_PER_REGION = 6;
 const MAX_ITEMS_PER_FEED = 6;
 const MAX_AGE_DAYS = 14;
@@ -54,7 +55,7 @@ async function safeResolveUrl(rawUrl: string): Promise<string> {
   try {
     const result = await Promise.race([
       resolvePublisherUrl(rawUrl),
-      new Promise<string>((resolve) => setTimeout(() => resolve(canonicalizeUrl(rawUrl)), 3_000))
+      new Promise<string>((resolve) => setTimeout(() => resolve(canonicalizeUrl(rawUrl)), 1_500))
     ]);
     return result;
   } catch {
@@ -156,7 +157,9 @@ export async function getPortfolioNews(portfolio: string, limit = 12): Promise<P
     return await getPortfolioNewsCached(portfolio, limit);
   } catch (error) {
     if (isIncrementalCacheUnavailable(error)) {
-      return buildPortfolioNews(portfolio, limit);
+      return withTtlMemo(`portfolio-news:${portfolio}:${limit}`, 900_000, () =>
+        buildPortfolioNews(portfolio, limit)
+      );
     }
     throw error;
   }

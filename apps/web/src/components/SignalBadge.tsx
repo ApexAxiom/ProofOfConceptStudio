@@ -3,11 +3,11 @@ import type { BriefSignalLevel } from "@proof/shared";
 const STYLES: Record<BriefSignalLevel, { label: string; className: string }> = {
   act: {
     label: "Act",
-    className: "border-red-500/40 bg-red-500/10 text-red-400"
+    className: "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
   },
   watch: {
     label: "Watch",
-    className: "border-amber-500/40 bg-amber-500/10 text-amber-400"
+    className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
   },
   awareness: {
     label: "Awareness",

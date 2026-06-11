@@ -49,25 +49,21 @@ function TickerItem({ data }: { data: PriceData }) {
   const changeText = `${isPositive ? "+" : ""}${data.changePercent.toFixed(2)}%`;
   
   return (
-    <a
-      href={data.sourceUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="ticker-item group flex items-center gap-3 px-4 py-2 whitespace-nowrap"
-    >
-      <span className="font-semibold text-foreground tracking-tight">{data.symbol}</span>
-      <span className="text-foreground/90 font-mono text-sm">
-        {data.unit.startsWith("/") ? "" : "$"}
-        {formatPrice(data.price)}
+    <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="ticker-item group">
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className="font-semibold text-foreground tracking-tight">{data.symbol}</span>
+        <span className="text-foreground/90 font-mono text-sm">
+          {data.unit.startsWith("/") ? "" : "$"}
+          {formatPrice(data.price)}
+        </span>
       </span>
-      <span className={`ticker-change font-mono text-xs font-semibold px-1.5 py-0.5 rounded ${
-        isPositive 
-          ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" 
-          : "text-red-600 dark:text-red-400 bg-red-500/10"
+      <span className={`font-mono text-xs font-semibold ${
+        isPositive
+          ? "text-emerald-700 dark:text-emerald-400"
+          : "text-red-700 dark:text-red-400"
       }`}>
         {isPositive ? "▲" : "▼"} {changeText}
       </span>
-      <span className="ticker-separator text-border/50">│</span>
     </a>
   );
 }
@@ -76,7 +72,6 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
   const [data, setData] = useState<PriceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -122,12 +117,10 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
 
   if (loading) {
     return (
-      <div className="ticker-container">
-        <div className="flex items-center gap-6 px-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-6 w-28 animate-pulse rounded bg-muted/50" />
-          ))}
-        </div>
+      <div className="ticker-grid" aria-hidden="true">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="h-12 animate-pulse rounded-md bg-muted/60" />
+        ))}
       </div>
     );
   }
@@ -152,8 +145,8 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
             </svg>
             <h3 className="text-sm font-semibold text-foreground">Category Indices</h3>
           </div>
-          <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-            <span className="live-pulse h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400">
+            <span className="status-dot live h-1.5 w-1.5" />
             HOURLY
           </span>
         </div>
@@ -164,26 +157,10 @@ export function CategoryMarketTicker({ category }: { category: CategoryGroup }) 
         )}
       </div>
       
-      {/* Scrolling Ticker */}
-      <div 
-        className="ticker-container"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
-        <div className={`ticker-track ${isPaused ? 'paused' : ''}`}>
-          {/* First set of items */}
-          <div className="ticker-content">
-            {data.map((item) => (
-              <TickerItem key={`a-${item.symbol}`} data={item} />
-            ))}
-          </div>
-          {/* Duplicate for seamless loop */}
-          <div className="ticker-content">
-            {data.map((item) => (
-              <TickerItem key={`b-${item.symbol}`} data={item} />
-            ))}
-          </div>
-        </div>
+      <div className="ticker-grid">
+        {data.map((item) => (
+          <TickerItem key={item.symbol} data={item} />
+        ))}
       </div>
     </div>
   );

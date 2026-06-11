@@ -31,9 +31,9 @@ const SECTION_LABELS: Record<BriefClaimSection, string> = {
 };
 
 function statusLabel(status: BriefClaim["status"]) {
-  if (status === "supported") return { text: "Evidence-backed", tone: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
-  if (status === "analysis") return { text: "Analysis", tone: "bg-blue-500/10 text-blue-400 border-blue-500/20" };
-  return { text: "Needs verification", tone: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+  if (status === "supported") return { text: "Evidence-backed", tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" };
+  if (status === "analysis") return { text: "Analysis", tone: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" };
+  return { text: "Needs verification", tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20" };
 }
 
 export function BriefClaims({ claims, sources }: { claims?: BriefClaim[]; sources?: BriefSourceInput[] }) {

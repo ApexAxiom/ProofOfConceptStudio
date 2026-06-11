@@ -29,8 +29,14 @@ export default async function CategoryDashboard({ params, searchParams }: Catego
 
   const meta = CATEGORY_META[category];
   const portfolios = PORTFOLIOS.filter((p) => categoryForPortfolio(p.slug) === category);
-  const regionBriefs = await fetchPosts({ region: selectedRegion, limit: 400 }).catch(() => []);
-  const latestCategoryBrief = regionBriefs.find((brief) => categoryForPortfolio(brief.portfolio) === category);
+  // Targeted limit-1 queries per portfolio in this category instead of
+  // scanning hundreds of region briefs to find one match.
+  const categoryBriefs = (
+    await Promise.all(
+      portfolios.map((p) => fetchPosts({ region: selectedRegion, portfolio: p.slug, limit: 1 }).catch(() => []))
+    )
+  ).flat();
+  const latestCategoryBrief = categoryBriefs.sort((a, b) => (a.publishedAt > b.publishedAt ? -1 : 1))[0];
   const latestCategoryView = latestCategoryBrief ? toBriefViewModelV2(latestCategoryBrief, { defaultRegion: selectedRegion }) : null;
 
   return (

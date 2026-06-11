@@ -490,7 +490,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
 
       {view.contextNote ? (
         <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Coverage note</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Coverage note</p>
           <p className="mt-3 text-sm leading-relaxed text-amber-100">{view.contextNote}</p>
         </section>
       ) : null}
@@ -841,7 +841,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                         {Number(item.latest).toLocaleString("en-US", { maximumFractionDigits: 2 })} {item.unit}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <span className={item.change >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                        <span className={item.change >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}>
                           {`${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%)`}
                         </span>
                       </td>

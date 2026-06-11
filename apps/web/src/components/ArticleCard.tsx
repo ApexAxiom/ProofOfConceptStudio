@@ -28,7 +28,7 @@ export function ArticleCard({ article, index }: ArticleCardProps) {
         <div className="flex-1 p-5 space-y-4">
           {/* Header Row */}
           <div className="flex items-start gap-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-sm font-bold text-primary-foreground flex-shrink-0 shadow-glow">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-secondary text-sm font-semibold text-secondary-foreground">
               {index + 1}
             </span>
             <div className="flex-1 min-w-0">

@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { BriefPost, PORTFOLIOS, RunWindow, isUserVisiblePlaceholderBrief } from "@proof/shared";
-import { filterPosts, getPost, getRegionPosts } from "./server/posts";
+import { filterPosts, getLatestPortfolioPost, getPost, getRegionPosts } from "./server/posts";
+import { withTtlMemo } from "./server/ttl-cache";
 
 const BRIEF_LIST_REVALIDATE_SECONDS = 60;
 const BRIEF_DETAIL_REVALIDATE_SECONDS = 300;
@@ -38,8 +39,10 @@ export async function fetchLatest(region: string): Promise<BriefPost[]> {
     return await fetchLatestCached(region);
   } catch (error) {
     if (isIncrementalCacheUnavailable(error)) {
-      const posts = await getRegionPosts(region, 120);
-      return sortByPublished(filterVisibleBriefs(posts)).slice(0, 30);
+      return withTtlMemo(`fetch-latest:${region}`, BRIEF_LIST_REVALIDATE_SECONDS * 1000, async () => {
+        const posts = await getRegionPosts(region, 120);
+        return sortByPublished(filterVisibleBriefs(posts)).slice(0, 30);
+      });
     }
     throw error;
   }
@@ -83,15 +86,18 @@ export async function fetchPosts(params: {
     return await fetchPostsCached(params.region, params.portfolio, params.runWindow, params.limit);
   } catch (error) {
     if (isIncrementalCacheUnavailable(error)) {
-      const posts = await filterPosts({
-        region: params.region,
-        portfolio: params.portfolio,
-        runWindow: params.runWindow,
-        limit: params.limit
+      const memoKey = `fetch-posts:${params.region}:${params.portfolio ?? ""}:${params.runWindow ?? ""}:${params.limit ?? ""}`;
+      return withTtlMemo(memoKey, BRIEF_LIST_REVALIDATE_SECONDS * 1000, async () => {
+        const posts = await filterPosts({
+          region: params.region,
+          portfolio: params.portfolio,
+          runWindow: params.runWindow,
+          limit: params.limit
+        });
+        const filtered = filterVisibleBriefs(posts);
+        const sorted = sortByPublished(filtered);
+        return typeof params.limit === "number" ? sorted.slice(0, params.limit) : sorted;
       });
-      const filtered = filterVisibleBriefs(posts);
-      const sorted = sortByPublished(filtered);
-      return typeof params.limit === "number" ? sorted.slice(0, params.limit) : sorted;
     }
     throw error;
   }
@@ -108,13 +114,24 @@ function pickLatestPerPortfolio(briefs: BriefPost[]): BriefPost[] {
 }
 
 /**
+ * One targeted limit-1 query per portfolio (GSI1) in parallel. Replaces the
+ * previous approach of scanning up to 800 region items and discarding most
+ * of them, which dominated render time on the Today/region/actions pages.
+ */
+async function buildLatestByPortfolio(region: string): Promise<BriefPost[]> {
+  const latest = await Promise.all(
+    PORTFOLIOS.map((portfolio) => getLatestPortfolioPost(region, portfolio.slug).catch(() => null))
+  );
+  return pickLatestPerPortfolio(latest.filter((post): post is BriefPost => Boolean(post)));
+}
+
+/**
  * Fetch the latest brief for each portfolio in a region.
  */
 const fetchLatestByPortfolioCached = unstable_cache(
   async (region: string): Promise<BriefPost[]> => {
     try {
-      const posts = filterVisibleBriefs(await getRegionPosts(region, 800));
-      return pickLatestPerPortfolio(posts);
+      return await buildLatestByPortfolio(region);
     } catch {
       const posts = await fetchPosts({ region, limit: 400 });
       return pickLatestPerPortfolio(posts);
@@ -129,8 +146,9 @@ export async function fetchLatestByPortfolio(region: string): Promise<BriefPost[
     return await fetchLatestByPortfolioCached(region);
   } catch (error) {
     if (isIncrementalCacheUnavailable(error)) {
-      const posts = filterVisibleBriefs(await getRegionPosts(region, 800));
-      return pickLatestPerPortfolio(posts);
+      return withTtlMemo(`latest-by-portfolio:${region}`, BRIEF_LIST_REVALIDATE_SECONDS * 1000, () =>
+        buildLatestByPortfolio(region)
+      );
     }
     throw error;
   }

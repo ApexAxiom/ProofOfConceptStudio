@@ -80,20 +80,16 @@ function GridItem({ data }: { data: PriceData }) {
 
 function TickerItem({ data }: { data: PriceData }) {
   return (
-    <a
-      href={data.sourceUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="ticker-item group flex items-center gap-3 px-4 py-2 whitespace-nowrap"
-    >
-      <span className="font-semibold text-foreground tracking-tight">{data.symbol}</span>
-      <span className="text-foreground/90 font-mono text-sm">
-        {data.unit.startsWith("/") ? "" : "$"}
-        {formatPrice(data.price)}
-        {data.unit ? <span className="text-xs text-muted-foreground ml-0.5">{data.unit}</span> : null}
+    <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="ticker-item group">
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className="font-semibold tracking-tight text-foreground">{data.symbol}</span>
+        <span className="font-mono text-sm text-foreground/90">
+          {data.unit.startsWith("/") ? "" : "$"}
+          {formatPrice(data.price)}
+          {data.unit ? <span className="ml-0.5 text-xs text-muted-foreground">{data.unit}</span> : null}
+        </span>
       </span>
       <ChangeBadge changePercent={data.changePercent} />
-      <span className="ticker-separator text-border/50">│</span>
     </a>
   );
 }
@@ -110,7 +106,6 @@ export function PortfolioMarketTicker({
   const [data, setData] = useState<PriceData[]>(initialData ?? []);
   const [loading, setLoading] = useState(!hasInitialState);
   const [lastUpdated, setLastUpdated] = useState<string>(initialTimestamp ?? "");
-  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,12 +155,10 @@ export function PortfolioMarketTicker({
       );
     }
     return (
-      <div className="ticker-container">
-        <div className="flex items-center gap-6 px-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-6 w-28 animate-pulse rounded bg-muted/50" />
-          ))}
-        </div>
+      <div className="ticker-grid" aria-hidden="true">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-12 animate-pulse rounded-md bg-muted/60" />
+        ))}
       </div>
     );
   }
@@ -215,19 +208,10 @@ export function PortfolioMarketTicker({
         ) : null}
       </div>
 
-      <div className="ticker-container" onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
-        <div className={`ticker-track ${isPaused ? "paused" : ""}`}>
-          <div className="ticker-content">
-            {displayData.map((item) => (
-              <TickerItem key={`a-${item.symbol}-${item.sourceUrl}`} data={item} />
-            ))}
-          </div>
-          <div className="ticker-content">
-            {displayData.map((item) => (
-              <TickerItem key={`b-${item.symbol}-${item.sourceUrl}`} data={item} />
-            ))}
-          </div>
-        </div>
+      <div className="ticker-grid">
+        {displayData.map((item) => (
+          <TickerItem key={`${item.symbol}-${item.sourceUrl}`} data={item} />
+        ))}
       </div>
     </div>
   );

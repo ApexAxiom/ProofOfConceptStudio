@@ -34,10 +34,10 @@ function statusMeta(quotes: MarketQuote[]) {
   const fallback = quotes.filter((quote) => quote.state === "fallback").length;
 
   if (quotes.length > 0 && stale === 0 && fallback === 0) {
-    return { label: "LIVE", tone: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" };
+    return { label: "LIVE", tone: "text-emerald-700 bg-emerald-500/10 border border-emerald-600/20 dark:text-emerald-400" };
   }
   if (live > 0) {
-    return { label: "UPDATING", tone: "text-amber-400 bg-amber-500/10 border border-amber-500/20" };
+    return { label: "UPDATING", tone: "text-amber-700 bg-amber-500/10 border border-amber-600/20 dark:text-amber-400" };
   }
   return { label: "CACHED", tone: "text-muted-foreground bg-muted/30 border border-border" };
 }
@@ -46,28 +46,22 @@ function TickerItem({ quote }: { quote: MarketQuote }) {
   const positive = quote.changePercent >= 0;
   const changeText = `${positive ? "+" : ""}${quote.changePercent.toFixed(2)}%`;
   return (
-    <a
-      href={quote.sourceUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="ticker-item group flex items-center gap-4 whitespace-nowrap"
-    >
-      <span className="font-mono text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors tracking-wider">
-        {quote.symbol}
-      </span>
-      <span className="font-mono text-sm font-semibold text-foreground">
-        {quote.unit.startsWith("/") ? "" : "$"}
-        {formatPrice(quote.price)}
+    <a href={quote.sourceUrl} target="_blank" rel="noopener noreferrer" className="ticker-item group">
+      <span className="flex flex-col gap-0.5">
+        <span className="font-mono text-xs font-semibold tracking-wider text-muted-foreground transition-colors group-hover:text-foreground">
+          {quote.symbol}
+        </span>
+        <span className="font-mono text-sm font-semibold text-foreground">
+          {quote.unit.startsWith("/") ? "" : "$"}
+          {formatPrice(quote.price)}
+        </span>
       </span>
       <span
-        className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md ${
-          positive
-            ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
-            : "text-red-400 bg-red-500/10 border border-red-500/20"
+        className={`font-mono text-xs font-semibold ${
+          positive ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
         }`}
       >
-        <span className="mr-1">{positive ? "▲" : "▼"}</span>
-        {changeText}
+        {positive ? "▲" : "▼"} {changeText}
       </span>
     </a>
   );
@@ -88,7 +82,6 @@ export function LiveMarketTicker({
   const [quotes, setQuotes] = useState<MarketQuote[]>(initialData ?? []);
   const [loading, setLoading] = useState(!hasInitialState);
   const [lastUpdated, setLastUpdated] = useState<string>(initialTimestamp ?? "");
-  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,16 +126,10 @@ export function LiveMarketTicker({
 
   if (loading) {
     return (
-      <div className="ticker-container py-4">
-        <div className="flex items-center gap-8 px-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <div className="h-4 w-16 animate-pulse rounded bg-muted/50" />
-              <div className="h-4 w-20 animate-pulse rounded bg-muted/50" />
-              <div className="h-5 w-16 animate-pulse rounded-md bg-muted/50" />
-            </div>
-          ))}
-        </div>
+      <div className="ticker-grid" aria-hidden="true">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <div key={i} className="h-14 animate-pulse rounded-md bg-muted/60" />
+        ))}
       </div>
     );
   }
@@ -175,19 +162,10 @@ export function LiveMarketTicker({
         </div>
       ) : null}
 
-      <div className="ticker-container" onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
-        <div className={`ticker-track ${isPaused ? "paused" : ""}`}>
-          <div className="ticker-content">
-            {displayQuotes.map((quote) => (
-              <TickerItem key={`a-${quote.symbol}-${quote.sourceUrl}`} quote={quote} />
-            ))}
-          </div>
-          <div className="ticker-content">
-            {displayQuotes.map((quote) => (
-              <TickerItem key={`b-${quote.symbol}-${quote.sourceUrl}`} quote={quote} />
-            ))}
-          </div>
-        </div>
+      <div className="ticker-grid">
+        {displayQuotes.map((quote) => (
+          <TickerItem key={`${quote.symbol}-${quote.sourceUrl}`} quote={quote} />
+        ))}
       </div>
     </div>
   );

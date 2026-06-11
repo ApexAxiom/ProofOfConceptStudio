@@ -49,27 +49,20 @@ export function LatestBriefsList({ briefs }: LatestBriefsListProps) {
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {briefs.map((brief, index) => {
+            {briefs.map((brief) => {
               const category = categoryForPortfolio(brief.portfolio);
               const meta = CATEGORY_META[category];
 
               return (
-                <li 
-                  key={brief.postId}
-                  className="reveal-up"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
+                <li key={brief.postId}>
                   <Link
                     href={`/brief/${encodeURIComponent(brief.postId)}`}
                     className="group flex items-start gap-4 px-5 py-4 hover:bg-secondary/30 transition-all duration-200"
                   >
                     {/* Category indicator */}
                     <div
-                      className="mt-2 h-2 w-2 rounded-full flex-shrink-0 transition-transform group-hover:scale-125"
-                      style={{ 
-                        backgroundColor: meta.color,
-                        boxShadow: `0 0 8px ${meta.color}40`
-                      }}
+                      className="mt-2 h-2 w-2 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: meta.color }}
                     />
                     
                     {/* Content */}

@@ -65,7 +65,7 @@ function LoginForm() {
           className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
         />
       </div>
-      {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-700 dark:text-rose-400">{error}</p> : null}
       <button type="submit" disabled={submitting} className="btn-secondary w-full text-sm">
         {submitting ? "Signing in..." : "Sign in"}
       </button>

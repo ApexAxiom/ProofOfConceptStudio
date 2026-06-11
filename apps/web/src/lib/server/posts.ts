@@ -55,6 +55,9 @@ async function queryPublishedPosts(params: {
   limit: number;
 }): Promise<BriefPost[]> {
   const limit = positiveInt(params.limit, 50);
+  // Small requests (e.g. "latest brief for one portfolio") should not read
+  // full 100-item pages; over-fetch a little to absorb the filter expression.
+  const pageLimit = Math.min(positiveInt(QUERY_PAGE_SIZE, 100), Math.max(limit * 3, 10));
   let pages = 0;
   let lastKey: Record<string, unknown> | undefined;
   const items: BriefPost[] = [];
@@ -70,7 +73,7 @@ async function queryPublishedPosts(params: {
         ExpressionAttributeNames: params.expressionAttributeNames,
         FilterExpression: params.filterExpression,
         ScanIndexForward: false,
-        Limit: positiveInt(QUERY_PAGE_SIZE, 100),
+        Limit: pageLimit,
         ExclusiveStartKey: lastKey
       })
     );

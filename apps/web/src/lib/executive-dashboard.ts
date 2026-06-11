@@ -1,5 +1,7 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { getPortfolioSources, isUserVisiblePlaceholderArticle } from "@proof/shared";
+import { withTtlMemo } from "./server/ttl-cache";
 import { getExecutiveMarketQuotes, MarketQuote } from "./market-data";
 import {
   canonicalizeUrl,
@@ -56,7 +58,9 @@ interface RssFeed {
   region: ExecutiveRegion;
 }
 
-const FEED_TIMEOUT_MS = 12_000;
+// A slow feed should not hold the whole dashboard hostage; anything that
+// can't answer in 5s gets dropped for this refresh cycle.
+const FEED_TIMEOUT_MS = 5_000;
 const MAX_ITEMS_PER_FEED = 8;
 const SECTION_LIMIT = 12;
 const MAX_ARTICLE_AGE_DAYS = 14;
@@ -206,7 +210,7 @@ async function safeResolveUrl(rawUrl: string): Promise<string> {
     // Race resolution against a short per-item timeout
     const result = await Promise.race([
       resolvePublisherUrl(rawUrl),
-      new Promise<string>((resolve) => setTimeout(() => resolve(canonicalizeUrl(rawUrl)), 3_000))
+      new Promise<string>((resolve) => setTimeout(() => resolve(canonicalizeUrl(rawUrl)), 1_500))
     ]);
     return result;
   } catch {
@@ -387,13 +391,17 @@ const getExecutiveDashboardDataCached = unstable_cache(
   }
 );
 
-export async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
+// React cache() dedupes the call when multiple sections of one render ask
+// for the same payload.
+export const getExecutiveDashboardData = cache(async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
   try {
     return await getExecutiveDashboardDataCached();
   } catch (error) {
     if (isIncrementalCacheUnavailable(error)) {
-      return buildExecutiveDashboardData();
+      const ttlMs =
+        positiveEnvNumber("EXECUTIVE_DASHBOARD_CACHE_SECONDS", DEFAULT_EXECUTIVE_DASHBOARD_CACHE_SECONDS) * 1000;
+      return withTtlMemo("executive-dashboard", ttlMs, buildExecutiveDashboardData);
     }
     throw error;
   }
-}
+});

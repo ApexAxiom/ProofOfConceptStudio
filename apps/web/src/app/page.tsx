@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { BriefPost, REGION_LIST, portfolioLabel, regionLabel } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../lib/api";
 import { getExecutiveDashboardData } from "../lib/executive-dashboard";
@@ -30,27 +31,47 @@ function sortRows(rows: CategoryDayRow[]): CategoryDayRow[] {
   return [...rows].sort((a, b) => rank(a) - rank(b) || a.portfolioLabel.localeCompare(b.portfolioLabel));
 }
 
+function SectionSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-3" aria-hidden="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="h-5 animate-pulse rounded bg-muted" />
+      ))}
+    </div>
+  );
+}
+
 /**
- * Today view: per-category triage board, market benchmarks, and one tabbed
- * news block. Built so a category manager can answer "did anything happen in
- * my market that changes what I should do?" in under a minute.
+ * Market benchmarks and headlines depend on external RSS/quote sources, so
+ * they stream in behind the category board instead of blocking first paint.
  */
-export default async function TodayPage() {
-  const [auBriefs, internationalBriefs, executiveData] = await Promise.all([
-    fetchLatestByPortfolio("au"),
-    fetchLatestByPortfolio("us-mx-la-lng"),
-    getExecutiveDashboardData()
-  ]);
+async function MarketSection() {
+  const executiveData = await getExecutiveDashboardData();
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Market benchmarks</h2>
+          <p className="text-sm text-muted-foreground">Procurement-relevant commodities. Click any quote for the source.</p>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">
+          Last updated: {formatDateWithTimezone(executiveData.market.lastUpdated)}
+        </span>
+      </div>
+      <div className="mt-4">
+        <LiveMarketTicker
+          showHeader={false}
+          symbols={EXECUTIVE_MARKET_SYMBOLS}
+          initialData={executiveData.market.quotes}
+          initialTimestamp={executiveData.market.lastUpdated}
+        />
+      </div>
+    </>
+  );
+}
 
-  const boards = REGION_LIST.map((region) => {
-    const briefs = region.slug === "au" ? auBriefs : internationalBriefs;
-    return {
-      region: region.slug,
-      regionLabel: regionLabel(region.slug),
-      rows: sortRows(briefs.map(toCategoryRow))
-    };
-  });
-
+async function HeadlinesSection() {
+  const executiveData = await getExecutiveDashboardData();
   const newsTabs = [
     {
       id: "woodside",
@@ -72,12 +93,52 @@ export default async function TodayPage() {
   ];
 
   return (
+    <>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold text-foreground">Headlines</h2>
+        <span className="text-xs font-mono text-muted-foreground">
+          Last updated: {formatDateWithTimezone(executiveData.woodside.lastUpdated)}
+        </span>
+      </div>
+      <div className="mt-4">
+        <NewsTabs tabs={newsTabs} />
+      </div>
+    </>
+  );
+}
+
+/**
+ * Today view: per-category triage board, market benchmarks, and one tabbed
+ * news block. Built so a category manager can answer "did anything happen in
+ * my market that changes what I should do?" in under a minute.
+ */
+export default async function TodayPage() {
+  const [auBriefs, internationalBriefs] = await Promise.all([
+    fetchLatestByPortfolio("au"),
+    fetchLatestByPortfolio("us-mx-la-lng")
+  ]);
+
+  const boards = REGION_LIST.map((region) => {
+    const briefs = region.slug === "au" ? auBriefs : internationalBriefs;
+    return {
+      region: region.slug,
+      regionLabel: regionLabel(region.slug),
+      rows: sortRows(briefs.map(toCategoryRow))
+    };
+  });
+
+  const latestBriefAt = [...auBriefs, ...internationalBriefs]
+    .map((brief) => brief.publishedAt)
+    .sort()
+    .pop();
+
+  return (
     <div className="space-y-6">
       <header className="rounded-2xl border border-border bg-card p-6 md:p-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Today</p>
-            <h1 className="mt-2 text-2xl font-semibold text-foreground">Category intelligence triage</h1>
+            <h1 className="mt-2 font-display text-3xl text-foreground">Category intelligence triage</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               Latest brief per category with its signal level — act, watch, or awareness — plus market benchmarks and
               regional headlines.
@@ -94,9 +155,11 @@ export default async function TodayPage() {
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold text-foreground">My categories today</h2>
-          <span className="text-xs font-mono text-muted-foreground">
-            Refreshed: {formatDateWithTimezone(executiveData.generatedAt)}
-          </span>
+          {latestBriefAt ? (
+            <span className="text-xs font-mono text-muted-foreground">
+              Latest brief: {formatDateWithTimezone(latestBriefAt)}
+            </span>
+          ) : null}
         </div>
         <div className="mt-4">
           <CategoryDayBoard boards={boards} />
@@ -104,35 +167,15 @@ export default async function TodayPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Market benchmarks</h2>
-            <p className="text-sm text-muted-foreground">Procurement-relevant commodities. Click any quote for the source.</p>
-          </div>
-          <span className="text-xs font-mono text-muted-foreground">
-            Last updated: {formatDateWithTimezone(executiveData.market.lastUpdated)}
-          </span>
-        </div>
-        <div className="mt-4">
-          <LiveMarketTicker
-            showHeader={false}
-            symbols={EXECUTIVE_MARKET_SYMBOLS}
-            initialData={executiveData.market.quotes}
-            initialTimestamp={executiveData.market.lastUpdated}
-          />
-        </div>
+        <Suspense fallback={<SectionSkeleton rows={2} />}>
+          <MarketSection />
+        </Suspense>
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold text-foreground">Headlines</h2>
-          <span className="text-xs font-mono text-muted-foreground">
-            Last updated: {formatDateWithTimezone(executiveData.woodside.lastUpdated)}
-          </span>
-        </div>
-        <div className="mt-4">
-          <NewsTabs tabs={newsTabs} />
-        </div>
+        <Suspense fallback={<SectionSkeleton rows={4} />}>
+          <HeadlinesSection />
+        </Suspense>
       </section>
     </div>
   );

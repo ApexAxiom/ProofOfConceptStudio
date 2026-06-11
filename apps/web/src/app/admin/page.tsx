@@ -533,7 +533,7 @@ export default function AdminPage() {
                     <td className={`px-3 py-2 text-right ${row.usefulnessIssueCount > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
                       {row.usefulnessIssueCount}
                     </td>
-                    <td className={`px-3 py-2 text-right ${row.fallbackCount > 0 ? "text-rose-400" : "text-muted-foreground"}`}>
+                    <td className={`px-3 py-2 text-right ${row.fallbackCount > 0 ? "text-rose-700 dark:text-rose-400" : "text-muted-foreground"}`}>
                       {row.fallbackCount}
                     </td>
                     <td className="px-3 py-2 text-right text-muted-foreground">{row.totalTokens.toLocaleString("en-US")}</td>

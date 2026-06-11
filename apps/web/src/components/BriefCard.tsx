@@ -169,7 +169,7 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
 
         {action && (
           <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-300">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-700 dark:text-amber-300">
               Recommended next step
             </p>
             <p className="mt-1 text-xs leading-relaxed text-foreground line-clamp-2">
@@ -202,13 +202,6 @@ export function BriefCard({ brief }: { brief: BriefPost }) {
         </div>
       </div>
       
-      {/* Hover glow effect */}
-      <div 
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-        style={{
-          background: `radial-gradient(600px circle at 50% 0%, ${categoryMeta.color}08, transparent 40%)`
-        }}
-      />
     </article>
   );
 }
