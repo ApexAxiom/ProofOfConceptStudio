@@ -9,6 +9,10 @@ interface ThemeProviderProps {
 
 /**
  * Provides theme context with a light default.
+ *
+ * storageKey is versioned so the redesign's light default overrides theme
+ * preferences saved under the old dark-first design; the toggle still works
+ * and choices made from here on persist under the new key.
  */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
@@ -16,6 +20,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       attribute="class"
       defaultTheme="light"
       enableSystem={false}
+      storageKey="ih-theme-v2"
       disableTransitionOnChange
     >
       {children}
