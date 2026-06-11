@@ -1,4 +1,4 @@
-import { cache } from "react";
+import * as React from "react";
 import { unstable_cache } from "next/cache";
 import { getPortfolioSources, isUserVisiblePlaceholderArticle } from "@proof/shared";
 import { withTtlMemo } from "./server/ttl-cache";
@@ -392,8 +392,12 @@ const getExecutiveDashboardDataCached = unstable_cache(
 );
 
 // React cache() dedupes the call when multiple sections of one render ask
-// for the same payload.
-export const getExecutiveDashboardData = cache(async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
+// for the same payload. It only exists under the react-server condition, so
+// fall back to the bare function when running scripts/smoke tests with tsx.
+const perRequestCache: <T extends (...args: never[]) => unknown>(fn: T) => T =
+  (React as { cache?: <T>(fn: T) => T }).cache ?? ((fn) => fn);
+
+export const getExecutiveDashboardData = perRequestCache(async function getExecutiveDashboardData(): Promise<ExecutiveDashboardPayload> {
   try {
     return await getExecutiveDashboardDataCached();
   } catch (error) {
