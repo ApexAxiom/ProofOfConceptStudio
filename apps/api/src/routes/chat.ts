@@ -3,11 +3,10 @@ import {
   BriefPost,
   BriefClaim,
   BriefSource,
-  buildAgentSystemPrompt,
+  buildChatSystemPrompt,
   buildSourceId,
   dedupeSources,
   findAgentSummary,
-  getAgentFramework,
   keywordsForPortfolio,
   listAgentSummaries,
   normalizeBriefSources,
@@ -799,34 +798,15 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     const context = summarizeContent(promptSections.join("\n\n"), getMaxContextChars());
     const prompt = `${context}\n\nQuestion: ${effectiveQuestion}`;
 
-    const assistantIdentity = agent
-      ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
-      : `${portfolioLabel(portfolio)} category management advisor`;
-    const agentConfig = agent
-      ? { ...agent, maxArticlesToConsider: agent.maxArticlesToConsider ?? agent.articlesPerRun ?? 3 }
-      : undefined;
-    const agentPrompt = agentConfig ? buildAgentSystemPrompt(agentConfig as any, region) : assistantIdentity;
-    const framework = getAgentFramework(agentConfig?.id ?? portfolio);
-    const blendAndIdentityInstruction = [
-      "You are always the Category Manager / supply chain expert for your selected domain; that identity and lens never change.",
-      "Use intelligence to blend sources: combine brief evidence, selected articles, web search context, and your general knowledge whenever that produces the best answer. Do not treat them as mutually exclusive—mix them when it adds value (e.g. brief data plus broader market context, or web facts plus category implications).",
-      "When the question is fully outside the brief scope, answer using web search and general knowledge while still speaking as the category expert (e.g. tie implications back to procurement, suppliers, or risk where relevant). Never refuse to answer.",
-      "Cite sources with [sourceId] when you use provided excerpts; label unsupported inference as (analysis). If no provided sources apply, say so briefly before giving analysis. Be concise and factual; do not invent provenance."
-    ].join(" ");
-    const systemMessage = [
-      "You are ProofOfConceptStudio Chat Analyst.",
-      agentPrompt,
-      blendAndIdentityInstruction,
-      "Answer the user's question directly. Do not dump briefs or article lists unless explicitly asked.",
-      "If the request is vague or a quick test, respond briefly and ask a clarifying question.",
-      "Use the interpretation framework to explain why it matters and recommend actions:",
-      `Focus areas: ${framework.focusAreas.join(", ") || "N/A"}.`,
-      `Market drivers: ${framework.marketDrivers.join(", ") || "N/A"}.`,
-      `Procurement considerations: ${framework.procurementConsiderations.join(", ") || "N/A"}.`,
-      `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
-      "Use Markdown with bullet points and short paragraphs.",
-      "Do not emit HTML."
-    ].join(" ");
+    const systemMessage = buildChatSystemPrompt({
+      portfolio,
+      portfolioLabel: portfolioLabel(portfolio),
+      agentLabel: agent?.label,
+      region: region === "au" ? "au" : "us-mx-la-lng",
+      todayIso: new Date().toISOString().slice(0, 10),
+      briefTitle: targetBrief?.title,
+      briefPublishedAt: targetBrief?.publishedAt
+    });
     const historyMessages = buildConversationHistory(incomingMessages, effectiveQuestion);
 
     // -----------------------------------------------------------------------

@@ -23,6 +23,14 @@ function SendIcon() {
   );
 }
 
+function StopIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
 const suggestedQuestions = [
   "Which suppliers should we pressure on lead-time concessions this quarter?",
   "Summarize ProofOfConceptStudio.com insights on category strategy for my portfolio.",
@@ -64,12 +72,16 @@ type ChatCitation = {
 
 type ChatMessage = {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "context";
   content: string;
   sources?: string[];
   citations?: ChatCitation[];
   status?: "loading" | "ready";
+  error?: boolean;
+  retryQuestion?: string;
 };
+
+const CHAT_STORAGE_KEY = "pocs-chat-thread-v1";
 
 type BriefSummary = {
   postId: string;
@@ -92,21 +104,81 @@ const extractSources = (content: string) => {
   return Array.from(new Set(matches));
 };
 
+function ThinkingIndicator({ contextLabel }: { contextLabel: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const phrases = [
+    `Reviewing the latest ${contextLabel} intelligence...`,
+    "Scanning market and supplier signals...",
+    "Weighing the commercial implications...",
+    "Drafting a recommendation..."
+  ];
+  const phrase = phrases[Math.min(Math.floor(elapsed / 4), phrases.length - 1)];
+  return (
+    <div className="flex items-center gap-2 text-muted-foreground">
+      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      <span>{phrase}</span>
+      {elapsed >= 4 && <span className="text-xs opacity-70">{elapsed}s</span>}
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch {
+          // Clipboard unavailable (e.g. insecure context); ignore.
+        }
+      }}
+      className="text-[10px] font-medium text-muted-foreground transition hover:text-foreground"
+      title="Copy answer"
+    >
+      {copied ? "Copied ✓" : "Copy"}
+    </button>
+  );
+}
+
 function ChatThread({
   messages,
-  loading,
-  threadRef
+  threadRef,
+  contextLabel,
+  onRetry,
+  onNewChat
 }: {
   messages: ChatMessage[];
-  loading: boolean;
   threadRef: React.RefObject<HTMLDivElement>;
+  contextLabel: string;
+  onRetry: (messageId: string) => void;
+  onNewChat: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm">
       <div className="border-b border-border px-5 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-foreground">Chat Thread</p>
-          <span className="text-xs text-muted-foreground">Live sourcing + negotiation support</span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-muted-foreground sm:inline">Live sourcing + negotiation support</span>
+            {messages.length > 0 && (
+              <button
+                onClick={onNewChat}
+                className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+              >
+                New chat
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <div ref={threadRef} className="max-h-[520px] space-y-4 overflow-y-auto px-5 py-4">
@@ -118,61 +190,75 @@ function ChatThread({
             </p>
           </div>
         )}
-        {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                message.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-background text-foreground"
-              }`}
-            >
-              {message.role === "assistant" ? (
-                message.status === "loading" || loading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span>Building answer...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="prose max-w-none text-sm dark:prose-invert">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[
-                          rehypeSanitize,
-                          [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
-                        ]}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                    </div>
-                    {message.citations && message.citations.length > 0 && (
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {message.citations.map((citation) => (
-                          <a
-                            key={citation.sourceId}
-                            href={citation.url}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] text-foreground hover:border-primary/40 hover:text-primary"
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
-                            {citation.title ?? citation.url}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              ) : (
-                <p>{message.content}</p>
-              )}
+        {messages.map((message) =>
+          message.role === "context" ? (
+            <div key={message.id} className="flex items-center gap-3 py-1" role="separator">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{message.content}</span>
+              <span className="h-px flex-1 bg-border" />
             </div>
-          </div>
-        ))}
+          ) : (
+            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                  message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border bg-background text-foreground"
+                }`}
+              >
+                {message.role === "assistant" ? (
+                  message.status === "loading" ? (
+                    <ThinkingIndicator contextLabel={contextLabel} />
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="prose max-w-none text-sm dark:prose-invert">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[
+                            rehypeSanitize,
+                            [rehypeExternalLinks, { target: "_blank", rel: ["noreferrer", "noopener"] }]
+                          ]}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                      {message.citations && message.citations.length > 0 && (
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {message.citations.map((citation) => (
+                            <a
+                              key={citation.sourceId}
+                              href={citation.url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] text-foreground hover:border-primary/40 hover:text-primary"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+                              {citation.title ?? citation.url}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        {message.error && message.retryQuestion ? (
+                          <button
+                            onClick={() => onRetry(message.id)}
+                            className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-foreground transition hover:border-primary/40 hover:text-primary"
+                          >
+                            Retry
+                          </button>
+                        ) : (
+                          message.content && <CopyButton text={message.content} />
+                        )}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <p>{message.content}</p>
+                )}
+              </div>
+            </div>
+          )
+        )}
       </div>
     </div>
   );
@@ -183,6 +269,7 @@ function ChatComposer({
   setQuestion,
   loading,
   onSend,
+  onStop,
   onKeyDown,
   onSuggestion,
   inputRef
@@ -191,6 +278,7 @@ function ChatComposer({
   setQuestion: (value: string) => void;
   loading: boolean;
   onSend: () => void;
+  onStop: () => void;
   onKeyDown: (event: React.KeyboardEvent) => void;
   onSuggestion: (value: string) => void;
   inputRef: React.RefObject<HTMLTextAreaElement>;
@@ -225,18 +313,12 @@ function ChatComposer({
           onKeyDown={onKeyDown}
         />
         <button
-          onClick={onSend}
-          disabled={loading || !question.trim()}
+          onClick={() => (loading ? onStop() : onSend())}
+          disabled={!loading && !question.trim()}
+          title={loading ? "Stop response" : "Send"}
           className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
         >
-          {loading ? (
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
-            <SendIcon />
-          )}
+          {loading ? <StopIcon /> : <SendIcon />}
         </button>
       </div>
     </div>
@@ -392,12 +474,60 @@ export default function ChatPage({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const initialSelectionRef = useRef({ region: initialRegion, portfolio: initialPortfolio });
+  const abortRef = useRef<AbortController | null>(null);
+  const contextInitRef = useRef(false);
 
   useEffect(() => {
     if (threadRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, loading]);
+
+  // Restore the thread from this browser session so navigation/refresh does not wipe the chat.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(CHAT_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { messages?: ChatMessage[] };
+      const restored = (saved.messages ?? []).filter(
+        (message) => message && typeof message.content === "string" && message.status !== "loading"
+      );
+      if (restored.length) setMessages(restored);
+    } catch {
+      // Corrupt or unavailable session storage; start fresh.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (!messages.length) {
+        sessionStorage.removeItem(CHAT_STORAGE_KEY);
+      } else if (!messages.some((message) => message.status === "loading")) {
+        sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: messages.slice(-40) }));
+      }
+    } catch {
+      // Session storage unavailable; persistence is best-effort.
+    }
+  }, [messages]);
+
+  // Mark mid-thread context switches so answers before/after are clearly scoped.
+  useEffect(() => {
+    if (!contextInitRef.current) {
+      contextInitRef.current = true;
+      return;
+    }
+    const portfolioName = PORTFOLIOS.find((p) => p.slug === portfolio)?.label ?? portfolio;
+    const regionName = REGION_LIST.find((r) => r.slug === region)?.label ?? region;
+    const note = `Context switched to ${portfolioName} · ${regionName}`;
+    setMessages((prev) => {
+      if (!prev.length) return prev;
+      const last = prev[prev.length - 1];
+      if (last?.role === "context") {
+        return [...prev.slice(0, -1), { ...last, content: note }];
+      }
+      return [...prev, { id: buildMessageId(), role: "context", content: note }];
+    });
+  }, [region, portfolio]);
 
   useEffect(() => {
     if (!initialBriefId) return;
@@ -506,6 +636,81 @@ export default function ChatPage({
 
   const activeAgent = agents.find((a) => a.portfolio === portfolio && a.region === region);
   const regionFeeds = activeAgent?.feeds ?? [];
+  const activePortfolioLabel = PORTFOLIOS.find((p) => p.slug === portfolio)?.label ?? portfolio;
+
+  const runQuestion = async (trimmed: string, assistantId: string, historySource: ChatMessage[]) => {
+    setLoading(true);
+
+    const history = historySource
+      .filter(
+        (message) =>
+          (message.role === "user" || message.role === "assistant") &&
+          !message.error &&
+          message.status !== "loading" &&
+          message.content.trim().length > 0
+      )
+      .slice(-10)
+      .map((message) => ({ role: message.role, content: message.content }));
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: trimmed,
+          region,
+          portfolio,
+          agentId: activeAgent?.id,
+          briefId: activeBriefId,
+          messages: history
+        }),
+        signal: controller.signal
+      });
+      const json = await res.json();
+      const responseText = json.answer || json.error || "No response received";
+      const failed = !res.ok && !json.answer;
+      const sources = Array.isArray(json.sources) ? json.sources : extractSources(responseText);
+      const citations = Array.isArray(json.citations) ? json.citations : [];
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: responseText,
+                sources,
+                citations,
+                status: "ready",
+                error: failed || undefined,
+                retryQuestion: failed ? trimmed : undefined
+              }
+            : message
+        )
+      );
+    } catch (err) {
+      const stopped = (err as Error)?.name === "AbortError";
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: stopped
+                  ? "Response stopped."
+                  : "Failed to connect to the AI service. Please try again.",
+                status: "ready",
+                error: true,
+                retryQuestion: trimmed
+              }
+            : message
+        )
+      );
+    } finally {
+      abortRef.current = null;
+      setLoading(false);
+    }
+  };
 
   const ask = async () => {
     const trimmed = question.trim();
@@ -524,51 +729,38 @@ export default function ChatPage({
       { id: assistantId, role: "assistant", content: "", status: "loading" }
     ]);
     setQuestion("");
-    setLoading(true);
+    await runQuestion(trimmed, assistantId, [...messages, userMessage]);
+  };
 
-    const history = [...messages, userMessage]
-      .filter((message) => message.role === "user" || message.role === "assistant")
-      .slice(-10)
-      .map((message) => ({ role: message.role, content: message.content }));
+  const retry = async (assistantId: string) => {
+    if (loading) return;
+    const index = messages.findIndex((message) => message.id === assistantId);
+    const trimmed = messages[index]?.retryQuestion?.trim();
+    if (index < 0 || !trimmed) return;
 
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === assistantId
+          ? { ...message, content: "", status: "loading", error: undefined }
+          : message
+      )
+    );
+    await runQuestion(trimmed, assistantId, messages.slice(0, index));
+  };
+
+  const stopResponse = () => {
+    abortRef.current?.abort();
+  };
+
+  const startNewChat = () => {
+    abortRef.current?.abort();
+    setMessages([]);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: trimmed,
-          region,
-          portfolio,
-          agentId: activeAgent?.id,
-          briefId: activeBriefId,
-          messages: history
-        })
-      });
-      const json = await res.json();
-      const responseText = json.answer || json.error || "No response received";
-      const sources = Array.isArray(json.sources) ? json.sources : extractSources(responseText);
-      const citations = Array.isArray(json.citations) ? json.citations : [];
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === assistantId
-            ? { ...message, content: responseText, sources, citations, status: "ready" }
-            : message
-        )
-      );
-    } catch (err) {
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content: "Failed to connect to the AI service. Please try again.",
-                status: "ready"
-              }
-            : message
-        )
-      );
+      sessionStorage.removeItem(CHAT_STORAGE_KEY);
+    } catch {
+      // Best-effort cleanup.
     }
-    setLoading(false);
+    inputRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -672,12 +864,23 @@ export default function ChatPage({
           <span className="rounded-full border border-border bg-card px-3 py-1">ProofOfConceptStudio.com first</span>
           <span className="rounded-full border border-border bg-card px-3 py-1">Briefs + web search</span>
           <span className="rounded-full border border-border bg-card px-3 py-1">First-principles reasoning</span>
+          {assistantStatus?.model && (
+            <span className="rounded-full border border-border bg-card px-3 py-1" title={assistantStatus.model}>
+              Model: {assistantStatus.model.replace(/-\d{4}-\d{2}-\d{2}$/, "")}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
-          <ChatThread messages={messages} loading={loading} threadRef={threadRef} />
+          <ChatThread
+            messages={messages}
+            threadRef={threadRef}
+            contextLabel={activePortfolioLabel}
+            onRetry={retry}
+            onNewChat={startNewChat}
+          />
 
           {!messages.length && (
             <div className="space-y-3">
@@ -702,6 +905,7 @@ export default function ChatPage({
             setQuestion={setQuestion}
             loading={loading}
             onSend={ask}
+            onStop={stopResponse}
             onKeyDown={handleKeyDown}
             onSuggestion={handleSuggestion}
             inputRef={inputRef}

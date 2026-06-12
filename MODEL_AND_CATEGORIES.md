@@ -2,36 +2,27 @@
 
 ## OpenAI Model Configuration
 
-**Recommended Model for App Runner: `gpt-4o-mini`** (set via `OPENAI_MODEL`)
+All models are low-cost by default and can be overridden per service via environment variables.
 
-Default in code remains `gpt-4o` if `OPENAI_MODEL` is not set.
-
-The model can be overridden via the `OPENAI_MODEL` environment variable, but currently defaults to **gpt-4o** in:
-
-### Services Using gpt-4o:
+### Current defaults:
 
 1. **Brief Generation** (`apps/runner/src/llm/openai.ts`)
-   - Default: `gpt-4o`
+   - Default: `gpt-5-mini` (override with `BRIEF_WRITER_MODEL`)
    - Used for: Category-specific brief generation
-   - Temperature: 0.25 (for grounded outputs)
-   - Max tokens: 3000
 
-2. **Market Dashboard** (`apps/runner/src/llm/market-openai.ts`)
-   - Default: `gpt-4o`
-   - Used for: Executive market overview briefs
-   - Temperature: 0.25
-   - Max tokens: 3500
-
-3. **Chat API** (`apps/api/src/routes/chat.ts`)
-   - Default: `gpt-4o` (override with `OPENAI_MODEL=gpt-4o-mini`)
+2. **Chat** (`apps/web/src/lib/server/chat.ts` — live path on Amplify — and the mirrored `apps/api/src/routes/chat.ts`)
+   - Default: `gpt-5-nano-2025-08-07` (override with `OPENAI_MODEL`)
    - Fallback models: `["gpt-4o-mini"]`
-   - Used for: Interactive Q&A with briefs
-   - Max output tokens: 1000 (configurable via `OPENAI_MAX_OUTPUT_TOKENS`)
+   - Reasoning effort: `low` by default (override with `OPENAI_REASONING_EFFORT`)
+   - Used for: Interactive Q&A with briefs + OpenAI native web search
+   - Max output tokens: 25,000 for reasoning models (configurable via `OPENAI_MAX_OUTPUT_TOKENS`)
 
-### Model Selection Logic:
+### Chat model selection logic:
 ```typescript
-const model = process.env.OPENAI_MODEL || "gpt-4o";
+const model = process.env.OPENAI_MODEL || "gpt-5-nano-2025-08-07";
 ```
+
+Indicative pricing (per 1M tokens): gpt-5-nano $0.05 in / $0.40 out; gpt-5-mini $0.25 in / $2.00 out; gpt-4o-mini $0.15 in / $0.60 out. A typical chat turn (~15k context tokens in, ~700 out) costs well under a tenth of a cent on gpt-5-nano.
 
 **Note**: The model can be changed via the `OPENAI_MODEL` environment variable. Any LLM provider/model can be used as long as it's compatible with the OpenAI API format or the code is adapted accordingly.
 

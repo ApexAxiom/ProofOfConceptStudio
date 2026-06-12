@@ -2,11 +2,10 @@ import {
   BriefClaim,
   BriefPost,
   BriefSource,
-  buildAgentSystemPrompt,
+  buildChatSystemPrompt,
   buildSourceId,
   dedupeSources,
   findAgentSummary,
-  getAgentFramework,
   keywordsForPortfolio,
   listAgentSummaries,
   normalizeBriefSources,
@@ -668,27 +667,15 @@ export async function answerChat(input: ChatRequestInput) {
     });
   }
 
-  const agentConfig = agent
-    ? { ...agent, maxArticlesToConsider: agent.maxArticlesToConsider ?? agent.articlesPerRun ?? 3 }
-    : undefined;
-  const assistantIdentity = agent
-    ? `${agent.label} category management advisor (${portfolioLabel(agent.portfolio)})`
-    : `${portfolioLabel(input.portfolio)} category management advisor`;
-  const framework = getAgentFramework(agentConfig?.id ?? input.portfolio);
-  const systemMessage = [
-    "You are ProofOfConceptStudio Chat Analyst.",
-    agentConfig ? buildAgentSystemPrompt(agentConfig as any, input.region as any) : assistantIdentity,
-    "You are always the Category Manager / supply chain expert for the selected domain.",
-    "Blend brief evidence, selected articles, website context, web search context, and your general knowledge when that produces the best answer.",
-    "When the question is outside the brief scope, answer using web search and general knowledge while still speaking as the category expert.",
-    "Cite provided excerpts with [sourceId]. Label unsupported inference as (analysis).",
-    "Answer the user's question directly. Do not dump briefs or article lists unless asked.",
-    `Focus areas: ${framework.focusAreas.join(", ") || "N/A"}.`,
-    `Market drivers: ${framework.marketDrivers.join(", ") || "N/A"}.`,
-    `Procurement considerations: ${framework.procurementConsiderations.join(", ") || "N/A"}.`,
-    `You are ${assistantIdentity} focused on negotiation tactics, supplier strategy, and sourcing risk controls.`,
-    "Use Markdown with bullet points and short paragraphs. Do not emit HTML."
-  ].join(" ");
+  const systemMessage = buildChatSystemPrompt({
+    portfolio: input.portfolio,
+    portfolioLabel: portfolioLabel(input.portfolio),
+    agentLabel: agent?.label,
+    region: input.region === "au" ? "au" : "us-mx-la-lng",
+    todayIso: new Date().toISOString().slice(0, 10),
+    briefTitle: brief?.title,
+    briefPublishedAt: brief?.publishedAt
+  });
 
   const prompt = `${summarizeContent(promptSections.join("\n\n"), getMaxContextChars())}\n\nQuestion: ${question}`;
   const historyMessages = buildConversationHistory(incomingMessages, question);
