@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { REGION_LIST } from "@proof/shared";
+import { AskAiLink } from "../chat/ChatPinGate";
 
 function TodayIcon({ active }: { active: boolean }) {
   return (
@@ -60,17 +61,32 @@ export function BottomTabBar() {
         {tabs.map((tab) => {
           const active = tab.match(pathname);
           const Icon = tab.icon;
-          return (
+          const className = `flex flex-col items-center gap-1 py-2.5 transition-colors ${
+            active ? "text-primary" : "text-muted-foreground active:text-foreground"
+          }`;
+          const content = (
+            <>
+              <Icon active={active} />
+              <span className="text-[10px] font-semibold tracking-wide">{tab.label}</span>
+            </>
+          );
+          return tab.href === "/chat" ? (
+            <AskAiLink
+              key={tab.href}
+              href={tab.href}
+              className={className}
+              ariaCurrent={active ? "page" : undefined}
+            >
+              {content}
+            </AskAiLink>
+          ) : (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-col items-center gap-1 py-2.5 transition-colors ${
-                active ? "text-primary" : "text-muted-foreground active:text-foreground"
-              }`}
+              className={className}
               aria-current={active ? "page" : undefined}
             >
-              <Icon active={active} />
-              <span className="text-[10px] font-semibold tracking-wide">{tab.label}</span>
+              {content}
             </Link>
           );
         })}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PORTFOLIOS, categoryForPortfolio, CATEGORY_META, REGION_LIST } from "@proof/shared";
 import { BrandMark } from "./shell/BrandMark";
+import { AskAiLink } from "./chat/ChatPinGate";
 
 function DashboardIcon() {
   return (
@@ -176,15 +177,15 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           </div>
 
           <div className="mobile-nav-section mt-auto pt-6 border-t border-border">
-            <Link
+            <AskAiLink
               href="/chat"
-              onClick={onClose}
+              onNavigate={onClose}
               className={`mobile-nav-link ${pathname === "/chat" ? "active" : ""}`}
             >
               <ChatIcon />
               <span>AI Assistant</span>
               <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">Beta</span>
-            </Link>
+            </AskAiLink>
             {showAdminLink ? (
               <Link
                 href="/admin"

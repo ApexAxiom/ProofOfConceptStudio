@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BriefPost, RegionSlug, portfolioLabel } from "@proof/shared";
+import { AskAiLink } from "../chat/ChatPinGate";
 
 interface CmQuickLinksProps {
   brief?: BriefPost;
@@ -26,9 +27,9 @@ export function CmQuickLinks({ brief, region, portfolio }: CmQuickLinksProps) {
         <Link href={actionCenterHref} className="btn-secondary block w-full text-center">
           Open Action Center
         </Link>
-        <Link href={chatHref} className="btn-secondary block w-full text-center">
+        <AskAiLink href={chatHref} className="btn-secondary block w-full text-center">
           Ask AI about this portfolio
-        </Link>
+        </AskAiLink>
       </div>
     </div>
   );

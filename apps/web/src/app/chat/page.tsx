@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import rehypeExternalLinks from "rehype-external-links";
+import { ChatPinGate } from "../../components/chat/ChatPinGate";
 
 function SparklesIcon() {
   return (
@@ -923,6 +924,8 @@ export default function ChatPage({
           activeBriefId={activeBriefId}
         />
       </div>
+
+      {authReady && authenticated ? <ChatPinGate /> : null}
 
       {authReady && !authenticated && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 px-4 backdrop-blur-sm">

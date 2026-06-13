@@ -7,6 +7,7 @@ import { RegionSlug, REGIONS } from "@proof/shared";
 import { fetchLatestByPortfolio } from "../../lib/api";
 import { getExecutiveMarketQuotes } from "../../lib/market-data";
 import { inferSignals } from "../../lib/signals";
+import { AskAiLink } from "../../components/chat/ChatPinGate";
 
 export const revalidate = 60;
 
@@ -84,7 +85,7 @@ export default async function RegionPage({
           <span className="text-muted-foreground">
             <span className="font-semibold text-foreground">{portfoliosWithBriefs}</span> active categories
           </span>
-          <Link href="/chat" className="btn-secondary text-sm">Ask AI</Link>
+          <AskAiLink href={`/chat?region=${encodeURIComponent(region)}`} className="btn-secondary text-sm">Ask AI</AskAiLink>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { REGION_LIST } from "@proof/shared";
 import { ThemeToggle } from "../ThemeToggle";
 import { MobileNav } from "../MobileNav";
 import { BrandMark } from "./BrandMark";
+import { AskAiLink } from "../chat/ChatPinGate";
 
 const primaryNav = [
   { href: "/", label: "Today" },
@@ -79,13 +80,19 @@ export function TopNav() {
           <nav className="hidden flex-1 items-center gap-2 overflow-x-auto text-sm md:flex">
             {primaryNav.map((item) => {
               const active = isActivePath(pathname, item.href);
-              return (
+              const className = `rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${
+                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+              }`;
+              return item.href === "/chat" ? (
+                <AskAiLink key={item.href} href={item.href} className={className} ariaCurrent={active ? "page" : undefined}>
+                  {item.label}
+                </AskAiLink>
+              ) : (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${
-                    active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={className}
+                  aria-current={active ? "page" : undefined}
                 >
                   {item.label}
                 </Link>

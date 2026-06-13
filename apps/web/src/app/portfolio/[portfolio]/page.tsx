@@ -15,6 +15,7 @@ import { getPortfolioNews } from "../../../lib/portfolio-news";
 import { PortfolioMarketTicker } from "../../../components/PortfolioMarketTicker";
 import { DashboardCard, ListRow } from "../../../components/portfolio-dashboard";
 import { SignalBadge } from "../../../components/SignalBadge";
+import { AskAiLink } from "../../../components/chat/ChatPinGate";
 import styles from "./portfolio-dashboard.module.css";
 
 export const revalidate = 60;
@@ -362,9 +363,12 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 International (US/Mexico/Senegal)
               </Link>
             </nav>
-            <Link href={`/chat?portfolio=${portfolio}`} className={`btn-primary ${styles.askAiButton} ${styles.focusable}`}>
+            <AskAiLink
+              href={`/chat?region=${encodeURIComponent(selectedRegion)}&portfolio=${encodeURIComponent(portfolio)}`}
+              className={`btn-primary ${styles.askAiButton} ${styles.focusable}`}
+            >
               Ask AI
-            </Link>
+            </AskAiLink>
           </div>
         </div>
       </header>

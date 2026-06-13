@@ -17,6 +17,7 @@ import {
 import { CmSnapshotPanel } from "../../components/cm/CmSnapshotPanel";
 import { SignalBadge } from "../../components/SignalBadge";
 import { VpSnapshotPanel } from "../../components/vp/VpSnapshotPanel";
+import { AskAiLink } from "../../components/chat/ChatPinGate";
 
 const OPERATIONAL_PATTERNS: RegExp[] = [
   /brief generation failed/gi,
@@ -470,12 +471,12 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
               <span>{brief.newsStatus === "ok" ? "Full category signal" : "Light-signal edition"}</span>
             </div>
           </div>
-          <Link
+          <AskAiLink
             href={`/chat?briefId=${encodeURIComponent(brief.postId)}&region=${encodeURIComponent(brief.region)}&portfolio=${encodeURIComponent(brief.portfolio)}`}
             className="btn-secondary text-sm"
           >
             Ask AI
-          </Link>
+          </AskAiLink>
         </div>
       </header>
 
