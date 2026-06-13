@@ -121,8 +121,6 @@ function scoreArticle(article: ArticleInput, idx: number): number {
 function preferredStoryCount(articles: ArticleInput[]): number {
   const available = Math.max(1, articles.length);
   const usable = articles.filter((article) => (article.content ?? "").trim().length >= 300 && article.contentStatus !== "thin").length;
-  if (usable >= 5 && available >= 5) return 5;
-  if (usable >= 4 && available >= 4) return 4;
   if (usable >= 3 && available >= 3) return 3;
   return Math.min(3, available);
 }
@@ -139,7 +137,7 @@ function isLowValueKeyFact(value: string): boolean {
 function clipFact(text: string, maxLength = 96): string {
   const cleaned = text.replace(/\s+/g, " ").replace(/[.]+$/, "").trim();
   if (cleaned.length <= maxLength) return cleaned;
-  return `${cleaned.slice(0, maxLength - 3).trim()}...`;
+  return cleaned.slice(0, maxLength).replace(/\s+\S*$/, "").trim();
 }
 
 function extractReadableFacts(content?: string, fallbackTitle?: string, limit = 4): string[] {
@@ -367,7 +365,24 @@ function normalizeHeadline(title: string | undefined, categoryLabel: string, fal
 }
 
 function normalizeText(value?: string): string {
-  return stripEvidenceTag((value ?? "").replace(/\s+/g, " ").trim());
+  return stripEvidenceTag((value ?? "")
+    .replace(/…|\.\.\./g, ".")
+    .replace(/\bthe practical read-through\b/gi, "the category-manager implication")
+    .replace(/\bno longer just descriptive\b/gi, "now decision-relevant")
+    .replace(/\bmarket dynamics\b/gi, "market mechanism")
+    .replace(/\s+/g, " ")
+    .trim());
+}
+
+function normalizeDedupeKey(value?: string): string {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/^(cost \/ money|supplier \/ commercial|operations \/ risk|what to watch|action|rationale|trigger)\s*:\s*/i, "")
+    .replace(/[^\p{L}\p{N}\s%./-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[.]+$/g, "")
+    .trim();
 }
 
 function splitIntoSentences(text?: string): string[] {
@@ -509,7 +524,7 @@ function shortSubject(title: string): string {
 }
 
 function buildHeuristicHighlights(selectedInputs: ArticleInput[], categoryLabel: string, framework: AgentFramework): string[] {
-  return selectedInputs.slice(0, 5).map((article, idx) => {
+  return selectedInputs.slice(0, 3).map((article, idx) => {
     const theme = dominantTheme(`${article.title} ${article.content ?? ""}`);
     const fact = pickKeySentences(article.content, 1)[0] ?? article.title;
     const supplier = pickFrameworkSupplier(article, framework, idx);
@@ -526,24 +541,24 @@ function buildHeuristicActions(selectedInputs: ArticleInput[], framework: AgentF
     const contractingImplication = pickFrameworkValue(framework.dailyCMLens.contractingImplications, "contract flexibility");
     switch (dominantTheme(`${article.title} ${article.content ?? ""}`)) {
       case "cost":
-        return `Email ${supplier} to reconfirm ${costDriver.toLowerCase()}, keep quote validity short around ${subject}, and push for ${contractingImplication.toLowerCase()} instead of open-ended surcharge language.`;
+        return `Reconfirm ${costDriver.toLowerCase()} with ${supplier} and cap open-ended surcharge language around ${subject}.`;
       case "supply":
-        return `Schedule a supplier call with ${supplier} to validate ${capacityDriver.toLowerCase()}, secure fallback slots around ${subject}, and trade extension options for committed capacity if needed.`;
+        return `Validate ${capacityDriver.toLowerCase()} with ${supplier} and secure fallback slots around ${subject}.`;
       case "commercial":
-        return `Review renewals with ${supplier} tied to ${subject} and reopen the clause set for minimum-volume trades, extension options, and tighter change-control wording.`;
+        return `Review ${supplier} renewals tied to ${subject} and reopen minimum-volume and extension-option clauses.`;
       case "regulatory":
-        return `Ask ${supplier} for a written position on ${subject} and prepare compliance pass-through, substitution, and termination language before the next commitment is approved.`;
+        return `Get ${supplier}'s written position on ${subject} and prepare pass-through or substitution language.`;
       case "schedule":
-        return `Stress-test delivery plans with ${supplier} around ${subject}, confirm alternates, and tighten LD or expediting triggers before schedule pressure hardens.`;
+        return `Stress-test ${supplier} delivery plans around ${subject} and tighten LD or expediting triggers.`;
       default:
-        return `Re-rank the supplier conversation with ${supplier} around ${subject} and confirm what commercial flexibility still exists before market leverage deteriorates.`;
+        return `Re-rank supplier conversations with ${supplier} around ${subject} and confirm remaining flexibility.`;
     }
   });
-  return Array.from(new Set(actions)).slice(0, 6);
+  return Array.from(new Set(actions)).slice(0, 3);
 }
 
 function buildHeuristicWatchlist(selectedInputs: ArticleInput[], framework: AgentFramework): string[] {
-  return selectedInputs.slice(0, 4).map((article) => {
+  return selectedInputs.slice(0, 3).map((article) => {
     const subject = shortSubject(article.title);
     const theme = dominantTheme(`${article.title} ${article.content ?? ""}`);
     const supplier = pickFrameworkSupplier(article, framework);
@@ -594,7 +609,7 @@ function buildHeuristicVpSnapshot(
   const complianceRisk = clampScore(15 + regulatoryCount * 24, 10, 85);
   const overall = clampScore(88 - Math.round((costPressure + supplyRisk + scheduleRisk + complianceRisk) / 7), 38, 86);
 
-  const topSignals = selectedInputs.slice(0, 4).map((article, idx) => ({
+  const topSignals = selectedInputs.slice(0, 3).map((article, idx) => ({
     title: `Signal ${idx + 1}: ${shortSubject(article.title)}`,
     type: themeType(dominantTheme(`${article.title} ${article.content ?? ""}`)),
     horizon: themeHorizon(dominantTheme(`${article.title} ${article.content ?? ""}`)),
@@ -603,7 +618,7 @@ function buildHeuristicVpSnapshot(
     evidenceArticleIndex: idx + 1
   }));
 
-  const recommendedActions = actions.slice(0, 4).map((action, idx) => ({
+  const recommendedActions = actions.slice(0, 3).map((action, idx) => ({
     action,
     ownerRole: idx % 2 === 0 ? "Category Manager" : "Contracts",
     dueInDays: [5, 10, 21, 35][idx] ?? 14,
@@ -612,7 +627,7 @@ function buildHeuristicVpSnapshot(
     evidenceArticleIndex: Math.min(idx + 1, selectedInputs.length)
   }));
 
-  const riskRegister = selectedInputs.slice(0, 4).map((article, idx) => ({
+  const riskRegister = selectedInputs.slice(0, 3).map((article, idx) => ({
     risk: `${shortSubject(article.title)} creates ${themeLabel(dominantTheme(`${article.title} ${article.content ?? ""}`))}.`,
     probability: themeConfidence(article),
     impact: dominantTheme(`${article.title} ${article.content ?? ""}`) === "regulatory" ? "high" as const : "medium" as const,
@@ -643,7 +658,7 @@ function buildHeuristicCmSnapshot(
   categoryLabel: string,
   framework: AgentFramework
 ): BriefOutput["cmSnapshot"] {
-  const todayPriorities = actions.slice(0, 4).map((action, idx) => ({
+  const todayPriorities = actions.slice(0, 3).map((action, idx) => ({
     title: action,
     why: buildCategoryImplication(selectedInputs[idx] ?? selectedInputs[0], categoryLabel, framework, idx),
     dueInDays: [3, 7, 10, 14][idx] ?? 7,
@@ -651,7 +666,7 @@ function buildHeuristicCmSnapshot(
     evidenceArticleIndex: Math.min(idx + 1, selectedInputs.length)
   }));
 
-  const supplierRadar = selectedInputs.slice(0, 4).map((article, idx) => ({
+  const supplierRadar = selectedInputs.slice(0, 3).map((article, idx) => ({
     supplier: pickFrameworkSupplier(article, framework, idx),
     signal: buildSupplierSignal(article, framework, idx),
     implication: buildCategoryImplication(article, categoryLabel, framework, idx),
@@ -660,7 +675,7 @@ function buildHeuristicCmSnapshot(
     evidenceArticleIndex: idx + 1
   }));
 
-  const negotiationLevers = selectedInputs.slice(0, 4).map((article, idx) => {
+  const negotiationLevers = selectedInputs.slice(0, 3).map((article, idx) => {
     const theme = dominantTheme(`${article.title} ${article.content ?? ""}`);
     switch (theme) {
       case "cost":
@@ -731,8 +746,8 @@ function buildHeuristicDecisionSummary(
   return {
     topMove: actions[0] ?? `Respond quickly to the latest ${themeLabel(leadTheme)} signal before it hardens into supplier behavior.`,
     whatChanged: highlights.slice(0, 3),
-    doNext: actions.slice(0, 5),
-    watchThisWeek: watchlist.slice(0, 4)
+    doNext: actions.slice(0, 3),
+    watchThisWeek: watchlist.slice(0, 3)
   };
 }
 
@@ -776,9 +791,9 @@ function buildHeuristicBriefOutput(
   return {
     title: normalizeHeadline(undefined, params.agent.label, selectedInputs[0]?.title),
     summary: [
-      `The lead signals for ${params.agent.label} are no longer just descriptive; they point to immediate sourcing implications around ${themeLabel(dominantTheme(`${selectedInputs[0]?.title ?? ""} ${selectedInputs[0]?.content ?? ""}`))}.`,
+      `The lead signal for ${params.agent.label} points to a near-term sourcing decision around ${themeLabel(dominantTheme(`${selectedInputs[0]?.title ?? ""} ${selectedInputs[0]?.content ?? ""}`))}.`,
       normalizeText(highlights[0]),
-      `The practical read-through is that buyers should tighten supplier challenge, pricing discipline, and contract optionality before the next decision gate.`
+      `Category managers should tighten supplier challenge, pricing discipline, and contract optionality before the next decision gate.`
     ].filter(Boolean).join(" "),
     highlights,
     procurementActions,
@@ -900,7 +915,7 @@ function mapVpActionToAction(
 function dedupeBullets(bullets: BriefCitedBullet[]): BriefCitedBullet[] {
   const seen = new Set<string>();
   return bullets.filter((bullet) => {
-    const key = bullet.text.toLowerCase();
+    const key = normalizeDedupeKey(bullet.text);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -910,7 +925,7 @@ function dedupeBullets(bullets: BriefCitedBullet[]): BriefCitedBullet[] {
 function dedupeReportActions(actions: BriefReportAction[]): BriefReportAction[] {
   const seen = new Set<string>();
   return actions.filter((action) => {
-    const key = action.action.toLowerCase();
+    const key = normalizeDedupeKey(action.action);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -955,7 +970,7 @@ function buildImpactGroups(
       }))
   ]);
 
-  const safetyOperations = dedupeBullets([
+  const operationsRisk = dedupeBullets([
     ...selectedArticles
       .filter((article) => article.procurementLens?.safetyOperational)
       .map((article) => ({
@@ -965,27 +980,10 @@ function buildImpactGroups(
       }))
   ]);
 
-  const watchouts = dedupeBullets([
-    ...(enriched.watchlist ?? []).map((item, idx) => mapTextToBullet(item, sourceIdByIndex, Math.min(idx + 1, selectedArticles.length), "early-signal")),
-    ...((enriched.vpSnapshot?.riskRegister ?? []).map((risk) => ({
-      text: `${normalizeText(risk.risk)} Trigger: ${normalizeText(risk.trigger)}`.trim(),
-      sourceIds: risk.evidenceArticleIndex && sourceIdByIndex.get(risk.evidenceArticleIndex) ? [sourceIdByIndex.get(risk.evidenceArticleIndex)!] : [],
-      signal: risk.probability === "high" ? "confirmed" as const : "early-signal" as const
-    }))),
-    ...selectedArticles
-      .filter((article) => article.procurementLens?.watchouts)
-      .map((article) => ({
-        text: article.procurementLens?.watchouts ?? article.briefContent,
-        sourceIds: article.sourceId ? [article.sourceId] : [],
-        signal: article.procurementLens?.signalStrength === "strong" ? "confirmed" as const : "early-signal" as const
-      }))
-  ]);
-
   return [
-    { label: "Cost / money", bullets: costMoney.slice(0, 4) },
-    { label: "Supplier / commercial", bullets: supplierCommercial.slice(0, 4) },
-    { label: "Safety / operations", bullets: safetyOperations.slice(0, 4) },
-    { label: "What to watch", bullets: watchouts.slice(0, 4) }
+    { label: "Cost / money", bullets: costMoney.slice(0, 3) },
+    { label: "Supplier / commercial", bullets: supplierCommercial.slice(0, 3) },
+    { label: "Operations / risk", bullets: operationsRisk.slice(0, 3) }
   ].filter((group) => group.bullets.length > 0);
 }
 
@@ -996,7 +994,7 @@ function buildActionGroups(
 ): BriefReport["actionGroups"] {
   const shortTerm = dedupeReportActions([
     ...((enriched.cmSnapshot?.todayPriorities ?? []).slice(0, 3).map((priority) => mapPriorityToAction(priority, sourceIdByIndex))),
-    ...(enriched.procurementActions ?? []).slice(0, 2).map((action, idx) => ({
+    ...(enriched.procurementActions ?? []).slice(0, 1).map((action, idx) => ({
       action: normalizeText(action),
       rationale: `Move now because the latest evidence implies the current supplier posture may be stale by the next sourcing gate.`,
       owner: "Category" as const,
@@ -1028,9 +1026,9 @@ function buildActionGroups(
   ]);
 
   const groups: BriefReportActionGroup[] = [
-    { horizon: "Next 72 hours", actions: shortTerm.slice(0, 4) },
-    { horizon: "Next 2-4 weeks", actions: midTerm.slice(0, 4) },
-    { horizon: "Next quarter", actions: longTerm.slice(0, 4) }
+    { horizon: "Next 72 hours", actions: shortTerm.slice(0, 1) },
+    { horizon: "Next 2-4 weeks", actions: midTerm.slice(0, 1) },
+    { horizon: "Next quarter", actions: longTerm.slice(0, 1) }
   ];
   return groups.filter((group) => group.actions.length > 0);
 }
@@ -1041,12 +1039,11 @@ function buildSummaryBullets(
 ): BriefCitedBullet[] {
   const sentences = splitIntoSentences(enriched.summary);
   const candidates = [
-    enriched.decisionSummary?.topMove,
     ...sentences,
     ...(enriched.decisionSummary?.whatChanged ?? []),
     ...(enriched.highlights ?? [])
   ].filter(Boolean) as string[];
-  return dedupeBullets(candidates.slice(0, 5).map((text, idx) => mapTextToBullet(text, sourceIdByIndex, idx + 1)));
+  return dedupeBullets(candidates.slice(0, 5).map((text, idx) => mapTextToBullet(text, sourceIdByIndex, idx + 1))).slice(0, 3);
 }
 
 function buildReport(
@@ -1069,21 +1066,23 @@ function buildExecutiveSummary(enriched: BriefOutput, report: BriefReport): stri
 
 function buildHighlights(enriched: BriefOutput, report: BriefReport): string[] {
   const items = (enriched.highlights ?? []).map(normalizeText).filter(Boolean);
-  if (items.length > 0) return items.slice(0, 8);
-  return report.impactGroups.flatMap((group) => group.bullets.map((bullet) => `${group.label}: ${bullet.text}`)).slice(0, 8);
+  if (items.length > 0) return items.slice(0, 3);
+  return report.impactGroups.flatMap((group) => group.bullets.map((bullet) => `${group.label}: ${bullet.text}`)).slice(0, 3);
 }
 
 function buildProcurementActions(enriched: BriefOutput, report: BriefReport): string[] {
   const explicit = (enriched.procurementActions ?? []).map(normalizeText).filter(Boolean);
-  if (explicit.length > 0) return explicit.slice(0, 8);
-  return report.actionGroups.flatMap((group) => group.actions.map((action) => action.action)).slice(0, 8);
+  if (explicit.length > 0) return explicit.slice(0, 3);
+  return report.actionGroups.flatMap((group) => group.actions.map((action) => action.action)).slice(0, 3);
 }
 
 function buildWatchlist(enriched: BriefOutput, report: BriefReport): string[] {
   const explicit = (enriched.watchlist ?? []).map(normalizeText).filter(Boolean);
-  if (explicit.length > 0) return explicit.slice(0, 8);
-  const watchGroup = report.impactGroups.find((group) => /watch|risk|regulatory/i.test(group.label));
-  return (watchGroup?.bullets ?? []).map((bullet) => bullet.text).slice(0, 6);
+  if (explicit.length > 0) return explicit.slice(0, 3);
+  return report.impactGroups
+    .find((group) => /operations|risk|regulatory/i.test(group.label))
+    ?.bullets.map((bullet) => bullet.text)
+    .slice(0, 3) ?? [];
 }
 
 function buildDecisionSummary(
@@ -1093,16 +1092,16 @@ function buildDecisionSummary(
   if (enriched.decisionSummary) {
     return {
       topMove: normalizeText(enriched.decisionSummary.topMove),
-      whatChanged: (enriched.decisionSummary.whatChanged ?? []).map(normalizeText).filter(Boolean).slice(0, 4),
-      doNext: (enriched.decisionSummary.doNext ?? []).map(normalizeText).filter(Boolean).slice(0, 5),
-      watchThisWeek: (enriched.decisionSummary.watchThisWeek ?? []).map(normalizeText).filter(Boolean).slice(0, 4)
+      whatChanged: (enriched.decisionSummary.whatChanged ?? []).map(normalizeText).filter(Boolean).slice(0, 3),
+      doNext: (enriched.decisionSummary.doNext ?? []).map(normalizeText).filter(Boolean).slice(0, 3),
+      watchThisWeek: (enriched.decisionSummary.watchThisWeek ?? []).map(normalizeText).filter(Boolean).slice(0, 3)
     };
   }
   return {
     topMove: report.summaryBullets[0]?.text ?? "Monitor current supplier and market conditions closely.",
     whatChanged: buildHighlights(enriched, report).slice(0, 3),
-    doNext: buildProcurementActions(enriched, report).slice(0, 4),
-    watchThisWeek: buildWatchlist(enriched, report).slice(0, 4)
+    doNext: buildProcurementActions(enriched, report).slice(0, 3),
+    watchThisWeek: buildWatchlist(enriched, report).slice(0, 3)
   };
 }
 

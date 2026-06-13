@@ -7,6 +7,8 @@ import { expandAgentsByRegion, loadAgents } from "./agents/config.js";
 import { selectAgentIdsForRun } from "./agents/selection.js";
 import { requiredArticleCount } from "./llm/prompts.js";
 import { getFeedHealthSnapshot } from "./ingest/feed-health.js";
+import { SCHEDULED_RUN_DAY_REASON, isScheduledRunDay } from "./schedule-guard.js";
+import { emitScheduledRunHealth } from "./scheduled-health.js";
 
 function isWithinScheduledWindow(runWindow: RunWindow, now: Date, toleranceMinutes = 30): boolean {
   const windowConfig = runWindow === "apac"
@@ -136,11 +138,30 @@ async function main() {
       }
     );
 
-    const readyRegions = body.scheduled === true && !body.force
-      ? regionRuns.filter((r: RegionRun) => r.inWindow)
+    const dayAllowedRegions = body.scheduled === true && !body.force && !dryRun
+      ? regionRuns.filter((r: RegionRun) => isScheduledRunDay(r.runWindow, now))
       : regionRuns;
 
-    const targetRegions = readyRegions.length > 0 ? readyRegions : regionRuns;
+    if (body.scheduled === true && !body.force && !dryRun && dayAllowedRegions.length === 0) {
+      fastify.log.info(
+        { runId, regions: regionRuns.map((r: RegionRun) => r.region), reason: SCHEDULED_RUN_DAY_REASON },
+        "scheduled cron skipped outside Tuesday/Thursday local run days"
+      );
+      reply.code(200).send({
+        ok: true,
+        skipped: true,
+        reason: SCHEDULED_RUN_DAY_REASON,
+        runId,
+        regions: regionRuns.map((r: RegionRun) => ({ region: r.region, runWindow: r.runWindow }))
+      });
+      return;
+    }
+
+    const readyRegions = body.scheduled === true && !body.force
+      ? dayAllowedRegions.filter((r: RegionRun) => r.inWindow)
+      : regionRuns;
+
+    const targetRegions = readyRegions.length > 0 ? readyRegions : dayAllowedRegions;
 
     if (body.scheduled === true && readyRegions.length === 0) {
       fastify.log.warn({ runId, regions: regionRuns.map((r: RegionRun) => r.region) }, "outside window; forcing catch-up run");
@@ -340,6 +361,41 @@ async function main() {
         })
         .catch((err) => fastify.log.error(err));
     });
+  });
+
+  fastify.post("/scheduled-health", async (request, reply) => {
+    if (!CRON_SECRET || request.headers.authorization !== `Bearer ${CRON_SECRET}`) {
+      reply.code(401).send({ error: "unauthorized" });
+      return;
+    }
+
+    const body = (request.body as any) || {};
+    const runDate = typeof body.runDate === "string" ? body.runDate : undefined;
+    const now = runDate ? new Date(runDate) : new Date();
+    if (Number.isNaN(now.getTime())) {
+      reply.code(400).send({ error: `Invalid runDate: ${runDate}` });
+      return;
+    }
+    const regionInput = Array.isArray(body?.regions)
+      ? body.regions
+      : body.region
+        ? [body.region]
+        : undefined;
+    const requestedRegions = regionInput
+      ?.map((r: string) => r as RegionSlug)
+      .filter((r: RegionSlug) => Boolean(REGIONS[r]));
+    const regions = requestedRegions?.length ? requestedRegions : (Object.keys(REGIONS) as RegionSlug[]);
+    const results = [];
+    for (const region of regions) {
+      const runWindow = (body.runWindow as RunWindow | undefined) ?? runWindowForRegion(region);
+      results.push(await emitScheduledRunHealth({ region, runWindow, now }));
+    }
+
+    return {
+      ok: results.every((result) => result.ok),
+      action: "scheduled-health",
+      results
+    };
   });
 
   fastify.post<{ Params: { agentId: string } }>("/run/:agentId", async (request, reply) => {

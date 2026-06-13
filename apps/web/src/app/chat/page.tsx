@@ -415,7 +415,7 @@ function AgentContextPanel({
         </div>
         {regionFeeds.length > 0 && (
           <div className="mt-4 text-sm text-muted-foreground">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Daily sources ({regionFeeds.length})</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Briefing sources ({regionFeeds.length})</p>
             <div className="grid gap-2">
               {regionFeeds.slice(0, 5).map((feed) => (
                 <div

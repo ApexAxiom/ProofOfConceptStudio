@@ -81,7 +81,7 @@ const SIGNAL_ENUM = z.enum(["confirmed", "early-signal", "unconfirmed"]);
 const OWNER_ENUM = z.enum(["Category", "Contracts", "Legal", "Ops"]);
 const PROCUREMENT_SIGNAL_STRENGTH_ENUM = z.enum(["strong", "moderate", "limited"]);
 const PROCUREMENT_INFERENCE_MODE_ENUM = z.enum(["source-grounded", "directional"]);
-const OUTPUT_SUMMARY_BULLETS = 5;
+const OUTPUT_SUMMARY_MAX_BULLETS = 3;
 const BECAUSE_TRIGGER = /\bbecause\b/i;
 const MIN_RATIONALE_WORDS = 8;
 const CITATION_LIST_LIMIT = 4;
@@ -125,7 +125,7 @@ const citedBulletSchema = z.object({
 });
 
 const actionSchema = z.object({
-  action: z.string().min(8).max(180),
+  action: z.string().min(8).max(140),
   rationale: z.string().min(MIN_RATIONALE_WORDS).max(260),
   owner: OWNER_ENUM,
   expectedOutcome: z.string().min(8).max(220),
@@ -183,7 +183,7 @@ const procurementLensSchema = z.object({
 
 const outputSchema = z.object({
   title: z.string().min(8).max(160),
-  summaryBullets: z.array(citedBulletSchema).length(OUTPUT_SUMMARY_BULLETS),
+  summaryBullets: z.array(citedBulletSchema).min(1).max(OUTPUT_SUMMARY_MAX_BULLETS),
   impact: z.object({
     costMoney: z.array(citedBulletSchema).min(1).max(4),
     supplierCommercial: z.array(citedBulletSchema).min(1).max(4),
@@ -249,10 +249,10 @@ const outputSchema = z.object({
 
 const TITLE_MIN_WORDS = 8;
 const TITLE_MAX_WORDS = 14;
-const IMPACT_MIN_BULLETS = 6;
-const IMPACT_MAX_BULLETS = 12;
-const ACTIONS_MIN_TOTAL = 3;
-const ACTIONS_MAX_TOTAL = 7;
+const IMPACT_MIN_BULLETS = 1;
+const IMPACT_MAX_BULLETS = 9;
+const ACTIONS_MIN_TOTAL = 1;
+const ACTIONS_MAX_TOTAL = 3;
 
 const TITLE_FILLER_WORDS = [
   "procurement",
@@ -400,32 +400,29 @@ export function buildProcurementPrompt(input: ProcurementPromptInput, requiredCo
         ? "Light signal day. Category-specific coverage is thin; avoid overstating certainty."
         : "Normal signal day. Use the strongest category-specific developments first.";
 
-  return `You are generating a premium procurement intelligence brief for ${input.agent.label}.
+  return `You are generating a professional category-manager decision memo for ${input.agent.label}.
 
-Your audience is adult business readers across a wide range of education levels.
-Write in plain English with high signal, no fluff, and no hallucinated numbers.
-Do not sound academic, legalistic, or overly executive.
+Your audience is a working category manager who needs a clean decision memo, not a news digest.
+Keep the intelligence and sourcing insight, but write in full sentences with no filler, no duplicated ideas, and no visible truncation.
+Do not dumb it down. Explain concrete commercial mechanisms instead of vague phrases like "market dynamics", "may impact", or "could affect".
 If you use industry jargon or an acronym, make the meaning obvious in context.
-Readers should quickly understand why this matters and what is worth paying attention to.
 
 OUTPUT RULES (strict):
 1) Return JSON only.
 2) Title must be 8-14 words, strong verb, not generic, never includes "Daily Brief".
-3) Write like a smart analyst speaking clearly, not like a press release.
+3) Write like a category-management analyst preparing a decision memo, not a press release or newswire.
 4) If today's signal is light, say so directly and calmly. Do not manufacture urgency.
-5) Produce exactly four report sections in structure:
-   - Summary: exactly 5 cited bullets
-     - Bullets 1-3 are key takeaways
-     - Bullets 4-5 are extra context
-   - Impact: 6-12 cited bullets across 4 subgroups:
-     * costMoney
-     * supplierCommercial
-     * safetyOperations
-     * watchouts
-   - Possible actions: 3-7 actions total across:
-     * next72Hours (Short-term horizon: 0-30 days; avoid artificial "urgent 72 hours" framing)
-     * next2to4Weeks (Mid-term horizon: 30-90 days)
-     * nextQuarter (Long-term horizon: 90+ days)
+5) Produce a lean memo structure:
+   - Summary: 1-3 cited bullets. These are the key takeaways and must not repeat the title or top action.
+   - Impact: 1-9 cited bullets across no more than these subgroups:
+      * costMoney
+      * supplierCommercial
+      * safetyOperations
+      * watchouts only when it is not already covered by action or risk language
+   - Possible actions: 1-3 actions total across:
+      * next72Hours (rendered as Do now; only use for concrete near-term actions)
+      * next2to4Weeks (rendered as Next few weeks)
+      * nextQuarter (rendered as Watch; use for monitor/prepare items, not filler)
    - Actions must be realistic for category management; on light-signal days, "watch / verify / prepare" actions are better than fake urgency.
    - Sources are rendered outside JSON from selected articles and indices.
 6) Every summary/impact/action item MUST include citations pointing to articleIndex values (one citation is acceptable; do not force multiple).
@@ -455,7 +452,7 @@ OUTPUT RULES (strict):
     - watchouts
     - signalStrength = strong|moderate|limited
     - inferenceMode = source-grounded|directional
-18) selectedArticles.briefContent must be 2-4 sentences in normal English:
+ 18) selectedArticles.briefContent must be 2-4 sentences in normal English:
     - sentence 1: what happened
     - sentence 2: the most important concrete detail, timing, scope, or constraint
     - optional sentence 3 or 4: what this means or what to watch next
@@ -463,14 +460,17 @@ OUTPUT RULES (strict):
 20) selectedArticles.keyMetrics must be 1-4 short readable fact lines with context, not bare numbers.
     Good: "14-day drilling program", "Targets 1,430m measured depth", "First of three planned 2026 prospects"
     Bad: "14", "1,430", "2026", "recent update"
-21) Summary bullets must not simply restate headlines. Write procurement outcomes, not article titles.
+ 21) Summary bullets must not simply restate headlines. Write procurement outcomes, not article titles.
 22) No headline restatement as insight. No generic wording like "this matters for the category."
 23) No invented savings, ROI, payback, or risk numbers. Directional inference is allowed only when the mechanism is clear from the source.
 24) No fake urgency on light-signal days.
 25) If an article is weak, thematic, or peripheral, say so directly. Limited relevance is acceptable.
 26) Never paste article leads, page navigation text, bylines, or boilerplate from the source.
 27) Name the suppliers, operators, and counterparties involved whenever the article identifies them. "A major contractor" is weaker than "Subsea 7". Use the "Event type" and "Known suppliers/operators mentioned" hints on each article to anchor the procurement angle.
-28) Use the category framework below to judge relevance and phrase implications in this category's commercial language (e.g. dayrate/term for rigs, steel-indexed pricing for OCTG, escalation indices for LTSAs). Never present framework entries as facts from today's articles.
+ 28) Use the category framework below to judge relevance and phrase implications in this category's commercial language (e.g. dayrate/term for rigs, steel-indexed pricing for OCTG, escalation indices for LTSAs). Never present framework entries as facts from today's articles.
+ 29) Do not use "..." or a unicode ellipsis in any visible field.
+ 30) Action labels must be crisp commands under 140 characters. Put the reason in rationale and the result in expectedOutcome.
+ 31) Do not repeat the same normalized sentence across summaryBullets, impact, possibleActions, deltaSinceLastRun, selectedArticles, or procurementLens.
 
 JSON SHAPE:
 \`\`\`json
@@ -584,7 +584,7 @@ function validateCitationRanges(
     output.impact.safetyOperations.length +
     output.impact.watchouts.length;
   if (impactCount < IMPACT_MIN_BULLETS || impactCount > IMPACT_MAX_BULLETS) {
-    issues.push("Impact must contain 6-12 bullets total");
+    issues.push(`Impact must contain ${IMPACT_MIN_BULLETS}-${IMPACT_MAX_BULLETS} bullets total`);
   }
 
   const actionCount =
@@ -592,7 +592,7 @@ function validateCitationRanges(
     output.possibleActions.next2to4Weeks.length +
     output.possibleActions.nextQuarter.length;
   if (actionCount < ACTIONS_MIN_TOTAL || actionCount > ACTIONS_MAX_TOTAL) {
-    issues.push("Possible actions must contain 3-7 actions total");
+    issues.push(`Possible actions must contain ${ACTIONS_MIN_TOTAL}-${ACTIONS_MAX_TOTAL} actions total`);
   }
 
   const words = output.title.trim().split(/\s+/).filter(Boolean);
@@ -712,6 +712,22 @@ function dedupeSectionsByText(output: ProcurementOutput): void {
   output.impact.supplierCommercial = filterBullets(output.impact.supplierCommercial);
   output.impact.safetyOperations = filterBullets(output.impact.safetyOperations);
   output.impact.watchouts = filterBullets(output.impact.watchouts);
+
+  const filterActions = (actions: ProcurementOutputAction[]): ProcurementOutputAction[] => {
+    const out: ProcurementOutputAction[] = [];
+    for (const action of actions) {
+      const normalized = normalizeLensComparableText(action.action);
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push(action);
+    }
+    return out;
+  };
+
+  output.possibleActions.next72Hours = filterActions(output.possibleActions.next72Hours);
+  output.possibleActions.next2to4Weeks = filterActions(output.possibleActions.next2to4Weeks);
+  output.possibleActions.nextQuarter = filterActions(output.possibleActions.nextQuarter);
+
   output.deltaSinceLastRun = (output.deltaSinceLastRun ?? [])
     .filter((item) => {
       const normalized = normalizeLensComparableText(item);
@@ -720,6 +736,71 @@ function dedupeSectionsByText(output: ProcurementOutput): void {
       return true;
     })
     .slice(0, 3);
+}
+
+function hasVisibleEllipsis(value: string): boolean {
+  return /\.\.\.|…/.test(value);
+}
+
+function collectVisibleStrings(output: ProcurementOutput): Array<{ path: string; value: string }> {
+  const rows: Array<{ path: string; value: string }> = [
+    { path: "title", value: output.title },
+    ...(output.deltaSinceLastRun ?? []).map((value, idx) => ({ path: `deltaSinceLastRun[${idx}]`, value })),
+    ...output.summaryBullets.map((item, idx) => ({ path: `summaryBullets[${idx}].text`, value: item.text })),
+    ...output.impact.costMoney.map((item, idx) => ({ path: `impact.costMoney[${idx}].text`, value: item.text })),
+    ...output.impact.supplierCommercial.map((item, idx) => ({ path: `impact.supplierCommercial[${idx}].text`, value: item.text })),
+    ...output.impact.safetyOperations.map((item, idx) => ({ path: `impact.safetyOperations[${idx}].text`, value: item.text })),
+    ...output.impact.watchouts.map((item, idx) => ({ path: `impact.watchouts[${idx}].text`, value: item.text })),
+    ...output.possibleActions.next72Hours.flatMap((item, idx) => [
+      { path: `possibleActions.next72Hours[${idx}].action`, value: item.action },
+      { path: `possibleActions.next72Hours[${idx}].rationale`, value: item.rationale },
+      { path: `possibleActions.next72Hours[${idx}].expectedOutcome`, value: item.expectedOutcome }
+    ]),
+    ...output.possibleActions.next2to4Weeks.flatMap((item, idx) => [
+      { path: `possibleActions.next2to4Weeks[${idx}].action`, value: item.action },
+      { path: `possibleActions.next2to4Weeks[${idx}].rationale`, value: item.rationale },
+      { path: `possibleActions.next2to4Weeks[${idx}].expectedOutcome`, value: item.expectedOutcome }
+    ]),
+    ...output.possibleActions.nextQuarter.flatMap((item, idx) => [
+      { path: `possibleActions.nextQuarter[${idx}].action`, value: item.action },
+      { path: `possibleActions.nextQuarter[${idx}].rationale`, value: item.rationale },
+      { path: `possibleActions.nextQuarter[${idx}].expectedOutcome`, value: item.expectedOutcome }
+    ])
+  ];
+
+  output.selectedArticles.forEach((article, idx) => {
+    rows.push(
+      { path: `selectedArticles[${idx}].briefContent`, value: article.briefContent },
+      { path: `selectedArticles[${idx}].categoryImportance`, value: article.categoryImportance },
+      ...((article.keyMetrics ?? []).map((value, metricIdx) => ({ path: `selectedArticles[${idx}].keyMetrics[${metricIdx}]`, value }))),
+      { path: `selectedArticles[${idx}].procurementLens.buyerTakeaway`, value: article.procurementLens.buyerTakeaway },
+      { path: `selectedArticles[${idx}].procurementLens.costMoney`, value: article.procurementLens.costMoney },
+      { path: `selectedArticles[${idx}].procurementLens.supplierCommercial`, value: article.procurementLens.supplierCommercial },
+      { path: `selectedArticles[${idx}].procurementLens.safetyOperational`, value: article.procurementLens.safetyOperational },
+      { path: `selectedArticles[${idx}].procurementLens.watchouts`, value: article.procurementLens.watchouts }
+    );
+  });
+
+  return rows;
+}
+
+function validateVisibleMemoQuality(output: ProcurementOutput): string[] {
+  const issues: string[] = [];
+  for (const row of collectVisibleStrings(output)) {
+    if (hasVisibleEllipsis(row.value)) {
+      issues.push(`${row.path} must not contain ellipses`);
+    }
+  }
+  for (const action of [
+    ...output.possibleActions.next72Hours,
+    ...output.possibleActions.next2to4Weeks,
+    ...output.possibleActions.nextQuarter
+  ]) {
+    if (action.action.length > 140) {
+      issues.push(`Action label exceeds 140 characters: ${action.action.slice(0, 80)}`);
+    }
+  }
+  return issues;
 }
 
 function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: Set<number>): void {
@@ -748,7 +829,8 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
       groups
         .filter((g) => g.length < 4)
         .sort((a, b) => a.length - b.length)[0] ?? groups[0];
-    const seed = group[group.length - 1] ?? groups[0][0];
+    const seed = group[group.length - 1] ?? groups.find((candidate) => candidate.length > 0)?.[0];
+    if (!seed) break;
     group.push({
       ...seed,
       citations: normalizeCitations(seed.citations, selectedSet)
@@ -769,9 +851,9 @@ function normalizeImpactCount(impact: ProcurementOutput["impact"], selectedSet: 
 
 function normalizeActionCount(possibleActions: ProcurementOutput["possibleActions"], selectedSet: Set<number>): void {
   const groups = [
-    { items: possibleActions.next72Hours, min: 1, max: 3 },
-    { items: possibleActions.next2to4Weeks, min: 1, max: 3 },
-    { items: possibleActions.nextQuarter, min: 1, max: 3 }
+    { items: possibleActions.next72Hours, min: 0, max: 3 },
+    { items: possibleActions.next2to4Weeks, min: 0, max: 3 },
+    { items: possibleActions.nextQuarter, min: 0, max: 3 }
   ];
 
   for (const group of groups) {
@@ -786,20 +868,6 @@ function normalizeActionCount(possibleActions: ProcurementOutput["possibleAction
   const totalCount = () => groups.reduce((sum, group) => sum + group.items.length, 0);
 
   let guard = 0;
-  while (totalCount() < ACTIONS_MIN_TOTAL && guard < 64) {
-    guard += 1;
-    const group =
-      groups
-        .filter((g) => g.items.length < g.max)
-        .sort((a, b) => a.items.length - b.items.length)[0] ?? groups[0];
-    const seed = group.items[group.items.length - 1] ?? groups[0].items[0];
-    group.items.push({
-      ...seed,
-      citations: normalizeCitations(seed.citations, selectedSet)
-    });
-  }
-
-  guard = 0;
   while (totalCount() > ACTIONS_MAX_TOTAL && guard < 64) {
     guard += 1;
     const group =
@@ -884,6 +952,10 @@ export function parseProcurementOutput(raw: string, options: { requiredCount: nu
   const rangeIssues = validateCitationRanges(output, options.maxArticleIndex, options.requiredCount);
   if (rangeIssues.length > 0) {
     throw new Error(JSON.stringify(rangeIssues));
+  }
+  const visibleIssues = validateVisibleMemoQuality(output);
+  if (visibleIssues.length > 0) {
+    throw new Error(JSON.stringify(visibleIssues));
   }
   return output;
 }

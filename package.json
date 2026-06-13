@@ -10,6 +10,8 @@
     "dev": "corepack pnpm -r --parallel --filter web --filter api --filter runner dev",
     "lint": "corepack pnpm -r lint",
     "build": "corepack pnpm -r build",
+    "typecheck": "corepack pnpm -r build",
+    "test": "corepack pnpm smoke:core && corepack pnpm --filter runner run schedule-guard:smoke && corepack pnpm --filter runner run scheduled-health:smoke && corepack pnpm --filter runner run render:smoke && corepack pnpm --filter runner exec tsx src/llm/prompt.smoke.ts && corepack pnpm --filter runner run procurement-report:smoke && corepack pnpm --filter runner run brief-engine-v3:smoke",
     "run:apac": "corepack pnpm --filter runner run cron:apac",
     "run:international": "corepack pnpm --filter runner run cron:international",
     "run-briefs": "corepack pnpm --filter runner run run-briefs",

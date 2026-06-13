@@ -37,6 +37,28 @@ function byPortfolioOrder(a: PortfolioEntry, b: PortfolioEntry) {
   return order === 0 ? a.title.localeCompare(b.title) : order;
 }
 
+function uniqueItems(values: Array<string | undefined>, limit = 3): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    const item = value?.replace(/\s+/g, " ").trim();
+    if (!item) continue;
+    const key = item.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
+function actionGroupForDue(dueInDays?: number): "Do now" | "Next few weeks" | "Watch" {
+  if (typeof dueInDays !== "number") return "Do now";
+  if (dueInDays <= 7) return "Do now";
+  if (dueInDays <= 30) return "Next few weeks";
+  return "Watch";
+}
+
 export default async function ActionCenter({
   params,
   searchParams
@@ -81,12 +103,20 @@ export default async function ActionCenter({
 
   const procurement = briefs
     .map<ActionEntry | null>((brief) =>
-      brief.procurementActions?.length
+      uniqueItems([
+        ...(brief.cmSnapshot?.todayPriorities ?? []).map((item) => item.title),
+        ...(brief.decisionSummary?.doNext ?? []),
+        ...(brief.procurementActions ?? [])
+      ]).length
         ? {
             portfolio: brief.portfolio,
             postId: brief.postId,
             title: brief.title,
-            items: brief.procurementActions,
+            items: uniqueItems([
+              ...(brief.cmSnapshot?.todayPriorities ?? []).map((item) => item.title),
+              ...(brief.decisionSummary?.doNext ?? []),
+              ...(brief.procurementActions ?? [])
+            ]),
             signal: inferSignals(brief)[0]?.label ?? "—"
           }
         : null
@@ -164,6 +194,34 @@ export default async function ActionCenter({
     return matchesQuery(`${portfolioLabel(entry.portfolio)} ${entry.title} ${entry.action} ${entry.ownerRole}`);
   });
 
+  const actionRows = [
+    ...filteredVpActions.map((entry) => ({
+      group: actionGroupForDue(entry.dueInDays),
+      due: `Due in ${entry.dueInDays} days`,
+      owner: entry.ownerRole,
+      portfolio: entry.portfolio,
+      action: entry.action,
+      href: entry.href,
+      key: `${entry.postId}-${entry.action}`
+    })),
+    ...filteredProcurement.flatMap((entry) =>
+      entry.items.map((item, idx) => ({
+        group: "Do now" as const,
+        due: "Review now",
+        owner: "Category Manager",
+        portfolio: entry.portfolio,
+        action: item,
+        href: `/brief/${encodeURIComponent(entry.postId)}`,
+        key: `${entry.postId}-proc-${idx}`
+      }))
+    )
+  ];
+  const groupedActionRows = ["Do now", "Next few weeks", "Watch"].map((group) => ({
+    group,
+    rows: actionRows.filter((row) => row.group === group)
+  })).filter((group) => group.rows.length > 0);
+  const watchlistItemCount = filteredWatchlist.reduce((sum, entry) => sum + entry.items.length, 0);
+
   const leadershipThemes = filteredVpActions.reduce<Record<string, typeof filteredVpActions>>((acc, entry) => {
     const key = entry.signal === "—" ? "Other" : entry.signal;
     acc[key] = acc[key] ?? [];
@@ -180,7 +238,7 @@ export default async function ActionCenter({
             {regionLabel(selectedRegion.slug)}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Daily procurement actions and watchlist items aggregated across all portfolios.
+            Briefing actions and watch items aggregated across all portfolios.
           </p>
         </div>
         <div className="flex gap-2">
@@ -278,52 +336,44 @@ export default async function ActionCenter({
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Actions</p>
               <h2 className="text-lg font-semibold text-foreground">Unified task list</h2>
             </div>
-            <span className="text-xs text-muted-foreground">{filteredProcurement.length + filteredVpActions.length} items</span>
+            <span className="text-xs text-muted-foreground">{actionRows.length} items</span>
           </div>
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-secondary/20">
-                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Due</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Owner</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Portfolio</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Action</th>
-                  <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Brief</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {filteredVpActions.map((entry) => (
-                  <tr key={`${entry.postId}-${entry.action}`} className="hover:bg-secondary/10">
-                    <td className="px-4 py-3 text-xs text-muted-foreground">Due in {entry.dueInDays} days</td>
-                    <td className="px-4 py-3 text-xs">{entry.ownerRole}</td>
-                    <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{entry.action}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={entry.href} className="text-xs font-semibold text-primary hover:underline">
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-                {filteredProcurement.flatMap((entry) =>
-                  entry.items.map((item, idx) => (
-                    <tr key={`${entry.postId}-proc-${idx}`} className="hover:bg-secondary/10">
-                      <td className="px-4 py-3 text-xs text-muted-foreground">—</td>
-                      <td className="px-4 py-3 text-xs">Category Manager</td>
-                      <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
-                      <td className="px-4 py-3 text-sm text-foreground">{item}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Link href={`/brief/${encodeURIComponent(entry.postId)}`} className="text-xs font-semibold text-primary hover:underline">
-                          Open
-                        </Link>
-                      </td>
+          <div className="space-y-4">
+            {groupedActionRows.map(({ group, rows }) => (
+              <div key={group} className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="border-b border-border bg-secondary/20 px-4 py-3">
+                  <h3 className="text-sm font-semibold text-foreground">{group}</h3>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/10">
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Due</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Owner</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Portfolio</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Action</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Brief</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            {filteredProcurement.length + filteredVpActions.length === 0 && (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No actions match the current filters.</div>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {rows.map((entry) => (
+                      <tr key={entry.key} className="hover:bg-secondary/10">
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{entry.due}</td>
+                        <td className="px-4 py-3 text-xs">{entry.owner}</td>
+                        <td className="px-4 py-3 text-xs">{portfolioLabel(entry.portfolio)}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{entry.action}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Link href={entry.href} className="text-xs font-semibold text-primary hover:underline">
+                            Open
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            {actionRows.length === 0 && (
+              <div className="rounded-lg border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">No actions match the current filters.</div>
             )}
           </div>
         </section>
@@ -336,7 +386,7 @@ export default async function ActionCenter({
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Watchlist</p>
               <h2 className="text-lg font-semibold text-foreground">Signals to monitor</h2>
             </div>
-            <span className="text-xs text-muted-foreground">{filteredWatchlist.length} portfolios</span>
+            <span className="text-xs text-muted-foreground">{watchlistItemCount} items</span>
           </div>
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             <table className="w-full text-sm">

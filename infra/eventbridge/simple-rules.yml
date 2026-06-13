@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: EventBridge Rules for daily brief runs
+Description: Legacy EventBridge Rules for brief runs - disabled; use Scheduler templates for Tuesday/Thursday local time
 
 Parameters:
   RunnerBaseUrl:
@@ -25,10 +25,10 @@ Resources:
   APACRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: briefs-apac-daily
-      Description: Daily APAC brief run at 6:00 AM AWST
-      ScheduleExpression: cron(0 22 * * ? *)
-      State: ENABLED
+      Name: briefs-apac-legacy-disabled
+      Description: Disabled legacy APAC rule; use EventBridge Scheduler at 6:00 AM Australia/Perth on Tuesday/Thursday
+      ScheduleExpression: cron(0 22 ? * MON,WED *)
+      State: DISABLED
       Targets:
         - Id: APACTarget
           Arn: !Sub "${RunnerBaseUrl}/cron"
@@ -42,10 +42,10 @@ Resources:
   InternationalRule1:
     Type: AWS::Events::Rule
     Properties:
-      Name: briefs-international-11utc
-      Description: Daily international brief run at 5:00 AM CST
-      ScheduleExpression: cron(0 11 * * ? *)
-      State: ENABLED
+      Name: briefs-international-legacy-11utc-disabled
+      Description: Disabled legacy international rule; use EventBridge Scheduler at 5:00 AM America/Chicago on Tuesday/Thursday
+      ScheduleExpression: cron(0 11 ? * TUE,THU *)
+      State: DISABLED
       Targets:
         - Id: International11Target
           Arn: !Sub "${RunnerBaseUrl}/cron"
@@ -59,10 +59,10 @@ Resources:
   InternationalRule2:
     Type: AWS::Events::Rule
     Properties:
-      Name: briefs-international-12utc
-      Description: Daily international brief run at 6:00 AM CST
-      ScheduleExpression: cron(0 12 * * ? *)
-      State: ENABLED
+      Name: briefs-international-legacy-12utc-disabled
+      Description: Disabled legacy international rule; use EventBridge Scheduler at 5:00 AM America/Chicago on Tuesday/Thursday
+      ScheduleExpression: cron(0 12 ? * TUE,THU *)
+      State: DISABLED
       Targets:
         - Id: International12Target
           Arn: !Sub "${RunnerBaseUrl}/cron"

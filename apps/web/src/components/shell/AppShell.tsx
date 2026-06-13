@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="flex items-center gap-3">
                 <span>Hourly market refresh</span>
                 <span className="text-border">|</span>
-                <span>Daily brief coverage checks</span>
+                <span>Tuesday/Thursday briefing checks</span>
               </div>
             </div>
           </footer>

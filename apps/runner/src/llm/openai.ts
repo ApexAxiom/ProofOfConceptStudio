@@ -543,16 +543,13 @@ export async function generateBrief(input: ProcurementPromptInput): Promise<Brie
         bullets: dedupeCitedBullets(parsed.impact.supplierCommercial.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex)))
       },
       {
-        label: "Safety / operations",
+        label: "Operations / risk",
         bullets: dedupeCitedBullets(
-          parsed.impact.safetyOperations.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
-        )
-      },
-      {
-        label: "What to watch",
-        bullets: dedupeCitedBullets(
-          parsed.impact.watchouts.map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
-        )
+          [
+            ...parsed.impact.safetyOperations,
+            ...parsed.impact.watchouts
+          ].map((bullet) => mapCitedBulletToSourceIds(bullet, selectedByIndex))
+        ).slice(0, 3)
       }
     ],
     actionGroups: [

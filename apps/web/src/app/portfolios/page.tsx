@@ -16,7 +16,7 @@ export default function PortfoliosPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">My Portfolios</p>
         <h1 className="text-2xl font-semibold text-foreground">Portfolio workbenches</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Select a portfolio to review the latest signals, recommended actions, and daily briefs.
+          Select a portfolio to review the latest signals, recommended actions, and briefing history.
         </p>
       </div>
 

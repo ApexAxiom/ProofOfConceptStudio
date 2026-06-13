@@ -34,11 +34,11 @@ export function buildPlaceholderBrief(options: {
   const statusLine = options.baseline
     ? "Coverage is active while the first full intelligence cycle initializes for this portfolio/region."
     : options.reason === "no-updates"
-      ? "No material change detected today. Previous coverage remains in effect."
+      ? "No material change detected in this scheduled cycle. Previous coverage remains in effect."
       : "Automated refresh was unavailable in this cycle. Previous coverage remains active.";
 
   const title = options.baseline
-    ? `${options.agent.label} baseline coverage activated for today's cycle`
+    ? `${options.agent.label} baseline coverage activated for briefing cycle`
     : options.reason === "no-updates"
       ? `${options.agent.label} conditions hold steady with no material change`
       : `${options.agent.label} baseline maintained during temporary refresh outage`;
@@ -64,21 +64,21 @@ export function buildPlaceholderBrief(options: {
     summary: statusLine,
     bodyMarkdown: `# ${title}
 
-## Summary
+## Decision at a glance
 - ${statusLine}
 
-## Impact
+## Category impact
 - Market/Cost drivers: Core category exposure is unchanged until new signals are confirmed.
 - Supply base & capacity: Supplier and market scans continue on the configured source set.
 - Contracting & commercial terms: Existing assumptions remain in force for this cycle.
 - Risk & regulatory / operational constraints: Monitoring remains active for new constraints and shifts.
 
-## Possible actions
+## Recommended actions
 - Next 72 hours: Review monitored sources for newly published material and critical updates.
 - Next 2-4 weeks: Validate if baseline assumptions still hold against new supplier and market data.
 - Next quarter: Maintain contingency options until full refresh cadence stabilizes.
 
-## Sources
+## Evidence and sources
 ${sourceLines}
 `,
     sources: sourceHints,
@@ -87,11 +87,11 @@ ${sourceLines}
     deltaSinceLastRun: [],
     heroImage: {
       url: makeCategoryPlaceholderDataUrl(options.agent.label),
-      alt: `${options.agent.label} - Daily Intel Report`,
+      alt: `${options.agent.label} - Briefing Memo`,
       sourceArticleIndex: 1
     },
     heroImageUrl: makeCategoryPlaceholderDataUrl(options.agent.label),
-    heroImageAlt: `${options.agent.label} - Daily Intel Report`,
+    heroImageAlt: `${options.agent.label} - Briefing Memo`,
     tags: [
       "system-placeholder",
       options.reason,
@@ -132,11 +132,11 @@ export function buildCarryForwardBrief(options: {
     bodyMarkdown: options.previousBrief.bodyMarkdown,
     heroImage: options.previousBrief.heroImage ?? {
       url: makeCategoryPlaceholderDataUrl(options.agent.label),
-      alt: `${options.agent.label} - Daily Intel Report`,
+      alt: `${options.agent.label} - Briefing Memo`,
       sourceArticleIndex: 1
     },
     heroImageUrl: options.previousBrief.heroImage?.url ?? options.previousBrief.heroImageUrl ?? makeCategoryPlaceholderDataUrl(options.agent.label),
-    heroImageAlt: options.previousBrief.heroImage?.alt ?? options.previousBrief.heroImageAlt ?? `${options.agent.label} - Daily Intel Report`,
+    heroImageAlt: options.previousBrief.heroImage?.alt ?? options.previousBrief.heroImageAlt ?? `${options.agent.label} - Briefing Memo`,
     tags: Array.from(new Set([...(options.previousBrief.tags ?? []), "carry-forward", options.reason]))
   };
 }

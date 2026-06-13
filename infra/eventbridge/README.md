@@ -1,4 +1,4 @@
-# Daily Brief Scheduler Setup
+# Tuesday/Thursday Brief Scheduler Setup
 
 ## AWS EventBridge (Recommended)
 
@@ -43,6 +43,10 @@ curl -X POST "https://your-runner.awsapprunner.com/cron" \
 ```
 
 ## Schedule Summary
-- **APAC**: daily at 6:00 AM AWST
-- **International**: daily at 5:00 AM CST and 6:00 AM CST
+- **APAC**: Tuesday/Thursday at 6:00 AM Australia/Perth, batched at 0/10/20 minutes
+- **International**: Tuesday/Thursday at 5:00 AM America/Chicago, batched at 0/10/20 minutes
+- **APAC health check**: daily at 9:00 AM Australia/Perth
+- **International health check**: daily at 8:00 AM America/Chicago
 - Schedules invoke the Lambda proxy, which reads `CRON_SECRET` from Secrets Manager and forwards to runner `/cron`.
+- Runner skips scheduled, non-force, non-dry-run requests outside Tuesday/Thursday local time with `reason: "scheduled_runs_only_tuesday_thursday"`.
+- The daily health checks forward to runner `/scheduled-health` and emit `ExpectedRunCompleted` / `ExpectedBriefPublished` metrics that are healthy on off-days and fail only for missed expected windows.

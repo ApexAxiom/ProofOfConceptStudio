@@ -24,8 +24,8 @@ categories**, not keyword matches:
 ## Locked decisions
 
 1. **One brief per category per region stays.** Each of the 14 categories is managed by one
-   person and keeps its own daily brief, plus the executive/market-dashboard overview brief.
-   The redesign changes what is *inside* each brief, never the per-category cadence.
+   person and keeps its own scheduled briefing memo, plus the executive/market-dashboard overview brief.
+   The redesign changes what is *inside* each brief, never the per-category ownership model.
 2. **Low-signal days still publish something useful.** When nothing material happened, the brief
    becomes a short awareness read: 1–2 interesting articles framed as "worth knowing", clearly
    badged as low signal — no padded actions, no manufactured urgency. Signal levels:

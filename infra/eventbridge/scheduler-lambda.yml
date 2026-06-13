@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: EventBridge Scheduler with Lambda proxy for daily brief runs
+Description: EventBridge Scheduler with Lambda proxy for Tuesday/Thursday brief runs
 
 Parameters:
   RunnerBaseUrl:
@@ -71,7 +71,8 @@ Resources:
                   print(f"SecretsManager error: {e}")
                   raise
               
-              url = f"{os.environ['RUNNER_BASE_URL'].rstrip('/')}/cron"
+              path = '/scheduled-health' if isinstance(event, dict) and event.get('action') == 'scheduled-health' else '/cron'
+              url = f"{os.environ['RUNNER_BASE_URL'].rstrip('/')}{path}"
               headers = {
                   'Authorization': f'Bearer {cron_secret}',
                   'Content-Type': 'application/json'
@@ -107,44 +108,114 @@ Resources:
                 Action: lambda:InvokeFunction
                 Resource: !GetAtt CronProxyFunction.Arn
 
-  APACSchedule:
+  APACScheduleBatch0:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-apac-daily
-      Description: Daily APAC brief run at 6:00 AM AWST
-      ScheduleExpression: cron(0 22 * * ? *)
-      ScheduleExpressionTimezone: UTC
+      Name: briefs-apac-batch-0
+      Description: Tuesday/Thursday APAC brief batch 0 at 6:00 AM Australia/Perth
+      ScheduleExpression: cron(0 6 ? * TUE,THU *)
+      ScheduleExpressionTimezone: Australia/Perth
       FlexibleTimeWindow:
         Mode: 'OFF'
       Target:
         Arn: !GetAtt CronProxyFunction.Arn
         RoleArn: !GetAtt SchedulerRole.Arn
-        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true}'
+        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true,"batchIndex":0,"batchCount":3}'
 
-  InternationalSchedule1:
+  APACScheduleBatch1:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-international-11utc
-      Description: Daily international brief run at 5:00 AM CST
-      ScheduleExpression: cron(0 11 * * ? *)
-      ScheduleExpressionTimezone: UTC
+      Name: briefs-apac-batch-1
+      Description: Tuesday/Thursday APAC brief batch 1 at 6:10 AM Australia/Perth
+      ScheduleExpression: cron(10 6 ? * TUE,THU *)
+      ScheduleExpressionTimezone: Australia/Perth
       FlexibleTimeWindow:
         Mode: 'OFF'
       Target:
         Arn: !GetAtt CronProxyFunction.Arn
         RoleArn: !GetAtt SchedulerRole.Arn
-        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true,"batchIndex":1,"batchCount":3}'
 
-  InternationalSchedule2:
+  APACScheduleBatch2:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: briefs-international-12utc
-      Description: Daily international brief run at 6:00 AM CST
-      ScheduleExpression: cron(0 12 * * ? *)
-      ScheduleExpressionTimezone: UTC
+      Name: briefs-apac-batch-2
+      Description: Tuesday/Thursday APAC brief batch 2 at 6:20 AM Australia/Perth
+      ScheduleExpression: cron(20 6 ? * TUE,THU *)
+      ScheduleExpressionTimezone: Australia/Perth
       FlexibleTimeWindow:
         Mode: 'OFF'
       Target:
         Arn: !GetAtt CronProxyFunction.Arn
         RoleArn: !GetAtt SchedulerRole.Arn
-        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true}'
+        Input: '{"runWindow":"apac","regions":["au"],"scheduled":true,"batchIndex":2,"batchCount":3}'
+
+  InternationalScheduleBatch0:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-batch-0
+      Description: Tuesday/Thursday international brief batch 0 at 5:00 AM America/Chicago
+      ScheduleExpression: cron(0 5 ? * TUE,THU *)
+      ScheduleExpressionTimezone: America/Chicago
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true,"batchIndex":0,"batchCount":3}'
+
+  InternationalScheduleBatch1:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-batch-1
+      Description: Tuesday/Thursday international brief batch 1 at 5:10 AM America/Chicago
+      ScheduleExpression: cron(10 5 ? * TUE,THU *)
+      ScheduleExpressionTimezone: America/Chicago
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true,"batchIndex":1,"batchCount":3}'
+
+  InternationalScheduleBatch2:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-batch-2
+      Description: Tuesday/Thursday international brief batch 2 at 5:20 AM America/Chicago
+      ScheduleExpression: cron(20 5 ? * TUE,THU *)
+      ScheduleExpressionTimezone: America/Chicago
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"runWindow":"international","regions":["us-mx-la-lng"],"scheduled":true,"batchIndex":2,"batchCount":3}'
+
+  ScheduledHealthApac:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-apac-scheduled-health
+      Description: Daily APAC scheduled-run health check at 9:00 AM Australia/Perth
+      ScheduleExpression: cron(0 9 * * ? *)
+      ScheduleExpressionTimezone: Australia/Perth
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"action":"scheduled-health","runWindow":"apac","regions":["au"]}'
+
+  ScheduledHealthInternational:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: briefs-international-scheduled-health
+      Description: Daily international scheduled-run health check at 8:00 AM America/Chicago
+      ScheduleExpression: cron(0 8 * * ? *)
+      ScheduleExpressionTimezone: America/Chicago
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt CronProxyFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"action":"scheduled-health","runWindow":"international","regions":["us-mx-la-lng"]}'

@@ -3,9 +3,11 @@ import { loadAgents } from "./agents/config.js";
 import { selectAgentIdsForRun } from "./agents/selection.js";
 import { initializeSecrets } from "./lib/secrets.js";
 import { handleCron, runAgent } from "./run.js";
+import { evaluateScheduledRunGuard } from "./schedule-guard.js";
+import { emitScheduledRunHealth } from "./scheduled-health.js";
 
 type RunnerLambdaEvent = {
-  action?: "cron" | "run-agent";
+  action?: "cron" | "run-agent" | "scheduled-health";
   region?: RegionSlug;
   regions?: RegionSlug[];
   runWindow?: RunWindow;
@@ -17,6 +19,7 @@ type RunnerLambdaEvent = {
   runDate?: string;
   runId?: string;
   scheduled?: boolean;
+  force?: boolean;
 };
 
 function normalizeRegion(value: unknown): RegionSlug | undefined {
@@ -92,13 +95,56 @@ export async function handler(event: RunnerLambdaEvent = {}) {
     };
   }
 
+  if (event.action === "scheduled-health") {
+    const targetRegions = regions ?? ["au", "us-mx-la-lng"];
+    const now = event.runDate ? new Date(event.runDate) : new Date();
+    if (Number.isNaN(now.getTime())) {
+      throw new Error(`Invalid runDate provided: ${event.runDate}`);
+    }
+    const results = [];
+    for (const targetRegion of targetRegions) {
+      results.push(
+        await emitScheduledRunHealth({
+          region: targetRegion,
+          runWindow: runWindow ?? runWindowForRegion(targetRegion),
+          now
+        })
+      );
+    }
+    return {
+      ok: results.every((result) => result.ok),
+      action: "scheduled-health",
+      results
+    };
+  }
+
   const targetRegions = regions ?? ["au", "us-mx-la-lng"];
   const results = [];
+  const skipped = [];
+  const now = new Date();
   for (const targetRegion of targetRegions) {
+    const targetRunWindow = runWindow ?? runWindowForRegion(targetRegion);
+    const guard = evaluateScheduledRunGuard({
+      scheduled: event.scheduled === true,
+      force: event.force === true,
+      dryRun: event.dryRun === true,
+      runWindow: targetRunWindow,
+      now
+    });
+    if (guard.skipped) {
+      skipped.push({
+        region: targetRegion,
+        runWindow: targetRunWindow,
+        skipped: true,
+        reason: guard.reason,
+        localWeekday: guard.localWeekday
+      });
+      continue;
+    }
     results.push(
       await runCronForRegion({
         region: targetRegion,
-        runWindow,
+        runWindow: targetRunWindow,
         agentIds: event.agentIds,
         batchIndex: event.batchIndex,
         batchCount: event.batchCount,
@@ -113,6 +159,7 @@ export async function handler(event: RunnerLambdaEvent = {}) {
   return {
     ok: results.every((item) => item.result.ok),
     action: "cron",
+    skipped,
     results
   };
 }

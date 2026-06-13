@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy EventBridge Scheduler for daily brief runs
+# Deploy EventBridge Scheduler for Tuesday/Thursday briefing runs
 
 STACK_NAME="briefs-scheduler-lambda"
 RUNNER_BASE_URL="https://pe8rz3uzip.us-east-1.awsapprunner.com"

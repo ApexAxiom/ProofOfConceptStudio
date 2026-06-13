@@ -17,6 +17,8 @@
     "feeds:audit": "tsx src/agents/feed-audit.ts",
     "brief-v2:smoke": "tsx src/brief-v2.smoke.ts",
     "brief-day:smoke": "tsx src/brief-day.smoke.ts",
+    "schedule-guard:smoke": "tsx src/schedule-guard.smoke.ts",
+    "scheduled-health:smoke": "tsx src/scheduled-health.smoke.ts",
     "fallback:smoke": "tsx src/brief-coverage/fallback.smoke.ts",
     "coverage:report": "tsx src/brief-coverage/report.ts",
     "coverage:fill": "tsx src/brief-coverage/fill-missing.ts",

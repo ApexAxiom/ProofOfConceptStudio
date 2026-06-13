@@ -64,8 +64,16 @@ async function main() {
   const impactLabels = new Set((result.report?.impactGroups ?? []).map((group) => group.label));
   assert.ok(impactLabels.has("Cost / money"));
   assert.ok(impactLabels.has("Supplier / commercial"));
-  assert.ok(impactLabels.has("Safety / operations"));
-  assert.ok(impactLabels.has("What to watch"));
+  assert.ok(impactLabels.has("Operations / risk"));
+  assert.equal(impactLabels.has("Safety / operations"), false);
+  assert.equal(impactLabels.has("What to watch"), false);
+  assert.ok((result.report?.summaryBullets.length ?? 0) <= 3);
+  for (const group of result.report?.impactGroups ?? []) {
+    assert.ok(group.bullets.length <= 3);
+  }
+  const actionTotal = (result.report?.actionGroups ?? []).reduce((sum, group) => sum + group.actions.length, 0);
+  assert.ok(actionTotal <= 3);
+  assert.doesNotMatch(JSON.stringify(result.report), /\.{3}|…/);
 
   const allowedUrls = new Set([...(result.selectedArticles ?? []).map((item) => item.url), ...(result.sources ?? []).map((source) => typeof source === "string" ? source : source.url)]);
   const bodyUrls = Array.from(result.bodyMarkdown.matchAll(/\((https?:\/\/[^)]+)\)/g)).map((match) => match[1]);

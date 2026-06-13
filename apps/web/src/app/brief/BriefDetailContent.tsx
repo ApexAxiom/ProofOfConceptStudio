@@ -15,9 +15,7 @@ import {
   toBriefViewModelV2
 } from "@proof/shared";
 import { CmSnapshotPanel } from "../../components/cm/CmSnapshotPanel";
-import { NegotiationLevers } from "../../components/NegotiationLevers";
 import { SignalBadge } from "../../components/SignalBadge";
-import { SupplierRadar } from "../../components/SupplierRadar";
 import { VpSnapshotPanel } from "../../components/vp/VpSnapshotPanel";
 
 const OPERATIONAL_PATTERNS: RegExp[] = [
@@ -422,9 +420,9 @@ function buildSourceExplorerCards(
 }
 
 const ACTION_HORIZON_DISPLAY: Record<string, string> = {
-  "Next 72 hours": "What to do now",
+  "Next 72 hours": "Do now",
   "Next 2-4 weeks": "Next few weeks",
-  "Next quarter": "Longer view"
+  "Next quarter": "Watch"
 };
 
 function actionHorizonLabel(horizon: string): string {
@@ -451,10 +449,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
   const keyTakeaways = brief.report?.summaryBullets?.length
     ? brief.report.summaryBullets.slice(0, 5)
     : fallbackImpact.slice(0, 5).map((item) => ({ text: item, sourceIds: [] as string[] }));
-  const executiveKeyFacts = selectKeyFacts(
-    view.topStories.flatMap((story) => (story.keyMetrics ?? []).map((metric) => sanitizePresentationText(metric))),
-    6
-  );
   const storyArticles = (brief.selectedArticles ?? []).slice(0, 5);
   const sourceExplorerCards = buildSourceExplorerCards(brief, sources, sourceNumberById);
 
@@ -498,7 +492,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">In 60 seconds</h2>
+            <h2 className="text-lg font-semibold text-foreground">Decision at a glance</h2>
           </div>
           <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Top move</p>
@@ -511,7 +505,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key takeaways</p>
             {keyTakeaways.length > 0 ? (
               <ul className="mt-3 space-y-3 text-sm text-foreground">
-                {keyTakeaways.map((bullet, idx) => (
+                {keyTakeaways.slice(0, 3).map((bullet, idx) => (
                   <li key={`takeaway-${idx}`} className="flex gap-3 rounded-lg border border-border bg-background px-4 py-3">
                     <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
                     <div className="space-y-2">
@@ -525,43 +519,31 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
             )}
           </div>
 
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What changed since last run</p>
-              {view.deltaBullets.length > 0 ? (
-                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  {view.deltaBullets.slice(0, 3).map((item, idx) => (
-                    <li key={`${item}-${idx}`} className="flex gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-muted-foreground/60" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm text-muted-foreground">No clear change was called out for this brief.</p>
-              )}
-            </div>
-
-            {executiveKeyFacts.length > 0 ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  {executiveKeyFacts.map((metric) => (
-                    <li key={metric} className="flex gap-2 rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-sky-300" />
-                      <span className="text-sky-50">{metric}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Why this matters for the category manager</p>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{fallbackSummary}</p>
           </div>
         </div>
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold text-foreground">Why it matters</h2>
-        <p className="mt-3 text-sm leading-relaxed text-foreground">{fallbackSummary}</p>
+        <h2 className="text-lg font-semibold text-foreground">What changed</h2>
+        {view.deltaBullets.length > 0 ? (
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            {view.deltaBullets.slice(0, 3).map((item, idx) => (
+              <li key={`${item}-${idx}`} className="flex gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-muted-foreground/60" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">No prior brief comparison was available for this edition.</p>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h2 className="text-lg font-semibold text-foreground">Category impact</h2>
 
         {reportImpactGroups.length > 0 ? (
           <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -569,7 +551,7 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
               <div key={group.label} className="rounded-lg border border-border bg-background p-4">
                 <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
                 <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  {group.bullets.slice(0, 4).map((bullet, idx) => (
+                  {group.bullets.slice(0, 3).map((bullet, idx) => (
                     <li key={`${group.label}-${idx}`} className="flex gap-2">
                       <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
                       <div className="space-y-2">{renderCitedBullet(bullet, sourceNumberById, `${group.label}-${idx}`)}</div>
@@ -591,165 +573,14 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         )}
       </section>
 
-      {storyArticles.length > 0 ? (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Top stories</h2>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-4">
-            {storyArticles.map((article, idx) => {
-              const sourceId = sourceIdForArticle(article);
-              const sourceNumber = sourceId ? sourceNumberById.get(sourceId) : undefined;
-              const sourceCard = sourceId ? sourceExplorerCards.find((card) => card.source.sourceId === sourceId) : undefined;
-              const storyKeyFacts = selectKeyFacts(article.keyMetrics, 4);
-              const storyLens = procurementLensForArticle(article);
-
-              return (
-                <article key={`${article.url}-${idx}`} className="rounded-xl border border-border bg-background p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="rounded-full border border-border px-2 py-1">Story {idx + 1}</span>
-                        {article.sourceName ? <span>{article.sourceName}</span> : null}
-                        {article.publishedAt ? (
-                          <>
-                            <span className="text-border">•</span>
-                            <span>{new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                          </>
-                        ) : null}
-                      </div>
-                      <h3 className="text-base font-semibold text-foreground">{article.title}</h3>
-                      {(storyLens.signalStrength || storyLens.inferenceMode) ? (
-                        <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          {storyLens.signalStrength ? (
-                            <span className="rounded-full border border-border px-2 py-1">Signal {storyLens.signalStrength}</span>
-                          ) : null}
-                          {storyLens.inferenceMode ? (
-                            <span className="rounded-full border border-border px-2 py-1">
-                              {storyLens.inferenceMode === "directional" ? "Directional" : "Source-grounded"}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {sourceNumber ? (
-                        <a href={`#source-${sourceNumber}`} className="btn-secondary text-xs">
-                          Source notes [{sourceNumber}]
-                        </a>
-                      ) : null}
-                      <a href={article.url} target="_blank" rel="noreferrer noopener" className="btn-secondary text-xs">
-                        Read source
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What happened</p>
-                        <p className="mt-2 text-sm leading-relaxed text-foreground">
-                          {sanitizePresentationText(article.briefContent) ?? "No article summary was stored for this story."}
-                        </p>
-                      </div>
-
-                      {storyLens.buyerTakeaway ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Buyer takeaway</p>
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.buyerTakeaway}</p>
-                        </div>
-                      ) : null}
-
-                      {storyLens.costMoney ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Cost / money</p>
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.costMoney}</p>
-                        </div>
-                      ) : null}
-
-                      {storyLens.supplierCommercial ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Supplier / commercial</p>
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.supplierCommercial}</p>
-                        </div>
-                      ) : null}
-
-                      {storyLens.safetyOperational ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Safety / operations</p>
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.safetyOperational}</p>
-                        </div>
-                      ) : null}
-
-                      {storyLens.watchouts ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What to watch</p>
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.watchouts}</p>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="space-y-4">
-                      {storyKeyFacts.length > 0 ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                            {storyKeyFacts.map((metric) => (
-                              <li key={metric} className="flex gap-2">
-                                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                                <span className="text-foreground">{metric}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      {sourceCard?.excerpts.length ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Source excerpts</p>
-                          <div className="mt-2 space-y-2">
-                            {sourceCard.excerpts.map((excerpt) => (
-                              <blockquote key={excerpt} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-                                {excerpt}
-                              </blockquote>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
       {/* The brief is the category manager's product: one persona panel.
           VP content lives in the Action Center leadership view; the VP panel
           renders here only for older briefs that lack a CM snapshot. */}
       {brief.cmSnapshot ? <CmSnapshotPanel brief={brief} /> : brief.vpSnapshot ? <VpSnapshotPanel brief={brief} /> : null}
 
-      {brief.cmSnapshot?.supplierRadar?.length ? (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-semibold text-foreground">Supplier radar</h2>
-          <SupplierRadar brief={brief} />
-        </section>
-      ) : null}
-
-      {brief.cmSnapshot?.negotiationLevers?.length ? (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-semibold text-foreground">Negotiation levers</h2>
-          <NegotiationLevers brief={brief} />
-        </section>
-      ) : null}
-
       {(reportActionGroups.length > 0 || fallbackActions.length > 0 || watchItems.length > 0) ? (
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-semibold text-foreground">What to do / What to watch</h2>
+          <h2 className="text-lg font-semibold text-foreground">Recommended actions</h2>
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
             <div>
               {reportActionGroups.length > 0 ? (
@@ -810,6 +641,101 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                 <p className="mt-3 text-sm text-muted-foreground">No watch items were attached to this brief.</p>
               )}
             </div>
+          </div>
+        </section>
+      ) : null}
+
+      {storyArticles.length > 0 ? (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Top stories</h2>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {storyArticles.map((article, idx) => {
+              const sourceId = sourceIdForArticle(article);
+              const sourceNumber = sourceId ? sourceNumberById.get(sourceId) : undefined;
+              const storyKeyFacts = selectKeyFacts(article.keyMetrics, 4);
+              const storyLens = procurementLensForArticle(article);
+
+              return (
+                <article id={`article-${idx + 1}`} key={`${article.url}-${idx}`} className="rounded-xl border border-border bg-background p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="rounded-full border border-border px-2 py-1">Story {idx + 1}</span>
+                        {article.sourceName ? <span>{article.sourceName}</span> : null}
+                        {article.publishedAt ? (
+                          <>
+                            <span className="text-border">•</span>
+                            <span>{new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                          </>
+                        ) : null}
+                      </div>
+                      <h3 className="text-base font-semibold text-foreground">{article.title}</h3>
+                      {(storyLens.signalStrength || storyLens.inferenceMode) ? (
+                        <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                          {storyLens.signalStrength ? (
+                            <span className="rounded-full border border-border px-2 py-1">Signal {storyLens.signalStrength}</span>
+                          ) : null}
+                          {storyLens.inferenceMode ? (
+                            <span className="rounded-full border border-border px-2 py-1">
+                              {storyLens.inferenceMode === "directional" ? "Directional" : "Source-grounded"}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {sourceNumber ? (
+                        <a href={`#source-${sourceNumber}`} className="btn-secondary text-xs">
+                          Source notes [{sourceNumber}]
+                        </a>
+                      ) : null}
+                      <a href={article.url} target="_blank" rel="noreferrer noopener" className="btn-secondary text-xs">
+                        Read source
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What happened</p>
+                        <p className="mt-2 text-sm leading-relaxed text-foreground">
+                          {sanitizePresentationText(article.briefContent) ?? "No article summary was stored for this story."}
+                        </p>
+                      </div>
+
+                      {storyLens.buyerTakeaway ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Why the category manager should care</p>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.buyerTakeaway}</p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-4">
+                      {storyKeyFacts.length > 0 ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
+                          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                            {storyKeyFacts.map((metric) => (
+                              <li key={metric} className="flex gap-2">
+                                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                                <span className="text-foreground">{metric}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -877,9 +803,9 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Sources</h2>
+            <h2 className="text-lg font-semibold text-foreground">Evidence and sources</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Inline citations jump here. Expand a source to read the excerpt, the AI interpretation, and the original link.
+              Inline citations jump here. Expand a source to read stored evidence excerpts.
             </p>
           </div>
         </div>
@@ -887,8 +813,6 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
         {sourceExplorerCards.length > 0 ? (
           <div className="mt-5 space-y-3">
             {sourceExplorerCards.map((card) => {
-              const sourceKeyFacts = selectKeyFacts(card.article?.keyMetrics, 4);
-              const storyLens = card.article ? procurementLensForArticle(card.article) : undefined;
               return (
                 <details
                   key={card.source.sourceId}
@@ -905,69 +829,16 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                           {sourcePublisher(card.source)} · {sourceDate(card.source)}
                         </p>
                       </div>
-                      <span className="text-xs font-medium text-primary">Expand</span>
+                      <span className="flex items-center gap-3 text-xs font-medium text-primary">
+                        <a href={card.source.url} target="_blank" rel="noreferrer noopener" className="hover:underline">
+                          Original link
+                        </a>
+                        <span>Expand</span>
+                      </span>
                     </div>
                   </summary>
 
                   <div className="mt-4 space-y-4 border-t border-border pt-4">
-                    {card.article?.briefContent ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">AI reading</p>
-                        <p className="mt-2 text-sm leading-relaxed text-foreground">{sanitizePresentationText(card.article.briefContent)}</p>
-                      </div>
-                    ) : null}
-
-                    {storyLens?.buyerTakeaway ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Buyer takeaway</p>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                          {storyLens.buyerTakeaway}
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {storyLens?.costMoney ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Cost / money</p>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.costMoney}</p>
-                      </div>
-                    ) : null}
-
-                    {storyLens?.supplierCommercial ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Supplier / commercial</p>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.supplierCommercial}</p>
-                      </div>
-                    ) : null}
-
-                    {storyLens?.safetyOperational ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Safety / operations</p>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.safetyOperational}</p>
-                      </div>
-                    ) : null}
-
-                    {storyLens?.watchouts ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">What to watch</p>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{storyLens.watchouts}</p>
-                      </div>
-                    ) : null}
-
-                    {sourceKeyFacts.length > 0 ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Key facts</p>
-                        <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                          {sourceKeyFacts.map((metric) => (
-                            <li key={metric} className="flex gap-2">
-                              <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                              <span className="text-foreground">{metric}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
                     {card.excerpts.length > 0 ? (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Source excerpts</p>
@@ -979,21 +850,9 @@ export function BriefDetailContent({ brief }: { brief: BriefPost }): React.React
                           ))}
                         </div>
                       </div>
-                    ) : null}
-
-                    {card.claimHighlights.length > 0 ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Used in this brief</p>
-                        <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                          {card.claimHighlights.map((claim) => (
-                            <li key={claim} className="flex gap-2">
-                              <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                              <span>{claim}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No stored excerpt is attached to this source.</p>
+                    )}
 
                     <a
                       href={card.source.url}

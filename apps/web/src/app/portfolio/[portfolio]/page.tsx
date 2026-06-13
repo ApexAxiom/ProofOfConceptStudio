@@ -310,10 +310,10 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
   const displayBriefsBase = history.filter((brief) => brief.status === "published");
   const displayBriefs = displayBriefsBase.filter((brief) => isSignalBrief(brief) && !hasOperationalCopy(brief));
 
-  const visibleImpact = insight.impact.slice(0, 4);
-  const hiddenImpact = insight.impact.slice(4);
-  const visibleActions = insight.actions.slice(0, 4);
-  const hiddenActions = insight.actions.slice(4);
+  const visibleImpact = insight.impact.slice(0, 3);
+  const hiddenImpact = insight.impact.slice(3);
+  const visibleActions = insight.actions.slice(0, 3);
+  const hiddenActions = insight.actions.slice(3);
   const visibleNews = selectedRegionNews.slice(0, 8);
   const hiddenNews = selectedRegionNews.slice(8);
   const visibleBriefs = displayBriefs.slice(0, 6);
@@ -372,7 +372,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
       <main className={styles.contentGrid}>
         <div className={styles.primaryColumn}>
           <DashboardCard
-            title="Daily Intelligence Update"
+            title="Briefing Memo"
             subtitle={selectedRegion === "au" ? "APAC view" : "International view"}
             className={styles.card}
             headerClassName={styles.cardHeader}
@@ -406,7 +406,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
                 </h3>
                 <p className={styles.lede}>{insight.summary}</p>
                 <p className={styles.emptyState}>
-                  No briefs yet for this region. Briefs publish after the next successful scheduled run (APAC 6:00 AM AWST, International 5:00 AM CST).
+                  No briefs yet for this region. Briefings publish after the next successful Tuesday/Thursday scheduled run (APAC 6:00 AM Perth, International 5:00 AM Central).
                 </p>
               </>
             )}
@@ -524,7 +524,7 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
 
         <aside className={styles.railColumn}>
           <DashboardCard
-            title="Possible Actions"
+            title="Recommended Actions"
             subtitle="Current execution priorities from the latest brief signal set."
             className={styles.card}
             headerClassName={styles.cardHeader}
@@ -552,8 +552,8 @@ export default async function PortfolioOverviewPage({ params, searchParams }: Po
           </DashboardCard>
 
           <DashboardCard
-            title="Daily Briefs"
-            subtitle="Recent published briefs for this portfolio."
+            title="Briefing History"
+            subtitle="Recent Tuesday/Thursday briefings for this portfolio."
             className={styles.card}
             headerClassName={styles.cardHeader}
             bodyClassName={styles.cardBody}

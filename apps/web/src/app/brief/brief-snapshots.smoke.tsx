@@ -54,21 +54,23 @@ const brief: BriefPost = {
 
 const html = renderToStaticMarkup(<BriefDetailContent brief={brief} />);
 
-assert(html.includes("In 60 seconds"));
-assert(html.includes("Why it matters"));
+assert(html.includes("Decision at a glance"));
+assert(html.includes("What changed"));
+assert(html.includes("Category impact"));
 assert(html.includes("Top stories"));
-assert(html.includes("What to do / What to watch"));
-assert(html.includes("Sources"));
+assert(html.includes("Recommended actions"));
+assert(html.includes("Evidence and sources"));
 // One persona panel per brief: CM wins when both snapshots are present.
 assert(!html.includes("Executive Risk &amp; Action View"));
-assert(html.includes("Category Manager Decision Detail"));
+assert(html.includes("Category manager actions"));
+assert(html.includes("Action detail for this brief"));
 assert(!html.includes("Market pulse"));
 assert(html.includes("Read source"));
 assert(html.includes("Open original source"));
-assert(html.includes("Buyer takeaway"));
-assert(html.includes("Cost / money"));
-assert(html.includes("Supplier / commercial"));
-assert(html.includes("Safety / operations"));
+assert(html.includes("Why the category manager should care"));
+assert(!html.includes("AI reading"));
+assert(!html.includes("Used in this brief"));
+assert(!html.includes("<details open"));
 assert(html.includes("What to watch"));
 
 console.log("brief-snapshots.smoke passed");

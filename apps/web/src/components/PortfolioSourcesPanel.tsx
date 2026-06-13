@@ -67,7 +67,7 @@ export function PortfolioSourcesPanel({ portfolio, regionKey }: PortfolioSources
       </div>
 
       <p className="text-xs text-muted-foreground">
-        These sources are monitored daily to generate intelligence briefs for this portfolio.
+        These sources are monitored for Tuesday/Thursday intelligence briefings for this portfolio.
       </p>
     </div>
   );

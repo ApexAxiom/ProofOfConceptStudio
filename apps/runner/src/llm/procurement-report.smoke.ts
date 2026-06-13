@@ -6,9 +6,7 @@ const raw = JSON.stringify({
   summaryBullets: [
     { text: "Buyers are losing flexibility as offshore demand accelerates in key basins.", citations: [14] },
     { text: "Supplier lead times are tightening where offshore maintenance cycles are stacking.", citations: [15] },
-    { text: "Cost pressure is showing up through slot scarcity and readiness constraints, not only headline day rates.", citations: [14] },
-    { text: "Commercial leverage is shifting toward suppliers with scarce specialist capacity.", citations: [15] },
-    { text: "Short-notice work now depends more on early slot reservation and term discipline.", citations: [14] }
+    { text: "Cost pressure is showing up through slot scarcity and readiness constraints, not only headline day rates.", citations: [14] }
   ],
   impact: {
     costMoney: [
@@ -161,13 +159,28 @@ const impactCount =
   parsed.impact.supplierCommercial.length +
   parsed.impact.safetyOperations.length +
   parsed.impact.watchouts.length;
-assert(impactCount >= 6 && impactCount <= 12, "Impact count should be normalized to 6-12 bullets");
+assert(impactCount >= 1 && impactCount <= 9, "Impact count should be normalized to 1-9 bullets");
+for (const group of [
+  parsed.impact.costMoney,
+  parsed.impact.supplierCommercial,
+  parsed.impact.safetyOperations,
+  parsed.impact.watchouts
+]) {
+  assert(group.length <= 3, "Each visible impact group should stay compact");
+}
 
 const actionsCount =
   parsed.possibleActions.next72Hours.length +
   parsed.possibleActions.next2to4Weeks.length +
   parsed.possibleActions.nextQuarter.length;
-assert(actionsCount >= 3 && actionsCount <= 7, "Action count should be normalized to 3-7 bullets");
+assert(actionsCount >= 1 && actionsCount <= 3, "Action count should be normalized to 1-3 actions");
+for (const action of [
+  ...parsed.possibleActions.next72Hours,
+  ...parsed.possibleActions.next2to4Weeks,
+  ...parsed.possibleActions.nextQuarter
+]) {
+  assert(action.action.length <= 140, "Action label should stay under 140 characters");
+}
 
 const titleWords = parsed.title.trim().split(/\s+/).filter(Boolean);
 assert(titleWords.length >= 8 && titleWords.length <= 14, "Title should be normalized to 8-14 words");
@@ -176,6 +189,44 @@ assert(!/\bdaily brief\b/i.test(parsed.title), "Title should not include Daily B
 assert(selectedSet.has(parsed.heroSelection.articleIndex), "Hero selection must reference selected article index");
 assert.equal(parsed.selectedArticles[0]?.procurementLens.signalStrength, "strong");
 assert.match(parsed.selectedArticles[0]?.procurementLens.costMoney ?? "", /directional/i);
+
+assert.throws(
+  () =>
+    parseProcurementOutput(
+      JSON.stringify({
+        ...JSON.parse(raw),
+        summaryBullets: [
+          { text: "Buyers are losing flexibility as offshore demand accelerates in key basins...", citations: [14] }
+        ]
+      }),
+      { requiredCount: 3, maxArticleIndex: 20 }
+    ),
+  /ellipses/
+);
+
+assert.throws(
+  () =>
+    parseProcurementOutput(
+      JSON.stringify({
+        ...JSON.parse(raw),
+        possibleActions: {
+          ...JSON.parse(raw).possibleActions,
+          next72Hours: [
+            {
+              action:
+                "Reconfirm every open supplier slot, validity window, fallback option, escalation trigger, mobilization constraint, and governance handoff before approving the next offshore package.",
+              rationale: "Move now because short lead windows can close before internal approvals complete.",
+              owner: "Category",
+              expectedOutcome: "Protect immediate bid optionality for current demand.",
+              citations: [14]
+            }
+          ]
+        }
+      }),
+      { requiredCount: 3, maxArticleIndex: 20 }
+    ),
+  /140|string/
+);
 
 assert.throws(() =>
   parseProcurementOutput(

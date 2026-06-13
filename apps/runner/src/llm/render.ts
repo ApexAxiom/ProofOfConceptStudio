@@ -152,7 +152,7 @@ function citationTag(sourceIds: string[], numberBySourceId: Map<string, number>)
 }
 
 /**
- * Renders the structured procurement report markdown in the required 4-section format.
+ * Renders the structured procurement report markdown in the decision-memo order.
  */
 export function renderProcurementReportMarkdown({
   title,
@@ -174,16 +174,30 @@ export function renderProcurementReportMarkdown({
   lines.push("", `**Region:** ${regionLabel}`, `**Portfolio:** ${portfolioLabel}`, `**Edition:** ${runWindow.toUpperCase()}`);
   lines.push(`**Published:** ${publishedAt}`);
 
-  lines.push("", "## Summary");
+  lines.push("", "## Decision at a glance");
   for (const bullet of report.summaryBullets) {
     lines.push(`- ${bullet.text} ${citationTag(bullet.sourceIds, numberBySourceId)}`.trim());
   }
 
-  lines.push("", "## Impact");
+  lines.push("", "## Category impact");
   for (const group of report.impactGroups) {
     lines.push(`### ${group.label}`);
     for (const bullet of group.bullets) {
       lines.push(`- ${bullet.text} ${citationTag(bullet.sourceIds, numberBySourceId)}`.trim());
+    }
+    lines.push("");
+  }
+
+  lines.push("## Recommended actions");
+  for (const group of report.actionGroups) {
+    if (group.actions.length === 0) continue;
+    lines.push(`### ${group.horizon}`);
+    for (const action of group.actions) {
+      const refs = citationTag(action.sourceIds, numberBySourceId);
+      lines.push(`- **Action:** ${action.action}`);
+      lines.push(`  - **Rationale:** ${action.rationale}`);
+      lines.push(`  - **Owner:** ${action.owner}`);
+      lines.push(`  - **Expected outcome / KPI:** ${action.expectedOutcome} ${refs}`.trim());
     }
     lines.push("");
   }
@@ -196,19 +210,7 @@ export function renderProcurementReportMarkdown({
       lines.push(`### Story ${index + 1}: ${article.title}`);
       lines.push(`- **What happened:** ${article.briefContent}`);
       if (article.procurementLens?.buyerTakeaway || article.categoryImportance) {
-        lines.push(`- **Buyer takeaway:** ${article.procurementLens?.buyerTakeaway ?? article.categoryImportance}`);
-      }
-      if (article.procurementLens?.costMoney) {
-        lines.push(`- **Cost / money:** ${article.procurementLens.costMoney}`);
-      }
-      if (article.procurementLens?.supplierCommercial) {
-        lines.push(`- **Supplier / commercial:** ${article.procurementLens.supplierCommercial}`);
-      }
-      if (article.procurementLens?.safetyOperational) {
-        lines.push(`- **Safety / operations:** ${article.procurementLens.safetyOperational}`);
-      }
-      if (article.procurementLens?.watchouts) {
-        lines.push(`- **What to watch:** ${article.procurementLens.watchouts}`);
+        lines.push(`- **Why category managers should care:** ${article.procurementLens?.buyerTakeaway ?? article.categoryImportance}`);
       }
       if (article.keyMetrics?.length) {
         lines.push(`- **Key facts:** ${article.keyMetrics.join(" • ")}`);
@@ -218,20 +220,7 @@ export function renderProcurementReportMarkdown({
     }
   }
 
-  lines.push("## Possible actions");
-  for (const group of report.actionGroups) {
-    lines.push(`### ${group.horizon}`);
-    for (const action of group.actions) {
-      const refs = citationTag(action.sourceIds, numberBySourceId);
-      lines.push(`- **Action:** ${action.action}`);
-      lines.push(`  - **Rationale:** ${action.rationale}`);
-      lines.push(`  - **Owner:** ${action.owner}`);
-      lines.push(`  - **Expected outcome / KPI:** ${action.expectedOutcome} ${refs}`.trim());
-    }
-    lines.push("");
-  }
-
-  lines.push("## Sources");
+  lines.push("## Evidence and sources");
   for (const source of numberedSources) {
     let publisher = "";
     try {

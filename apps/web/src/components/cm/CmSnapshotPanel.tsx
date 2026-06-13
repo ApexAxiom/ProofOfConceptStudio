@@ -15,6 +15,10 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
   if (!snapshot) return null;
 
   const { todayPriorities, supplierRadar, negotiationLevers, talkingPoints } = snapshot;
+  const visiblePriorities = (todayPriorities ?? []).slice(0, 3);
+  const visibleSupplierRadar = (supplierRadar ?? []).slice(0, 3);
+  const visibleNegotiationLevers = (negotiationLevers ?? []).slice(0, 3);
+  const visibleTalkingPoints = (talkingPoints ?? []).slice(0, 3);
   const hasTalkingPoints = (talkingPoints ?? []).length > 0;
 
   const copyTalkingPoints = async () => {
@@ -27,17 +31,17 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
   return (
     <section className="rounded-xl border border-border bg-card p-6 space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">CM Snapshot</p>
-        <h3 className="text-lg font-semibold text-foreground">Category Manager Decision Detail</h3>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Category manager actions</p>
+        <h3 className="text-lg font-semibold text-foreground">Action detail for this brief</h3>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-foreground">Today&apos;s priorities</h4>
-          {(todayPriorities ?? []).length === 0 && (
+          {visiblePriorities.length === 0 && (
             <p className="text-sm text-muted-foreground">No CM priorities were generated for this run.</p>
           )}
-          {(todayPriorities ?? []).map((item, idx) => (
+          {visiblePriorities.map((item, idx) => (
             <div key={`${item.title}-${idx}`} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -49,20 +53,16 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
                   <p className="capitalize">{item.confidence}</p>
                 </div>
               </div>
-              <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-foreground">
-                <span className="font-semibold uppercase tracking-[0.12em] text-muted-foreground">CM move</span>
-                <p className="mt-1">Use this as the immediate supplier or contract action to move before the next sourcing gate.</p>
-              </div>
             </div>
           ))}
         </div>
 
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-foreground">Supplier radar</h4>
-          {(supplierRadar ?? []).length === 0 && (
+          {visibleSupplierRadar.length === 0 && (
             <p className="text-sm text-muted-foreground">No supplier signals captured this run.</p>
           )}
-          {(supplierRadar ?? []).map((item, idx) => (
+          {visibleSupplierRadar.map((item, idx) => (
             <div key={`${item.supplier}-${idx}`} className="rounded-lg border border-border bg-background p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-foreground">{item.supplier}</p>
@@ -83,15 +83,18 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-foreground">Negotiation levers</h4>
-          {(negotiationLevers ?? []).length === 0 && (
+          {visibleNegotiationLevers.length === 0 && (
             <p className="text-sm text-muted-foreground">No negotiation levers surfaced.</p>
           )}
-          {(negotiationLevers ?? []).map((item, idx) => (
-            <div key={`${item.lever}-${idx}`} className="rounded-lg border border-border bg-background p-3 space-y-1">
+          {visibleNegotiationLevers.map((item, idx) => (
+            <div key={`${item.lever}-${idx}`} className="rounded-lg border border-border bg-background p-3 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Lever</p>
               <p className="text-sm font-semibold text-foreground">{item.lever}</p>
-              <p className="text-sm text-muted-foreground">When to use: {item.whenToUse}</p>
-              <p className="text-sm text-muted-foreground">Expected outcome: {item.expectedOutcome}</p>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Commercial mechanism to carry into the next supplier conversation</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Use when</p>
+              <p className="text-sm text-muted-foreground">{item.whenToUse}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Expected outcome</p>
+              <p className="text-sm text-muted-foreground">{item.expectedOutcome}</p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{item.confidence} confidence</p>
             </div>
           ))}
         </div>
@@ -111,7 +114,7 @@ export function CmSnapshotPanel({ brief }: { brief: BriefPost }) {
           {!hasTalkingPoints && (
             <p className="text-sm text-muted-foreground">No stakeholder talking points yet.</p>
           )}
-          {(talkingPoints ?? []).map((point, idx) => (
+          {visibleTalkingPoints.map((point, idx) => (
             <div key={`${point}-${idx}`} className="rounded-md bg-muted/40 px-3 py-2 text-sm text-foreground">
               {point}
             </div>

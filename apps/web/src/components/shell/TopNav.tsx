@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { REGION_LIST } from "@proof/shared";
 import { ThemeToggle } from "../ThemeToggle";
@@ -36,7 +36,23 @@ function MenuIcon() {
 export function TopNav() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showAdminLink, setShowAdminLink] = useState(false);
   const handleCloseMenu = useCallback(() => setIsMobileMenuOpen(false), []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/chat-access", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((state) => {
+        if (active) setShowAdminLink(Boolean(state?.configured && state?.authenticated));
+      })
+      .catch(() => {
+        if (active) setShowAdminLink(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <>
@@ -79,7 +95,7 @@ export function TopNav() {
 
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-2 lg:flex">
-              {utilityNav.map((item) => (
+              {(showAdminLink ? utilityNav : []).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}

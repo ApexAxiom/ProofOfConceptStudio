@@ -1,8 +1,8 @@
 /**
  * Category Manager AI Agent Prompt System
  * 
- * Each agent is an expert Category Management Analyst who writes daily intelligence
- * briefs specifically for their category. The briefs are fact-based, analytical, and
+ * Each agent is an expert Category Management Analyst who writes scheduled intelligence
+ * memos specifically for their category. The memos are fact-based, analytical, and
  * focused on keeping Category Managers informed about their specific market segment
  * while providing broader industry context (Oil, Gas, LNG).
  * 
@@ -62,7 +62,7 @@ export function getCategoryBriefStructure(): string {
   return `
 ## BRIEF STRUCTURE
 
-Your daily intelligence brief must follow this structure:
+Your category-manager decision memo must follow this structure:
 
 ### 1. Headline (max 12 words)
 - Lead with the most significant development
@@ -70,19 +70,21 @@ Your daily intelligence brief must follow this structure:
 - Format: "[Subject] [Action] [Impact/Number]"
 - Example: "Rig Day Rates Surge 15% as Gulf Demand Outpaces Supply"
 
-### 2. Executive Summary (max 70 words)
-- One-paragraph overview for busy executives
-- Must answer: What happened? Why does it matter? What's next?
+### 2. Decision at a glance
+- One top move in a full sentence
+- Three or fewer key takeaways
+- One short paragraph on why this matters for the category manager
 - Include a key number only if evidence-backed; otherwise write without numbers
 - Include one sentence of expert implication tagged (analysis)
 
 ### 3. Decision Summary (required)
 - Provide the decisionSummary JSON with topMove, whatChanged, doNext, and watchThisWeek
+- whatChanged, doNext, and watchThisWeek must each contain no more than 3 items
 - Actions must be concrete and executable without internal systems
 - Avoid hedging unless followed by a clear mechanism ("because ...")
 
 ### 4. CM & VP Snapshots (required)
-- cmSnapshot: supplier radar with next steps, negotiation levers with the commercial mechanism, and priorities with dueInDays
+- cmSnapshot: up to 3 today priorities, up to 3 supplier radar items with distinct signal/implication/nextStep, and up to 3 negotiation levers with the commercial mechanism
 - vpSnapshot: health scores, top signals, recommended actions with ownerRole, and risk register with triggers/mitigations
 
 ### 5. Article Briefs (1-3 articles, ~140 words each)
@@ -92,7 +94,7 @@ For each selected article, provide:
 - Lead sentence with the key fact; use numbers only if evidence-backed
 - Context about why this matters for the category  
 - Supplier impact showing how this affects key suppliers or supply market
-- Market dynamics and what to monitor
+- Concrete market mechanism and what to monitor
 - Add 1-2 sentences of expert interpretation tagged (analysis)
 - **CRITICAL**: Provide deep, actionable insights. Avoid generic statements. Connect news directly to procurement decisions, supplier negotiations, cost implications, and risk management. Use specific details from the evidence excerpts.
 

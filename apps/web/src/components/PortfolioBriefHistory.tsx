@@ -34,8 +34,8 @@ export function PortfolioBriefHistory({ briefs }: PortfolioBriefHistoryProps) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Daily Briefs</h2>
-          <p className="text-sm text-muted-foreground">Top 5 latest briefs, with full history on demand.</p>
+          <h2 className="text-lg font-semibold text-foreground">Briefing History</h2>
+          <p className="text-sm text-muted-foreground">Latest Tuesday/Thursday briefings, with full history on demand.</p>
         </div>
         {sorted.length > 5 ? (
           <button

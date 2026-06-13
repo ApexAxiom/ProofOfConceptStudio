@@ -34,9 +34,9 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub pocstudio-runner-missed-run-${ApacRegionDimension}
-      AlarmDescription: APAC runner did not report a completed run in the last 24 hours.
+      AlarmDescription: APAC scheduled-run health check did not observe a completed expected run.
       Namespace: !Ref MetricNamespace
-      MetricName: RunCompleted
+      MetricName: ExpectedRunCompleted
       Dimensions:
         - Name: Region
           Value: !Ref ApacRegionDimension
@@ -56,9 +56,9 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub pocstudio-runner-missed-run-${InternationalRegionDimension}
-      AlarmDescription: International runner did not report a completed run in the last 24 hours.
+      AlarmDescription: International scheduled-run health check did not observe a completed expected run.
       Namespace: !Ref MetricNamespace
-      MetricName: RunCompleted
+      MetricName: ExpectedRunCompleted
       Dimensions:
         - Name: Region
           Value: !Ref InternationalRegionDimension
@@ -78,9 +78,9 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub pocstudio-runner-zero-published-${ApacRegionDimension}
-      AlarmDescription: APAC region published zero briefs in the last 24 hours.
+      AlarmDescription: APAC scheduled-run health check did not observe any published briefs for an expected run.
       Namespace: !Ref MetricNamespace
-      MetricName: PublishedBriefs
+      MetricName: ExpectedBriefPublished
       Dimensions:
         - Name: Region
           Value: !Ref ApacRegionDimension
@@ -100,9 +100,9 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub pocstudio-runner-zero-published-${InternationalRegionDimension}
-      AlarmDescription: International region published zero briefs in the last 24 hours.
+      AlarmDescription: International scheduled-run health check did not observe any published briefs for an expected run.
       Namespace: !Ref MetricNamespace
-      MetricName: PublishedBriefs
+      MetricName: ExpectedBriefPublished
       Dimensions:
         - Name: Region
           Value: !Ref InternationalRegionDimension

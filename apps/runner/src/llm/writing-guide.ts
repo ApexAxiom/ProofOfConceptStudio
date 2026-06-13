@@ -17,14 +17,14 @@ export const WRITING_GUIDE = {
   // TONE & VOICE
   // ============================================
   tone: {
-    style: "Professional news wire",
-    voice: "Active, authoritative, concise",
-    perspective: "Third-person objective",
+    style: "Professional category-manager decision memo",
+    voice: "Active, specific, concise",
+    perspective: "Decision-focused category manager lens",
     examples: {
       good: [
-        "Oil prices surged 5% as OPEC announced production cuts.",
-        "The acquisition signals a major shift in subsea market dynamics.",
-        "Contract delays threaten Q2 project timelines."
+        "Recheck index-linked bids before suppliers turn the latest steel move into a broader surcharge.",
+        "Confirm capacity holds with incumbent ROV suppliers before the next tender gate.",
+        "Use renewal talks to cap pass-through exposure where evidence is still directional."
       ],
       bad: [
         "We think this is really interesting news.",
@@ -133,6 +133,11 @@ export const WRITING_GUIDE = {
     "some",
     "a number of",
     "significant",
+    "market dynamics",
+    "may impact",
+    "could affect",
+    "the practical read-through",
+    "no longer just descriptive",
     
     // Duplicate phrases (same idea twice)
     "first and foremost",
@@ -180,7 +185,7 @@ export const WRITING_GUIDE = {
       "Generic industry overviews",
       "Press releases with no actionable content"
     ],
-    count: 3 // Always select exactly 3 articles per category
+    count: 3 // Select 1-3 articles; fewer is correct when only one or two are useful.
   },
 
   // ============================================
@@ -255,7 +260,7 @@ ${WRITING_GUIDE.citations.rules.map((r) => `- ${r}`).join("\n")}
 - Article source: ${WRITING_GUIDE.citations.format.articleEnd}
 
 ### Article Selection
-Select exactly ${WRITING_GUIDE.articleSelection.count} articles. Prioritize:
+Select 1-${WRITING_GUIDE.articleSelection.count} articles. Select fewer when only one or two are truly useful; never add filler. Prioritize:
 ${WRITING_GUIDE.articleSelection.prioritize.map((p) => `- ${p}`).join("\n")}
 
 Avoid:

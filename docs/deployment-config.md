@@ -44,8 +44,19 @@ If the Runner does not have `OPENAI_API_KEY` set, scheduled brief runs will fail
 ## Scheduler
 Use EventBridge Scheduler to POST to runner `/cron` with:
 - Header: `Authorization: Bearer <CRON_SECRET>`
-- Body (APAC): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true }`
-- Body (International): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true }`
+- APAC: Tuesday/Thursday at 06:00 Australia/Perth, three batches at 0/10/20 minutes.
+  - Body: `{ "runWindow": "apac", "regions": ["au"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }`
+- International: Tuesday/Thursday at 05:00 America/Chicago, three batches at 0/10/20 minutes.
+  - Body: `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }`
+
+Scheduled non-force, non-dry-run requests outside Tuesday/Thursday local time are accepted as a truthful skip:
+`{ "ok": true, "skipped": true, "reason": "scheduled_runs_only_tuesday_thursday" }`.
+
+Schedule the runner `/scheduled-health` endpoint daily after each regional run window:
+- APAC: 09:00 Australia/Perth with `{ "runWindow": "apac", "regions": ["au"] }`
+- International: 08:00 America/Chicago with `{ "runWindow": "international", "regions": ["us-mx-la-lng"] }`
+
+The health check emits `ExpectedRunCompleted` and `ExpectedBriefPublished` as `1` on normal off-days, and as `0` only when a Tuesday/Thursday expected run window did not complete or publish.
 
 ## Manual Trigger (Runner)
 

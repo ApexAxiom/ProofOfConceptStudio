@@ -50,6 +50,7 @@ function CloseIcon() {
 export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const defaultActionCenter = REGION_LIST[0].slug;
+  const [showAdminLink, setShowAdminLink] = useState(false);
   const groupedPortfolios = Object.values(CATEGORY_META).map((category) => ({
     category,
     portfolios: PORTFOLIOS.filter((portfolio) => categoryForPortfolio(portfolio.slug) === category.id)
@@ -59,6 +60,21 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   useEffect(() => {
     onClose();
   }, [pathname, onClose]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/chat-access", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((state) => {
+        if (active) setShowAdminLink(Boolean(state?.configured && state?.authenticated));
+      })
+      .catch(() => {
+        if (active) setShowAdminLink(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -169,14 +185,16 @@ export function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               <span>AI Assistant</span>
               <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">Beta</span>
             </Link>
-            <Link
-              href="/admin"
-              onClick={onClose}
-              className={`mobile-nav-link ${pathname === "/admin" ? "active" : ""}`}
-            >
-              <SettingsIcon />
-              <span>Admin</span>
-            </Link>
+            {showAdminLink ? (
+              <Link
+                href="/admin"
+                onClick={onClose}
+                className={`mobile-nav-link ${pathname === "/admin" ? "active" : ""}`}
+              >
+                <SettingsIcon />
+                <span>Admin</span>
+              </Link>
+            ) : null}
           </div>
         </nav>
       </div>

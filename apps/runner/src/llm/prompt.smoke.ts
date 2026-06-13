@@ -41,6 +41,8 @@ const prompt = buildPrompt({
 assert(prompt.includes("PREVIOUS BRIEF CONTEXT"));
 assert(prompt.includes("Yesterday Brief"));
 assert(prompt.toLowerCase().includes("deltasincelastrun"));
+assert(!prompt.includes("Select exactly"));
+assert(prompt.includes("Select 1 to"));
 
 const parsed = parsePromptOutput(
   JSON.stringify({
@@ -135,4 +137,51 @@ assert.strictEqual(parsed.selectedArticles.length, 1);
 assert.strictEqual(parsed.vpSnapshot?.topSignals.length, 1);
 assert.strictEqual(parsed.cmSnapshot?.todayPriorities.length, 1);
 assert.strictEqual(parsed.decisionSummary?.doNext?.length, 1);
+assert.doesNotMatch(JSON.stringify(parsed), /\.{3}|…/);
+
+const duplicateSupplierRadar = parsePromptOutput(
+  JSON.stringify({
+    title: "Sample",
+    summary: "Summary...",
+    highlights: ["h1...", "h2", "h3", "h4"],
+    procurementActions: ["a1", "a2", "a3", "a4"],
+    watchlist: ["w1", "w2", "w3", "w4"],
+    selectedArticles: [{ articleIndex: 1, briefContent: "Story...", categoryImportance: "Importance..." }],
+    heroSelection: { articleIndex: 1 },
+    marketIndicators: [],
+    cmSnapshot: {
+      todayPriorities: [
+        { title: "One", why: "Why", dueInDays: 1, confidence: "high", evidenceArticleIndex: 1 },
+        { title: "Two", why: "Why", dueInDays: 2, confidence: "medium", evidenceArticleIndex: 1 },
+        { title: "Three", why: "Why", dueInDays: 3, confidence: "medium", evidenceArticleIndex: 1 },
+        { title: "Four", why: "Why", dueInDays: 4, confidence: "medium", evidenceArticleIndex: 1 }
+      ],
+      supplierRadar: [
+        {
+          supplier: "Acme",
+          signal: "Capacity tightens in active basins",
+          implication: "Capacity tightens in active basins.",
+          nextStep: "Call supplier",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        },
+        {
+          supplier: "Beta",
+          signal: "Quote windows are narrowing",
+          implication: "Supplier leverage changes around quote validity",
+          nextStep: "Refresh RFQ",
+          confidence: "medium",
+          evidenceArticleIndex: 1
+        }
+      ],
+      negotiationLevers: [],
+      intelGaps: [],
+      talkingPoints: []
+    }
+  }),
+  1
+);
+assert.strictEqual(duplicateSupplierRadar.cmSnapshot?.todayPriorities.length, 3);
+assert.strictEqual(duplicateSupplierRadar.cmSnapshot?.supplierRadar.length, 1);
+assert.doesNotMatch(JSON.stringify(duplicateSupplierRadar), /\.{3}|…/);
 console.log("prompt.smoke passed");

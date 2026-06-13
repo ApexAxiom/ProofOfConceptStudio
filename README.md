@@ -65,8 +65,10 @@ See `.env.example`. Secrets must be provided at runtime. Optional:
 ## AWS Deployment
 - Use `infra/cloudformation/main.yml` to create DynamoDB table with GSIs.
 - Use `infra/cloudformation/runner-alarms.yml` to create CloudWatch alarms for missed runs, zero briefs by region, and ingestion failure rate.
-- Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge schedules to `runner` `/cron` with Bearer `CRON_SECRET`.
-  - All Categories & Regions: 05:00 AM CST / 11:00 PM AWST (prev day) with body `{ "regions": ["au", "us-mx-la-lng"], "scheduled": true }`.
+- Deploy api/runner/web to App Runner using the provided `apprunner.yaml` files, set env vars, and wire EventBridge Scheduler to `runner` `/cron` with Bearer `CRON_SECRET`.
+  - APAC: Tuesday/Thursday 06:00 Australia/Perth in three batches at 0/10/20 minutes with body `{ "runWindow": "apac", "regions": ["au"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }`.
+  - International: Tuesday/Thursday 05:00 America/Chicago in three batches at 0/10/20 minutes with body `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }`.
+  - Scheduled health checks run daily after each regional window and emit `ExpectedRunCompleted` / `ExpectedBriefPublished` metrics so alarms only fire for missed expected windows.
 
 ### Amplify Transition
 - `amplify.yml` at the repo root deploys `apps/web` to Amplify Hosting as a pnpm monorepo app.
@@ -155,10 +157,13 @@ Web
 Use EventBridge Scheduler with region-specific times. POST to runner `/cron` with header `Authorization: Bearer <CRON_SECRET>`.
 Schedule three batches per region using deterministic batching parameters:
 - APAC (06:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
-- International (06:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
+- International (05:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"], "scheduled": true, "batchIndex": 0, "batchCount": 3 }` (repeat with `batchIndex` 1 and 2 at +10 min)
+Schedule `/scheduled-health` daily after the run window:
+- APAC (09:00 Australia/Perth): `{ "runWindow": "apac", "regions": ["au"] }`
+- International (08:00 America/Chicago): `{ "runWindow": "international", "regions": ["us-mx-la-lng"] }`
 
 ### Run status (admin)
-Use the API admin endpoint to inspect daily runs:
+Use the API admin endpoint to inspect scheduled runs:
 - `GET /admin/run-status?region=au&briefDay=YYYY-MM-DD`
 - Header: `x-admin-token: $ADMIN_TOKEN`
 
@@ -195,7 +200,7 @@ Single-table DynamoDB (CMHub) with GSIs on portfolio-date, region-date, status-d
 
 ## Images
 - Runner caches hero images to S3 using deterministic keys: `brief-hero/{category}/{region}/{YYYY-MM-DD}/{articleIndex}-{sha256(url)}.{ext}`.
-- If source image caching fails, runner writes an SVG placeholder image: `{CATEGORY} - Daily Intel Report`.
+- If source image caching fails, runner writes an SVG placeholder image: `{CATEGORY} - Briefing Memo`.
 - Brief pages render stored `heroImage.url`; web still supports `/api/image-proxy` for http/https image rendering.
 
 ## AWS Secrets Manager Integration

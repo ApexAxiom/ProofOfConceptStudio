@@ -48,6 +48,36 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function sanitizeGeneratedText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/…|\.\.\./g, ".")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+}
+
+function normalizeGeneratedKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/^(signal|implication|next step|action|why|owner|expected outcome)\s*:\s*/i, "")
+    .replace(/[^\p{L}\p{N}\s%./-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[.]+$/g, "")
+    .trim();
+}
+
+function areNearDuplicateTexts(left: string, right: string): boolean {
+  const a = normalizeGeneratedKey(left);
+  const b = normalizeGeneratedKey(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const shorter = a.length < b.length ? a : b;
+  const longer = a.length < b.length ? b : a;
+  return shorter.length >= 24 && longer.includes(shorter);
+}
+
 function extractEvidenceExcerpts(content: string): string {
   const normalized = content.replace(/\s+/g, " ").trim();
   if (!normalized) return "- [No content available]";
@@ -60,7 +90,7 @@ function extractEvidenceExcerpts(content: string): string {
     const trimmed = sentence.trim();
     if (!trimmed || seen.has(trimmed)) return;
     seen.add(trimmed);
-    const clipped = trimmed.length > 300 ? `${trimmed.slice(0, 297)}...` : trimmed;
+    const clipped = trimmed.length > 300 ? trimmed.slice(0, 297).trim() : trimmed;
     excerpts.push(`- ${clipped}`);
   };
 
@@ -156,17 +186,17 @@ export interface BriefOutput {
 function sanitizeStringArray(value: unknown, maxItems = 10): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .map((item) => sanitizeGeneratedText(item))
     .filter((item) => item.length > 0)
     .slice(0, maxItems);
 }
 
 function sanitizeDecisionSummary(raw: any): DecisionSummary | undefined {
   if (!raw || typeof raw !== "object") return undefined;
-  const topMove = typeof raw.topMove === "string" ? raw.topMove.trim() : "";
+  const topMove = sanitizeGeneratedText(raw.topMove);
   const whatChanged = sanitizeStringArray(raw.whatChanged, 3);
-  const doNext = sanitizeStringArray(raw.doNext, 5);
-  const watchThisWeek = sanitizeStringArray(raw.watchThisWeek, 4);
+  const doNext = sanitizeStringArray(raw.doNext, 3);
+  const watchThisWeek = sanitizeStringArray(raw.watchThisWeek, 3);
 
   if (!topMove && whatChanged.length === 0 && doNext.length === 0 && watchThisWeek.length === 0) {
     return undefined;
@@ -206,7 +236,7 @@ function sanitizeSignalType(value: unknown): VpSignalType | undefined {
 function sanitizeCmSnapshot(raw: any, selectedIndices: Set<number>): CmSnapshot | undefined {
   if (!raw || typeof raw !== "object") return undefined;
 
-  const toStr = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const toStr = (value: unknown) => sanitizeGeneratedText(value);
   const validEvidenceIndex = (value: unknown): number | undefined => {
     const num = Number(value);
     if (!Number.isInteger(num)) return undefined;
@@ -271,6 +301,7 @@ function sanitizeCmSnapshot(raw: any, selectedIndices: Set<number>): CmSnapshot 
     const implication = toStr(typedItem.implication);
     const nextStep = toStr(typedItem.nextStep);
     if (!supplier && !signal && !nextStep && !implication) return null;
+    if (signal && implication && areNearDuplicateTexts(signal, implication)) return null;
 
     return {
       supplier,
@@ -306,25 +337,25 @@ function sanitizeCmSnapshot(raw: any, selectedIndices: Set<number>): CmSnapshot 
     ? (raw.todayPriorities as unknown[])
         .map(sanitizePriority)
         .filter((item): item is SanitizedPriority => Boolean(item))
-        .slice(0, 6)
+        .slice(0, 3)
     : [];
 
   const supplierRadar = Array.isArray(raw.supplierRadar)
     ? (raw.supplierRadar as unknown[])
         .map(sanitizeSupplierSignal)
         .filter((item): item is SanitizedSupplierSignal => Boolean(item))
-        .slice(0, 6)
+        .slice(0, 3)
     : [];
 
   const negotiationLevers = Array.isArray(raw.negotiationLevers)
     ? (raw.negotiationLevers as unknown[])
         .map(sanitizeLever)
         .filter((item): item is SanitizedLever => Boolean(item))
-        .slice(0, 6)
+        .slice(0, 3)
     : [];
 
-  const intelGaps = sanitizeStringArray(raw.intelGaps, 5);
-  const talkingPoints = sanitizeStringArray(raw.talkingPoints, 6);
+  const intelGaps = sanitizeStringArray(raw.intelGaps, 3);
+  const talkingPoints = sanitizeStringArray(raw.talkingPoints, 3);
 
   if (
     todayPriorities.length === 0 &&
@@ -486,7 +517,7 @@ function sanitizeVpSnapshot(raw: any, selectedIndices: Set<number>): VpSnapshot 
  * Builds the LLM prompt for Category Management brief generation.
  * 
  * This prompt positions the AI as a Category Management Intelligence Analyst,
- * writing daily briefs specifically tailored for category managers in O&G/LNG.
+ * writing scheduled decision memos specifically tailored for category managers in O&G/LNG.
  * 
  * The briefs are:
  * - Fact-based and analytical (not journalistic)
@@ -574,7 +605,7 @@ ${previousJson}
     : "";
 
   // Build the full prompt with Category Manager context
-  return `# Category Management Daily Intelligence Brief
+  return `# Category Management Decision Memo
 
 ${getCategoryManagerPersona(agent, region)}
 
@@ -582,7 +613,7 @@ ${getCategoryManagerPersona(agent, region)}
 
 ## BRIEF GENERATION TASK
 
-You are generating the **${runWindow.toUpperCase()}** edition of the daily intelligence brief for **${agent.label}** covering **${regionLabel}**.
+You are generating the **${runWindow.toUpperCase()}** scheduled decision memo for **${agent.label}** covering **${regionLabel}**.
 
 ${getCategoryBriefStructure()}
 
@@ -626,15 +657,15 @@ Return ONLY valid JSON with this exact structure:
 {
   "title": "Attention-grabbing headline for Category Managers (max ${WRITING_GUIDE.wordLimits.headline} words)",
   "summary": "Executive summary (each sentence must end with a source tag or (analysis))",
-  "highlights": ["Top 3 market shifts (each bullet must end with a source tag or (analysis))", "..."],
-  "procurementActions": ["Actionable step for category managers (must end with a source tag or (analysis))", "..."],
-  "watchlist": ["Supplier/market item to monitor (must end with a source tag or (analysis))", "..."],
+  "highlights": ["Top market shift in a full sentence (end with a source tag or (analysis))"],
+  "procurementActions": ["Crisp category-manager action (must end with a source tag or (analysis))"],
+  "watchlist": ["Specific supplier or market trigger to monitor (must end with a source tag or (analysis))"],
   "deltaSinceLastRun": ["What's changed vs. last run (must end with a source tag or (analysis))"],
   "decisionSummary": {
     "topMove": "1 sentence on the most important move today (end with a source tag or (analysis))",
     "whatChanged": ["1-3 bullets on what changed (end with a source tag or (analysis))"],
-    "doNext": ["2-5 concrete actions (end with a source tag or (analysis))"],
-    "watchThisWeek": ["2-4 triggers to monitor (end with a source tag or (analysis))"]
+    "doNext": ["1-3 concrete actions (end with a source tag or (analysis))"],
+    "watchThisWeek": ["1-3 triggers to monitor (end with a source tag or (analysis))"]
   },
   "selectedArticles": [
     {
@@ -679,7 +710,7 @@ Return ONLY valid JSON with this exact structure:
         "evidenceArticleIndex": 1
       }
     ],
-    "intelGaps": ["Gap to close (optional)", "..."],
+    "intelGaps": ["Gap to close, optional"],
     "talkingPoints": ["Stakeholder one-liner (optional)"]
   },
   "vpSnapshot": {
@@ -727,7 +758,7 @@ Return ONLY valid JSON with this exact structure:
 \`\`\`
 
 Rules for cmSnapshot output:
-- todayPriorities, supplierRadar, and negotiationLevers should each include 3-6 items when available.
+- todayPriorities, supplierRadar, and negotiationLevers should each include 1-3 useful items when available.
 - dueInDays must be between 1 and 30.
 - evidenceArticleIndex must reference one of the selectedArticles.articleIndex values.
 - confidence must be "low", "medium", or "high".
@@ -746,15 +777,17 @@ Rules for cmSnapshot output:
 9. **ACTIONABLE OUTPUTS**: Populate highlights, procurementActions, watchlist, and deltaSinceLastRun (max 3 bullets) with concise, unique bullets
 10. **DELTA TRACEABILITY**: If there is no previous brief, deltaSinceLastRun must be []. If a previous brief is provided, deltas must reference concrete changes vs that brief (new suppliers, new price moves, new events). No generic filler.
 11. **VP SNAPSHOT DATA ONLY**: vpSnapshot.health.* must be integers 0..100. topSignals/recommendedActions/riskRegister should have 3-5 items each when possible (never empty unless no signal). evidenceArticleIndex must match one of the selectedArticles.articleIndex values. ownerRole must be one of: Category Manager, SRM, Contracts, Legal, Engineering, Logistics, Finance, HSE, Digital/IT. dueInDays must be 1..60. Do NOT include any URLs anywhere in vpSnapshot.
-12. **CM SNAPSHOT ACTIONABILITY**: cmSnapshot.todayPriorities, supplierRadar, and negotiationLevers should each target 3-6 items when possible. dueInDays must be 1..30. confidence must be low|medium|high. evidenceArticleIndex MUST match a selectedArticles.articleIndex value. No URLs in cmSnapshot. Every item must include a concrete next step that a category manager can execute without internal systems; prefer naming key suppliers from the agent context where relevant.
+12. **CM SNAPSHOT ACTIONABILITY**: cmSnapshot.todayPriorities, supplierRadar, and negotiationLevers should each target 1-3 useful items when possible. dueInDays must be 1..30. confidence must be low|medium|high. evidenceArticleIndex MUST match a selectedArticles.articleIndex value. No URLs in cmSnapshot. Every item must include a concrete next step that a category manager can execute without internal systems; prefer naming key suppliers from the agent context where relevant.
 13. **TACTICAL CATEGORY-MANAGER OUTPUT**: Priorities and supplier radar should sound like execution guidance, not commentary. Include the actual ask the CM should make (rate reconfirmation, slot confirmation, clause review, RFQ refresh, fallback capacity check, etc.) and name the supplier where the evidence or category context supports it.
 14. **NEGOTIATION DETAIL**: negotiationLevers must state the commercial mechanism and the trigger for using it. Good examples include indexation caps/collars, minimum-volume trades, standby retainers, extension options, substitution clauses, LD tightening, KPI-linked incentives, or pass-through limitations.
 15. **DEPTH REQUIREMENT**: Use the extensive evidence excerpts provided. Reference specific details, numbers, suppliers, contracts, and market conditions from the articles. Avoid generic summaries. Provide category management insights that demonstrate deep understanding of the news and its procurement implications.
 16. **EVIDENCE UTILIZATION**: The evidence excerpts contain rich detail. Use them fully. Extract specific facts, not just general themes. Reference actual company names, contract values, dates, locations, and market data when present in the evidence.
 17. **DECISION BRIEF FIRST**: decisionSummary, cmSnapshot, and vpSnapshot must be the primary decision artifact. Prioritize concrete actions, supplier implications, negotiation levers, and risks before narrative.
-18. **NO FLUFF**: Avoid phrases like "may impact" or "could affect" unless immediately followed by "because ..." with a concrete mechanism. Replace hedging with precise cause/effect.
-19. **NEGOTIATION LEVERS**: Each cmSnapshot.negotiationLevers item must mention the commercial mechanism (indexation, caps/collars, extension option, dual sourcing, minimum volume, standby retainer, LDs, substitution clauses, etc).
-20. **SUPPLIER RADAR NEXT STEPS**: Each cmSnapshot.supplierRadar.nextStep must be a tangible action the CM can take without internal systems (email ask, RFQ refresh, schedule supplier call, clause review, etc).
+18. **NO FLUFF**: Avoid phrases like "may impact", "could affect", "market dynamics", "the practical read-through", and "no longer just descriptive" unless immediately followed by a concrete mechanism. Replace hedging with precise cause/effect.
+19. **NO ELLIPSES OR DUPLICATES**: Do not use "..." or a unicode ellipsis. Do not repeat the same sentence across topMove, takeaways, impact, actions, watchlist, supplier radar, negotiation levers, or source/story fields.
+20. **SUPPLIER RADAR DISTINCTION**: signal describes what was observed; implication explains what changes for sourcing, supplier posture, cost, availability, risk, or contracting; nextStep is an executable category-manager action. These three fields must be different.
+21. **NEGOTIATION LEVERS**: Each cmSnapshot.negotiationLevers item must mention the commercial mechanism (indexation, caps/collars, extension option, dual sourcing, minimum volume, standby retainer, LDs, substitution clauses, etc).
+22. **SUPPLIER RADAR NEXT STEPS**: Each cmSnapshot.supplierRadar.nextStep must be a tangible action the CM can take without internal systems (email ask, RFQ refresh, schedule supplier call, clause review, etc).
 
 ## MARKET INDICES
 
@@ -812,9 +845,9 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
   const selected = Array.isArray(parsed.selectedArticles) ? parsed.selectedArticles : [];
   const heroIndex = parsed?.heroSelection?.articleIndex;
   const marketIndicators = Array.isArray(parsed.marketIndicators) ? parsed.marketIndicators : [];
-  const highlights = sanitizeStringArray(parsed.highlights, 5);
-  const procurementActions = sanitizeStringArray(parsed.procurementActions, 5);
-  const watchlist = sanitizeStringArray(parsed.watchlist, 5);
+  const highlights = sanitizeStringArray(parsed.highlights, 3);
+  const procurementActions = sanitizeStringArray(parsed.procurementActions, 3);
+  const watchlist = sanitizeStringArray(parsed.watchlist, 3);
   const deltaSinceLastRun = sanitizeStringArray(parsed.deltaSinceLastRun, 3);
   const decisionSummary = sanitizeDecisionSummary(parsed.decisionSummary);
 
@@ -854,7 +887,7 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
 
   return {
     title: parsed.title || "Untitled Brief",
-    summary: parsed.summary || "",
+    summary: sanitizeGeneratedText(parsed.summary),
     highlights,
     procurementActions,
     watchlist,
@@ -862,13 +895,13 @@ export function parsePromptOutput(raw: string, requiredCount: number): BriefOutp
     decisionSummary,
     selectedArticles: selected.map((article: any) => ({
       articleIndex: Number(article.articleIndex),
-      briefContent: article.briefContent || "",
-      categoryImportance: article.categoryImportance || "",
-      keyMetrics: Array.isArray(article.keyMetrics) ? article.keyMetrics : [],
-      imageAlt: article.imageAlt
+      briefContent: sanitizeGeneratedText(article.briefContent),
+      categoryImportance: sanitizeGeneratedText(article.categoryImportance),
+      keyMetrics: Array.isArray(article.keyMetrics) ? article.keyMetrics.map(sanitizeGeneratedText).filter(Boolean).slice(0, 4) : [],
+      imageAlt: sanitizeGeneratedText(article.imageAlt)
     })),
     heroSelection: { articleIndex: Number(heroIndex) },
-    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: (m.note || "").toString() })),
+    marketIndicators: marketIndicators.map((m: any) => ({ indexId: m.indexId, note: sanitizeGeneratedText(m.note) })),
     vpSnapshot,
     cmSnapshot
   };

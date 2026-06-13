@@ -13,7 +13,11 @@ export function getProxiedImageUrl(url: string | undefined | null): string | nul
   // Suppress known synthetic hero placeholders.
   if (
     lower.startsWith("data:image/") &&
-    (lower.includes("daily%20intel%20report") || lower.includes("daily intel report") || lower.includes("baseline%20coverage"))
+    (lower.includes("daily%20intel%20report") ||
+      lower.includes("daily intel report") ||
+      lower.includes("briefing%20memo") ||
+      lower.includes("briefing memo") ||
+      lower.includes("baseline%20coverage"))
   ) {
     return null;
   }

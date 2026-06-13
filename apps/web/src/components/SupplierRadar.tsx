@@ -1,7 +1,7 @@
 import React from "react";
 import { BriefPost } from "@proof/shared";
 
-const DEFAULT_VISIBLE = 5;
+const DEFAULT_VISIBLE = 3;
 
 interface SupplierRadarProps {
   brief?: BriefPost;
