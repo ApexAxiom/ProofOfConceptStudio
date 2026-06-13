@@ -16,5 +16,7 @@ export * from "./event-taxonomy.js";
 export * from "./supplier-registry.js";
 export * from "./agent-catalog.js";
 export * from "./brief-v2.js";
+export * from "./brief-upgrade.js";
 export * from "./brief-run.js";
+export * from "./mock-posts.js";
 export * from "./placeholder-policy.js";
