@@ -17,3 +17,13 @@ Release only on explicit owner changes; automatic builds and pull-request previe
 ## Historical restore boundary
 
 The former production source is commit `eaa93d67558c995251822be7b78fab5a124866e7`, Amplify `main` job 25. The obsolete App Runner build and redeploy workflows were disabled in GitHub and removed from the active workflow directory; Git history preserves their previous contents. Restoring the former application would intentionally re-enable paid processing and therefore requires fresh owner approval plus restoration of its separately disabled backend permissions and schedules. A routine static content correction should keep this build and hosting mode.
+
+## Verified cutover
+
+Amplify `main` job 27 deployed commit `d1eb168938e9362082abf07e7d0076530f19d685` successfully at `2026-09-06T17:34:07.863Z`. Build, deploy, and provider verification all succeeded. Job 26 failed before its build because it started with the former monorepo environment setting; the successful job used the corrected environment map.
+
+Public verification checked eight normal page routes, thirteen retired or unknown routes, CSS, `robots.txt`, and a POST to `/api/chat`. Pages returned 200 with `Server: AmazonS3`, no Next.js cache header, noindex headers, and a script/connection-blocking CSP. All thirteen retired/unknown GET routes and the POST returned 404. CSS returned `public, max-age=31536000, immutable`. The live browser checked the home page, portfolio directory, both views of a portfolio, and a full brief at desktop size, plus the home page at 390px width: visible content, working navigation and native news disclosures, no horizontal overflow, no broken images, no JavaScript, no fetch/XHR, and no external automatic resource requests.
+
+The 66 public pages comprise six directory/region/action pages, all fifteen portfolio dashboards in both regions, and thirty full briefs. The artifact contains 123 files. One image already returned 404 at its external source during capture and was omitted; its source is recorded in the manifest. Historical brief summaries remain readable, with full-detail links only for the thirty captured briefs.
+
+Only the `main` branch exists. Its automatic builds and pull-request previews are disabled. The legacy `POCStudioAmplifyComputeRole` remains an app service-role attachment with no inline or attached policies; its CMHub read and Lambda invocation policy was removed after cutover. There is no Amplify compute-role assignment, and the hosting platform is `WEB`. This removes request-time application processing; it does not promise zero transfer charges or technically exclude every bot from a public website.
