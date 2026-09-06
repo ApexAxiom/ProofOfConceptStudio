@@ -1,0 +1,288 @@
+{
+  "deployment": {
+    "jobArn": "arn:aws:amplify:us-east-1:405894865970:apps/dvk70yskzrsgb/branches/main/jobs/0000000027",
+    "jobId": "27",
+    "commitId": "d1eb168938e9362082abf07e7d0076530f19d685",
+    "commitTime": "2026-09-06T12:32:07.166-05:00",
+    "startTime": "2026-09-06T12:32:07.465-05:00",
+    "status": "SUCCEED",
+    "endTime": "2026-09-06T12:34:07.863-05:00"
+  },
+  "hosting": {
+    "platform": "WEB",
+    "pullRequestPreviews": false,
+    "framework": "Web",
+    "branches": [
+      "main"
+    ],
+    "computeRoleAssigned": false,
+    "automaticBuilds": false
+  },
+  "artifact": {
+    "publicPages": 66,
+    "scripts": 0,
+    "files": 123,
+    "apiHandlers": 0
+  },
+  "http": {
+    "origin": "https://proofofconceptstudio.com",
+    "checkedAt": "2026-09-06T17:34:43.523Z",
+    "reports": [
+      {
+        "route": "/",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/portfolios",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/au",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/us-mx-la-lng",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/actions/au",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/portfolio/rigs-integrated-drilling",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/portfolio/rigs-integrated-drilling/international",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/brief/brief_2026-09-06--au--completions-intervention",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/html"
+      },
+      {
+        "route": "/api/chat",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/posts",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/market-data",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/admin/run",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/healthz",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/chat-access",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/agents",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/api/image-proxy",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/admin",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/chat",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/login",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/not-a-showcase-page",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/_next/image",
+        "status": 404,
+        "cache": null,
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": null
+      },
+      {
+        "route": "/assets/46bc5e5530d761884d1e.css",
+        "status": 200,
+        "cache": "public, max-age=31536000, immutable",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/css"
+      },
+      {
+        "route": "/robots.txt",
+        "status": 200,
+        "cache": "public, max-age=86400, s-maxage=604800",
+        "robots": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+        "server": "AmazonS3",
+        "contentType": "text/plain"
+      },
+      {
+        "route": "/api/chat",
+        "method": "POST",
+        "status": 404
+      }
+    ]
+  },
+  "browser": {
+    "origin": "https://proofofconceptstudio.com",
+    "reports": [
+      {
+        "url": "/",
+        "status": 200,
+        "title": "Intelligence Hub | Category Market Intelligence",
+        "h1": "Category intelligence triage",
+        "notice": "AI capability showcaseArchived 2026-09-06 · Read-only examples of previously published intelligence. Prices, news and briefings are historical.",
+        "overflow": false,
+        "brokenImages": [],
+        "scripts": 0
+      },
+      {
+        "url": "/portfolios",
+        "status": 200,
+        "title": "Intelligence Hub | Category Market Intelligence",
+        "h1": "Portfolio workbenches",
+        "notice": "AI capability showcaseArchived 2026-09-06 · Read-only examples of previously published intelligence. Prices, news and briefings are historical.",
+        "overflow": false,
+        "brokenImages": [],
+        "scripts": 0
+      },
+      {
+        "url": "/portfolio/rigs-integrated-drilling",
+        "status": 200,
+        "title": "Intelligence Hub | Category Market Intelligence",
+        "h1": "Rigs & Integrated Drilling",
+        "notice": "AI capability showcaseArchived 2026-09-06 · Read-only examples of previously published intelligence. Prices, news and briefings are historical.",
+        "overflow": false,
+        "brokenImages": [],
+        "scripts": 0
+      },
+      {
+        "url": "/portfolio/rigs-integrated-drilling/international",
+        "status": 200,
+        "title": "Intelligence Hub | Category Market Intelligence",
+        "h1": "Rigs & Integrated Drilling",
+        "notice": "AI capability showcaseArchived 2026-09-06 · Read-only examples of previously published intelligence. Prices, news and briefings are historical.",
+        "overflow": false,
+        "brokenImages": [],
+        "scripts": 0
+      },
+      {
+        "url": "/brief/brief_2026-09-06--au--completions-intervention",
+        "status": 200,
+        "title": "Intelligence Hub | Category Market Intelligence",
+        "h1": "Shift Contracts Toward Remote-Operations and Vessel Reservation Protections",
+        "notice": "AI capability showcaseArchived 2026-09-06 · Read-only examples of previously published intelligence. Prices, news and briefings are historical.",
+        "overflow": false,
+        "brokenImages": [],
+        "scripts": 0
+      },
+      {
+        "url": "mobile/",
+        "overflow": false,
+        "width": 390,
+        "scrollWidth": 390,
+        "bottomNav": true
+      }
+    ],
+    "requests": 121,
+    "automaticExternal": [],
+    "dynamic": [],
+    "errors": []
+  }
+}
