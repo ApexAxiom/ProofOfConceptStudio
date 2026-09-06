@@ -27,3 +27,17 @@ Public verification checked eight normal page routes, thirteen retired or unknow
 The 66 public pages comprise six directory/region/action pages, all fifteen portfolio dashboards in both regions, and thirty full briefs. The artifact contains 123 files. One image already returned 404 at its external source during capture and was omitted; its source is recorded in the manifest. Historical brief summaries remain readable, with full-detail links only for the thirty captured briefs.
 
 Only the `main` branch exists. Its automatic builds and pull-request previews are disabled. The legacy `POCStudioAmplifyComputeRole` remains an app service-role attachment with no inline or attached policies; its CMHub read and Lambda invocation policy was removed after cutover. There is no Amplify compute-role assignment, and the hosting platform is `WEB`. This removes request-time application processing; it does not promise zero transfer charges or technically exclude every bot from a public website.
+
+## Cloudflare Pages preparation
+
+Cloudflare deployment is prepared separately from the active Amplify host. The archived page and asset bytes match the successful Amplify job 27; `static-showcase/_headers` is Pages-only hosting metadata. It carries the same security, noindex and cache policy as `customHttp.yml`. Keep the root `404.html`: Pages otherwise treats a site as an SPA and can return the home page for unknown routes. Do not add Pages Functions, `_worker.js`, `_redirects` catch-all rules, analytics scripts or other request-time code.
+
+Run `node scripts/validate-static-showcase.mjs`, then upload only `static-showcase/`. The validator checks the Pages header mapping as well as the existing finite archive, immutable asset names and visit-only constraints. Pages may normalize directory URLs with a trailing slash; these remain the same archive pages.
+
+The manual-only `.github/workflows/deploy-cloudflare-showcase.yml` publishes `main` to the `proofofconceptstudio` Pages project through pinned Wrangler 4.129.0. Configure its `Production` environment with secret `CLOUDFLARE_API_TOKEN` (scoped to Pages edit for the selected account) and variable `CLOUDFLARE_ACCOUNT_ID`. The direct-upload Pages project's production branch must be `main`. This workflow does not install the old application dependencies or run its build. Its CLI is a deployment tool; production remains static assets. There is no push, schedule or pull-request trigger, preserving owner-initiated releases.
+
+After upload, verify the Pages URL and then both custom domains over HTTPS: normal pages/assets, noindex and CSP, cache headers, GET unknown/API/chat/admin/login routes returning 404, and POST `/api/chat` returning a non-success status. Do not retire Amplify or change DNS until that deployed acceptance passes. Existing disabled backend schedules and Lambda permissions stay disabled. No Cloudflare publication or DNS cutover is established merely by adding this configuration.
+
+The prepared archive passed 82 HTTP checks and Chrome review at `https://de7b4087.proofofconceptstudio.pages.dev`. Custom-domain acceptance and the manual GitHub Actions release remain pending.
+
+Provider behavior: [Pages headers](https://developers.cloudflare.com/pages/configuration/headers/), [404 and URL handling](https://developers.cloudflare.com/pages/configuration/serving-pages/), [direct upload from CI](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/).

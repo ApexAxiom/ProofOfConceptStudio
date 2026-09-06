@@ -24,6 +24,7 @@ function checkLocalLink(value, sourceFile) {
 
 let htmlCount = 0;
 for (const file of relativeFiles) {
+  if (file === '_headers') continue; // Pages hosting metadata; never served as an asset.
   assert(allowedExtensions.has(path.extname(file)), `Executable or unexpected artifact: ${file}`);
   assert(!/^api\//.test(file), `API artifact: ${file}`);
   if (file.startsWith('assets/')) {
@@ -58,5 +59,23 @@ assert(manifest.routes.length >= 50 && manifest.routes.length <= 110, 'Unbounded
 for (const route of manifest.routes) assert(deployed.has(route.file), `Manifest page missing: ${route.file}`);
 for (const portfolio of new Set(manifest.routes.map(r => r.path.match(/^\/portfolio\/([^/]+)$/)?.[1]).filter(Boolean))) {
   assert(manifest.routes.some(r => r.path === `/portfolio/${portfolio}/international`), `Missing international view: ${portfolio}`);
+}
+// Keep the Pages policy equivalent to the still-retained Amplify rollback policy.
+const amplifyPolicy = await fs.readFile(path.join(repo, 'customHttp.yml'), 'utf8');
+const amplifyHeaders = [...amplifyPolicy.matchAll(/- key: ([^\r\n]+)\r?\n\s+value: ([^\r\n]+)/g)]
+  .map(([, key, value]) => [key, value.replace(/^"|"$/g, '')]);
+assert.equal(amplifyHeaders.length, 9, 'Review the Cloudflare mapping when Amplify headers change');
+const expectedPagesPolicy = [
+  '/*',
+  ...amplifyHeaders.slice(0, 8).map(([key, value]) => `  ${key}: ${value}`),
+  '',
+  '/assets/*',
+  '  ! Cache-Control',
+  `  ${amplifyHeaders[8][0]}: ${amplifyHeaders[8][1]}`,
+].join('\n');
+assert.equal((await fs.readFile(path.join(root, '_headers'), 'utf8')).replaceAll('\r\n', '\n').trim(), expectedPagesPolicy, 'Pages headers differ from the retained security/noindex/cache policy');
+assert(deployed.has('404.html'), 'Root 404.html is required to prevent Pages SPA fallback');
+for (const blocked of ['api', 'api/chat', 'chat', 'admin', 'login', 'unknown-showcase-page']) {
+  assert(!deployed.has(`${blocked}.html`) && !deployed.has(`${blocked}/index.html`), `Disabled route exists: /${blocked}`);
 }
 console.log(`Static showcase verified: ${manifest.routes.length} public pages, ${deployed.size} files; no scripts, APIs, forms, missing internal links, or remote automatic resources.`);
