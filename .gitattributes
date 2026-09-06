@@ -1,0 +1,2 @@
+# Immutable asset filenames depend on their exact bytes across all checkouts.
+static-showcase/assets/* -text
