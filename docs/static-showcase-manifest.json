@@ -1,0 +1,476 @@
+{
+  "capturedAt": "2026-09-06",
+  "source": "https://proofofconceptstudio.com",
+  "sourceCommit": "eaa93d67558c995251822be7b78fab5a124866e7",
+  "routes": [
+    {
+      "sourcePath": "/",
+      "path": "/",
+      "file": "index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 35673
+    },
+    {
+      "sourcePath": "/portfolios",
+      "path": "/portfolios",
+      "file": "portfolios/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 22304
+    },
+    {
+      "sourcePath": "/au",
+      "path": "/au",
+      "file": "au/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 53223
+    },
+    {
+      "sourcePath": "/us-mx-la-lng",
+      "path": "/us-mx-la-lng",
+      "file": "us-mx-la-lng/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 53683
+    },
+    {
+      "sourcePath": "/actions/au",
+      "path": "/actions/au",
+      "file": "actions/au/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 90782
+    },
+    {
+      "sourcePath": "/actions/us-mx-la-lng",
+      "path": "/actions/us-mx-la-lng",
+      "file": "actions/us-mx-la-lng/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 91796
+    },
+    {
+      "sourcePath": "/portfolio/rigs-integrated-drilling",
+      "path": "/portfolio/rigs-integrated-drilling",
+      "file": "portfolio/rigs-integrated-drilling/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 154440
+    },
+    {
+      "sourcePath": "/portfolio/rigs-integrated-drilling?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/rigs-integrated-drilling/international",
+      "file": "portfolio/rigs-integrated-drilling/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 148810
+    },
+    {
+      "sourcePath": "/portfolio/drilling-services",
+      "path": "/portfolio/drilling-services",
+      "file": "portfolio/drilling-services/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 150074
+    },
+    {
+      "sourcePath": "/portfolio/drilling-services?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/drilling-services/international",
+      "file": "portfolio/drilling-services/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149347
+    },
+    {
+      "sourcePath": "/portfolio/completions-intervention",
+      "path": "/portfolio/completions-intervention",
+      "file": "portfolio/completions-intervention/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149837
+    },
+    {
+      "sourcePath": "/portfolio/completions-intervention?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/completions-intervention/international",
+      "file": "portfolio/completions-intervention/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149083
+    },
+    {
+      "sourcePath": "/portfolio/pa-decommissioning",
+      "path": "/portfolio/pa-decommissioning",
+      "file": "portfolio/pa-decommissioning/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149747
+    },
+    {
+      "sourcePath": "/portfolio/pa-decommissioning?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/pa-decommissioning/international",
+      "file": "portfolio/pa-decommissioning/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149421
+    },
+    {
+      "sourcePath": "/portfolio/subsea-surf-offshore",
+      "path": "/portfolio/subsea-surf-offshore",
+      "file": "portfolio/subsea-surf-offshore/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 156766
+    },
+    {
+      "sourcePath": "/portfolio/subsea-surf-offshore?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/subsea-surf-offshore/international",
+      "file": "portfolio/subsea-surf-offshore/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149980
+    },
+    {
+      "sourcePath": "/portfolio/projects-epc-epcm-construction",
+      "path": "/portfolio/projects-epc-epcm-construction",
+      "file": "portfolio/projects-epc-epcm-construction/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 152485
+    },
+    {
+      "sourcePath": "/portfolio/projects-epc-epcm-construction?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/projects-epc-epcm-construction/international",
+      "file": "portfolio/projects-epc-epcm-construction/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 152521
+    },
+    {
+      "sourcePath": "/portfolio/major-equipment-oem-ltsa",
+      "path": "/portfolio/major-equipment-oem-ltsa",
+      "file": "portfolio/major-equipment-oem-ltsa/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 150401
+    },
+    {
+      "sourcePath": "/portfolio/major-equipment-oem-ltsa?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/major-equipment-oem-ltsa/international",
+      "file": "portfolio/major-equipment-oem-ltsa/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 150051
+    },
+    {
+      "sourcePath": "/portfolio/ops-maintenance-services",
+      "path": "/portfolio/ops-maintenance-services",
+      "file": "portfolio/ops-maintenance-services/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 153466
+    },
+    {
+      "sourcePath": "/portfolio/ops-maintenance-services?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/ops-maintenance-services/international",
+      "file": "portfolio/ops-maintenance-services/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 146797
+    },
+    {
+      "sourcePath": "/portfolio/market-dashboard",
+      "path": "/portfolio/market-dashboard",
+      "file": "portfolio/market-dashboard/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 157018
+    },
+    {
+      "sourcePath": "/portfolio/market-dashboard?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/market-dashboard/international",
+      "file": "portfolio/market-dashboard/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 149566
+    },
+    {
+      "sourcePath": "/portfolio/wells-materials-octg",
+      "path": "/portfolio/wells-materials-octg",
+      "file": "portfolio/wells-materials-octg/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 156625
+    },
+    {
+      "sourcePath": "/portfolio/wells-materials-octg?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/wells-materials-octg/international",
+      "file": "portfolio/wells-materials-octg/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 152393
+    },
+    {
+      "sourcePath": "/portfolio/mro-site-consumables",
+      "path": "/portfolio/mro-site-consumables",
+      "file": "portfolio/mro-site-consumables/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 157352
+    },
+    {
+      "sourcePath": "/portfolio/mro-site-consumables?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/mro-site-consumables/international",
+      "file": "portfolio/mro-site-consumables/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 150611
+    },
+    {
+      "sourcePath": "/portfolio/logistics-marine-aviation",
+      "path": "/portfolio/logistics-marine-aviation",
+      "file": "portfolio/logistics-marine-aviation/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 152681
+    },
+    {
+      "sourcePath": "/portfolio/logistics-marine-aviation?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/logistics-marine-aviation/international",
+      "file": "portfolio/logistics-marine-aviation/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 148847
+    },
+    {
+      "sourcePath": "/portfolio/professional-services-hr",
+      "path": "/portfolio/professional-services-hr",
+      "file": "portfolio/professional-services-hr/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 145423
+    },
+    {
+      "sourcePath": "/portfolio/professional-services-hr?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/professional-services-hr/international",
+      "file": "portfolio/professional-services-hr/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 145831
+    },
+    {
+      "sourcePath": "/portfolio/it-telecom-cyber",
+      "path": "/portfolio/it-telecom-cyber",
+      "file": "portfolio/it-telecom-cyber/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 154906
+    },
+    {
+      "sourcePath": "/portfolio/it-telecom-cyber?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/it-telecom-cyber/international",
+      "file": "portfolio/it-telecom-cyber/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 150811
+    },
+    {
+      "sourcePath": "/portfolio/site-services-facilities",
+      "path": "/portfolio/site-services-facilities",
+      "file": "portfolio/site-services-facilities/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 146648
+    },
+    {
+      "sourcePath": "/portfolio/site-services-facilities?briefRegion=us-mx-la-lng",
+      "path": "/portfolio/site-services-facilities/international",
+      "file": "portfolio/site-services-facilities/international/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 152741
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23completions-intervention",
+      "path": "/brief/brief_2026-09-06--au--completions-intervention",
+      "file": "brief/brief_2026-09-06--au--completions-intervention/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 70570
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23drilling-services",
+      "path": "/brief/brief_2026-09-06--au--drilling-services",
+      "file": "brief/brief_2026-09-06--au--drilling-services/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 71923
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23it-telecom-cyber",
+      "path": "/brief/brief_2026-09-06--au--it-telecom-cyber",
+      "file": "brief/brief_2026-09-06--au--it-telecom-cyber/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 67993
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23logistics-marine-aviation",
+      "path": "/brief/brief_2026-09-06--au--logistics-marine-aviation",
+      "file": "brief/brief_2026-09-06--au--logistics-marine-aviation/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 58956
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23major-equipment-oem-ltsa",
+      "path": "/brief/brief_2026-09-06--au--major-equipment-oem-ltsa",
+      "file": "brief/brief_2026-09-06--au--major-equipment-oem-ltsa/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 66056
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23mro-site-consumables",
+      "path": "/brief/brief_2026-09-06--au--mro-site-consumables",
+      "file": "brief/brief_2026-09-06--au--mro-site-consumables/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 69721
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23market-dashboard",
+      "path": "/brief/brief_2026-09-06--au--market-dashboard",
+      "file": "brief/brief_2026-09-06--au--market-dashboard/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 60848
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23ops-maintenance-services",
+      "path": "/brief/brief_2026-09-06--au--ops-maintenance-services",
+      "file": "brief/brief_2026-09-06--au--ops-maintenance-services/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 72779
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23pa-decommissioning",
+      "path": "/brief/brief_2026-09-06--au--pa-decommissioning",
+      "file": "brief/brief_2026-09-06--au--pa-decommissioning/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 68302
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23professional-services-hr",
+      "path": "/brief/brief_2026-09-06--au--professional-services-hr",
+      "file": "brief/brief_2026-09-06--au--professional-services-hr/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 64002
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23projects-epc-epcm-construction",
+      "path": "/brief/brief_2026-09-06--au--projects-epc-epcm-construction",
+      "file": "brief/brief_2026-09-06--au--projects-epc-epcm-construction/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 71923
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23rigs-integrated-drilling",
+      "path": "/brief/brief_2026-09-06--au--rigs-integrated-drilling",
+      "file": "brief/brief_2026-09-06--au--rigs-integrated-drilling/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 74598
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-04%23au%23site-services-facilities",
+      "path": "/brief/brief_2026-09-04--au--site-services-facilities",
+      "file": "brief/brief_2026-09-04--au--site-services-facilities/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 57344
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23subsea-surf-offshore",
+      "path": "/brief/brief_2026-09-06--au--subsea-surf-offshore",
+      "file": "brief/brief_2026-09-06--au--subsea-surf-offshore/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 78525
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23au%23wells-materials-octg",
+      "path": "/brief/brief_2026-09-06--au--wells-materials-octg",
+      "file": "brief/brief_2026-09-06--au--wells-materials-octg/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 62216
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23professional-services-hr",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--professional-services-hr",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--professional-services-hr/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 65382
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23major-equipment-oem-ltsa",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--major-equipment-oem-ltsa",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--major-equipment-oem-ltsa/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 66059
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23wells-materials-octg",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--wells-materials-octg",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--wells-materials-octg/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 76930
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23logistics-marine-aviation",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--logistics-marine-aviation",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--logistics-marine-aviation/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 62015
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23subsea-surf-offshore",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--subsea-surf-offshore",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--subsea-surf-offshore/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 69873
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23pa-decommissioning",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--pa-decommissioning",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--pa-decommissioning/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 65886
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23it-telecom-cyber",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--it-telecom-cyber",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--it-telecom-cyber/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 77624
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23site-services-facilities",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--site-services-facilities",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--site-services-facilities/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 60639
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23ops-maintenance-services",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--ops-maintenance-services",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--ops-maintenance-services/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 60508
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23mro-site-consumables",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--mro-site-consumables",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--mro-site-consumables/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 67674
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23drilling-services",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--drilling-services",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--drilling-services/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 72235
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23rigs-integrated-drilling",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--rigs-integrated-drilling",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--rigs-integrated-drilling/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 70967
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23market-dashboard",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--market-dashboard",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--market-dashboard/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 73461
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23completions-intervention",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--completions-intervention",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--completions-intervention/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 63720
+    },
+    {
+      "sourcePath": "/brief/brief_2026-09-06%23us-mx-la-lng%23projects-epc-epcm-construction",
+      "path": "/brief/brief_2026-09-06--us-mx-la-lng--projects-epc-epcm-construction",
+      "file": "brief/brief_2026-09-06--us-mx-la-lng--projects-epc-epcm-construction/index.html",
+      "title": "Intelligence Hub | Category Market Intelligence",
+      "bytes": 66971
+    }
+  ],
+  "assetCount": 54,
+  "assetFailures": [
+    {
+      "url": "https://www.eia.gov/todayinenergy/images/2026.09.01/main.png?1788688934",
+      "error": "404 https://www.eia.gov/todayinenergy/images/2026.09.01/main.png?1788688934"
+    }
+  ]
+}
